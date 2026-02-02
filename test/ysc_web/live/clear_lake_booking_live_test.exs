@@ -19,7 +19,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       assert html =~ "Clear Lake"
     end
@@ -40,7 +41,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       html = render(view)
 
       # Shows membership requirement or disabled state
-      assert html =~ "Clear Lake" or html =~ "membership" or html =~ "Information"
+      assert html =~ "Clear Lake" or html =~ "membership" or
+               html =~ "Information"
     end
   end
 
@@ -89,7 +91,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       assert html =~ "Clear Lake"
     end
@@ -103,7 +106,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
         "checkout_date" => "also-invalid"
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       # Should still load, using default dates
       assert html =~ "Clear Lake"
@@ -130,7 +134,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
 
       params = %{"booking_mode" => "buyout"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       assert html =~ "Clear Lake"
     end
@@ -156,7 +161,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
 
       params = %{"guests" => "6"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       assert html =~ "Clear Lake"
     end
@@ -167,7 +173,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
 
       params = %{"guests" => "invalid"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       # Should use defaults
       assert html =~ "Clear Lake"
@@ -180,7 +187,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       # Try to set guest count beyond max
       params = %{"guests" => "20"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       assert html =~ "Clear Lake"
     end
@@ -206,7 +214,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
 
       params = %{"tab" => "information"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       assert html =~ "Clear Lake"
     end
@@ -217,7 +226,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
 
       params = %{"tab" => "information", "info_tab" => "amenities"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       assert html =~ "Clear Lake"
     end
@@ -292,7 +302,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       assert html =~ "Clear Lake"
     end
@@ -393,7 +404,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
 
       params = %{"checkin_date" => ""}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       assert html =~ "Clear Lake"
     end
@@ -411,7 +423,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       # Should handle invalid date range
       assert html =~ "Clear Lake"
@@ -429,7 +442,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?#{URI.encode_query(params)}")
 
       # Should default to valid dates
       assert html =~ "Clear Lake"
@@ -648,7 +662,10 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       :timer.sleep(200)
 
       checkin = Date.add(Date.utc_today(), 30)
-      render_change(view, "date-changed", %{"checkin_date" => Date.to_string(checkin)})
+
+      render_change(view, "date-changed", %{
+        "checkin_date" => Date.to_string(checkin)
+      })
 
       html = render(view)
       assert html =~ "Clear Lake"
@@ -662,7 +679,10 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       :timer.sleep(200)
 
       checkout = Date.add(Date.utc_today(), 33)
-      render_change(view, "date-changed", %{"checkout_date" => Date.to_string(checkout)})
+
+      render_change(view, "date-changed", %{
+        "checkout_date" => Date.to_string(checkout)
+      })
 
       html = render(view)
       assert html =~ "Clear Lake"
@@ -965,7 +985,10 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} =
-        live(conn, ~p"/bookings/clear-lake?checkin_date=invalid&checkout_date=bad&guests=xyz")
+        live(
+          conn,
+          ~p"/bookings/clear-lake?checkin_date=invalid&checkout_date=bad&guests=xyz"
+        )
 
       assert html =~ "Clear Lake"
     end
@@ -990,7 +1013,10 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} =
-        live(conn, ~p"/bookings/clear-lake?tab=information&info_tab=getting-there")
+        live(
+          conn,
+          ~p"/bookings/clear-lake?tab=information&info_tab=getting-there"
+        )
 
       assert html =~ "Clear Lake"
     end
@@ -1000,7 +1026,10 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} =
-        live(conn, ~p"/bookings/clear-lake?checkin_date=&checkout_date=&guests=")
+        live(
+          conn,
+          ~p"/bookings/clear-lake?checkin_date=&checkout_date=&guests="
+        )
 
       assert html =~ "Clear Lake"
     end
@@ -1129,7 +1158,10 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       # Rapid fire date changes
       for i <- 1..5 do
         date = Date.add(Date.utc_today(), 30 + i)
-        render_change(view, "date-changed", %{"checkin_date" => Date.to_string(date)})
+
+        render_change(view, "date-changed", %{
+          "checkin_date" => Date.to_string(date)
+        })
       end
 
       html = render(view)
@@ -1215,7 +1247,10 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} =
-        live(conn, ~p"/bookings/clear-lake?tab=information&info_tab=getting-there")
+        live(
+          conn,
+          ~p"/bookings/clear-lake?tab=information&info_tab=getting-there"
+        )
 
       assert html =~ "Clear Lake"
     end
@@ -1225,7 +1260,10 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} =
-        live(conn, ~p"/bookings/clear-lake?tab=information&info_tab=house-rules")
+        live(
+          conn,
+          ~p"/bookings/clear-lake?tab=information&info_tab=house-rules"
+        )
 
       assert html =~ "Clear Lake"
     end
@@ -1500,10 +1538,16 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
 
       # Change dates
       checkin = Date.add(Date.utc_today(), 30)
-      render_change(view, "date-changed", %{"checkin_date" => Date.to_string(checkin)})
+
+      render_change(view, "date-changed", %{
+        "checkin_date" => Date.to_string(checkin)
+      })
 
       checkout = Date.add(checkin, 5)
-      render_change(view, "date-changed", %{"checkout_date" => Date.to_string(checkout)})
+
+      render_change(view, "date-changed", %{
+        "checkout_date" => Date.to_string(checkout)
+      })
 
       # Change guests
       render_click(view, "increase-guests", %{})
@@ -1829,7 +1873,8 @@ defmodule YscWeb.ClearLakeBookingLiveTest do
       user = user_with_membership(:lifetime)
       conn = log_in_user(conn, user)
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/clear-lake?booking_mode=invalid")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/clear-lake?booking_mode=invalid")
 
       assert html =~ "Clear Lake"
     end

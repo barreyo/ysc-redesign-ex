@@ -24,7 +24,11 @@ defmodule YscWeb.Components.DateRangePicker do
     >
       <.input field={@start_date_field} type="hidden" />
       <.input :if={@is_range?} field={@end_date_field} type="hidden" />
-      <div class="relative w-full lg:w-80" phx-click="open-calendar" phx-target={@myself}>
+      <div
+        class="relative w-full lg:w-80"
+        phx-click="open-calendar"
+        phx-target={@myself}
+      >
         <.input
           id={"#{@id}_display_value"}
           name={"#{@id}_display_value"}
@@ -35,7 +39,10 @@ defmodule YscWeb.Components.DateRangePicker do
           label={@label}
           value={date_range_display(@range_start, @range_end, @is_range?)}
         />
-        <.icon name="hero-calendar" class="absolute top-10 right-3 mt-0.5 flex text-zinc-600" />
+        <.icon
+          name="hero-calendar"
+          class="absolute top-10 right-3 mt-0.5 flex text-zinc-600"
+        />
       </div>
 
       <div
@@ -78,7 +85,11 @@ defmodule YscWeb.Components.DateRangePicker do
           </div>
 
           <div id="click_today" class="text-sm text-center">
-            <.link phx-click="today" phx-target={@myself} class="text-zinc-700 hover:text-zinc-500">
+            <.link
+              phx-click="today"
+              phx-target={@myself}
+              class="text-zinc-700 hover:text-zinc-500"
+            >
               Today
             </.link>
           </div>
@@ -284,7 +295,11 @@ defmodule YscWeb.Components.DateRangePicker do
   end
 
   @impl true
-  def handle_event("close-calendar", _, %{assigns: %{range_start: nil, range_end: nil}} = socket) do
+  def handle_event(
+        "close-calendar",
+        _,
+        %{assigns: %{range_start: nil, range_end: nil}} = socket
+      ) do
     {:noreply, socket |> assign(:calendar?, false)}
   end
 
@@ -312,7 +327,10 @@ defmodule YscWeb.Components.DateRangePicker do
       |> assign(:calendar?, false)
       |> assign(:range_start, range_start)
       |> assign(:range_end, range_end)
-      |> assign(:end_date_field, set_field_value(socket.assigns, :end_date_field, range_end))
+      |> assign(
+        :end_date_field,
+        set_field_value(socket.assigns, :end_date_field, range_end)
+      )
       |> assign(
         :start_date_field,
         set_field_value(socket.assigns, :start_date_field, range_start)
@@ -480,7 +498,9 @@ defmodule YscWeb.Components.DateRangePicker do
     last_row_last_month = last_row_last_day |> Calendar.strftime("%B")
     last_row_first_month = last_row |> List.first() |> Calendar.strftime("%B")
     current_month = Calendar.strftime(current_date, "%B")
-    next_month = next_month(last_row_first_month, last_row_last_month, last_row_last_day)
+
+    next_month =
+      next_month(last_row_first_month, last_row_last_month, last_row_last_day)
 
     case current_date in last_row && current_month == next_month do
       true ->
@@ -501,7 +521,8 @@ defmodule YscWeb.Components.DateRangePicker do
     |> Calendar.strftime("%B")
   end
 
-  defp next_month(_, last_day_of_last_week_month, _), do: last_day_of_last_week_month
+  defp next_month(_, last_day_of_last_week_month, _),
+    do: last_day_of_last_week_month
 
   defp new_date(%{current: %{date: current_date, week_rows: week_rows}}) do
     current_date = current_date
@@ -567,7 +588,9 @@ defmodule YscWeb.Components.DateRangePicker do
 
   defp set_field_value(assigns, field, value) do
     if Map.has_key?(assigns, field) and is_map(assigns[field]) do
-      {:ok, value, _} = DateTime.from_iso8601(Date.to_string(value) <> "T00:00:00Z")
+      {:ok, value, _} =
+        DateTime.from_iso8601(Date.to_string(value) <> "T00:00:00Z")
+
       Map.put(assigns[field], :value, value)
     else
       nil
@@ -579,14 +602,30 @@ defmodule YscWeb.Components.DateRangePicker do
   end
 
   # Check if a date should be disabled based on booking rules
-  defp date_disabled?(day, min, range_start, state, max, property, today, allow_saturdays) do
+  defp date_disabled?(
+         day,
+         min,
+         range_start,
+         state,
+         max,
+         property,
+         today,
+         allow_saturdays
+       ) do
     if before_min_date?(day, min) do
       true
     else
       if after_max_date?(day, max) do
         true
       else
-        check_season_and_other_rules(day, range_start, state, property, today, allow_saturdays)
+        check_season_and_other_rules(
+          day,
+          range_start,
+          state,
+          property,
+          today,
+          allow_saturdays
+        )
       end
     end
   end
@@ -595,7 +634,14 @@ defmodule YscWeb.Components.DateRangePicker do
     max && Date.compare(day, max) == :gt
   end
 
-  defp check_season_and_other_rules(day, range_start, state, property, today, allow_saturdays) do
+  defp check_season_and_other_rules(
+         day,
+         range_start,
+         state,
+         property,
+         today,
+         allow_saturdays
+       ) do
     if property && today do
       alias Ysc.Bookings.SeasonHelpers
 
@@ -789,7 +835,8 @@ defmodule YscWeb.Components.DateRangePicker do
   defp select_button_text("", ""), do: "Close"
   defp select_button_text(_start_date, _end_date), do: "Select Dates"
 
-  defp date_range_display(start_date, nil, is_range?) when start_date in [nil, ""] do
+  defp date_range_display(start_date, nil, is_range?)
+       when start_date in [nil, ""] do
     if is_range? do
       "MM/DD/YYYY - MM/DD/YYYY"
     else
@@ -797,7 +844,8 @@ defmodule YscWeb.Components.DateRangePicker do
     end
   end
 
-  defp date_range_display(start_date, end_date, _is_range?) when end_date in [nil, ""] do
+  defp date_range_display(start_date, end_date, _is_range?)
+       when end_date in [nil, ""] do
     start_date_datetime = extract_date(start_date)
     Calendar.strftime(start_date_datetime, "%b %d, %Y")
   end
@@ -828,12 +876,17 @@ defmodule YscWeb.Components.DateRangePicker do
   end
 
   defp extract_date(%DateTime{} = datetime), do: DateTime.to_date(datetime)
-  defp extract_date(%NaiveDateTime{} = datetime), do: NaiveDateTime.to_date(datetime)
+
+  defp extract_date(%NaiveDateTime{} = datetime),
+    do: NaiveDateTime.to_date(datetime)
+
   defp extract_date(%{calendar: Calendar.ISO} = datetime), do: datetime
 
   # Get tooltip text for a date, or nil if no tooltip
   defp get_date_tooltip(_day, nil), do: nil
-  defp get_date_tooltip(_day, %{} = tooltips) when map_size(tooltips) == 0, do: nil
+
+  defp get_date_tooltip(_day, %{} = tooltips) when map_size(tooltips) == 0,
+    do: nil
 
   defp get_date_tooltip(day, tooltips) when is_map(tooltips) do
     # Try to find tooltip by date string key (ISO format)
@@ -891,7 +944,10 @@ defmodule YscWeb.Components.DateRangePicker do
 
   defp get_room_names(booking) do
     rooms = booking[:rooms] || booking["rooms"] || []
-    room_names = Enum.map(rooms, fn room -> room[:name] || room["name"] || "Room" end)
+
+    room_names =
+      Enum.map(rooms, fn room -> room[:name] || room["name"] || "Room" end)
+
     Enum.join(room_names, ", ")
   end
 end

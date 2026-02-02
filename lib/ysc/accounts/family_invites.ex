@@ -46,7 +46,11 @@ defmodule Ysc.Accounts.FamilyInvites do
            |> FamilyInvite.changeset(attrs)
            |> Repo.insert() do
         {:ok, invite} ->
-          opts = if family_member_id, do: [family_member_id: family_member_id], else: []
+          opts =
+            if family_member_id,
+              do: [family_member_id: family_member_id],
+              else: []
+
           send_invite_email(invite, primary_user, opts)
           {:ok, invite}
 
@@ -103,7 +107,8 @@ defmodule Ysc.Accounts.FamilyInvites do
 
               # Ensure password_set_at is set if password was provided but wasn't set by changeset
               update_attrs =
-                if is_nil(user.password_set_at) && not is_nil(user.hashed_password) do
+                if is_nil(user.password_set_at) &&
+                     not is_nil(user.hashed_password) do
                   Map.put(update_attrs, :password_set_at, now)
                 else
                   update_attrs
@@ -116,11 +121,17 @@ defmodule Ysc.Accounts.FamilyInvites do
                 |> Repo.update!()
 
               # Copy billing address from primary user
-              copy_billing_address_from_primary(updated_user, invite.primary_user_id)
+              copy_billing_address_from_primary(
+                updated_user,
+                invite.primary_user_id
+              )
 
               # Copy most_connected_country from primary user if not already set
               final_user =
-                copy_most_connected_country_from_primary(updated_user, invite.primary_user_id)
+                copy_most_connected_country_from_primary(
+                  updated_user,
+                  invite.primary_user_id
+                )
 
               # Create UserEvent to track family addition
               %UserEvent{}
@@ -135,7 +146,10 @@ defmodule Ysc.Accounts.FamilyInvites do
 
               # Create Stripe customer asynchronously
               Task.start(fn ->
-                is_test = if Code.ensure_loaded?(Mix), do: Mix.env() == :test, else: false
+                is_test =
+                  if Code.ensure_loaded?(Mix),
+                    do: Mix.env() == :test,
+                    else: false
 
                 if is_test do
                   owner =
@@ -158,7 +172,8 @@ defmodule Ysc.Accounts.FamilyInvites do
                     unless is_test do
                       require Logger
 
-                      Logger.error("Failed to create Stripe customer in background task",
+                      Logger.error(
+                        "Failed to create Stripe customer in background task",
                         user_id: updated_user.id,
                         error: Exception.format(:error, e, __STACKTRACE__)
                       )
@@ -169,7 +184,8 @@ defmodule Ysc.Accounts.FamilyInvites do
                     unless is_test do
                       require Logger
 
-                      Logger.error("Failed to create Stripe customer in background task",
+                      Logger.error(
+                        "Failed to create Stripe customer in background task",
                         user_id: updated_user.id,
                         kind: kind,
                         reason: inspect(reason)
@@ -423,12 +439,17 @@ defmodule Ysc.Accounts.FamilyInvites do
     case primary_user.billing_address do
       %Ysc.Accounts.Address{} = primary_address ->
         # Check if sub-account already has an address
-        existing_address = Ysc.Repo.get_by(Ysc.Accounts.Address, user_id: sub_account.id)
+        existing_address =
+          Ysc.Repo.get_by(Ysc.Accounts.Address, user_id: sub_account.id)
 
         if existing_address do
           {:ok, existing_address}
         else
-          create_billing_address_for_sub_account(sub_account, primary_user_id, primary_address)
+          create_billing_address_for_sub_account(
+            sub_account,
+            primary_user_id,
+            primary_address
+          )
         end
 
       _ ->
@@ -444,14 +465,20 @@ defmodule Ysc.Accounts.FamilyInvites do
     if not is_nil(primary_user.most_connected_country) and
          is_nil(sub_account.most_connected_country) do
       sub_account
-      |> Ecto.Changeset.change(most_connected_country: primary_user.most_connected_country)
+      |> Ecto.Changeset.change(
+        most_connected_country: primary_user.most_connected_country
+      )
       |> Repo.update!()
     else
       sub_account
     end
   end
 
-  defp create_billing_address_for_sub_account(sub_account, primary_user_id, primary_address) do
+  defp create_billing_address_for_sub_account(
+         sub_account,
+         primary_user_id,
+         primary_address
+       ) do
     # Copy address fields from primary user
     address_attrs = %{
       address: primary_address.address,

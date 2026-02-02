@@ -16,11 +16,17 @@ defmodule YscWeb.PasskeyRegistrationLive do
       </.header>
 
       <div id="passkey-registration" class="space-y-3 pt-8" phx-hook="PasskeyAuth">
-        <div :if={@error} class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div
+          :if={@error}
+          class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6"
+        >
           <p class="text-sm text-red-800"><%= @error %></p>
         </div>
 
-        <div :if={@success} class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+        <div
+          :if={@success}
+          class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6"
+        >
           <p class="text-sm text-green-800">
             Passkey added successfully! You can now use it to sign in.
           </p>
@@ -177,10 +183,14 @@ defmodule YscWeb.PasskeyRegistrationLive do
     else
       try do
         attestation_object =
-          Base.url_decode64!(response["response"]["attestationObject"], padding: false)
+          Base.url_decode64!(response["response"]["attestationObject"],
+            padding: false
+          )
 
         client_data_json =
-          Base.url_decode64!(response["response"]["clientDataJSON"], padding: false)
+          Base.url_decode64!(response["response"]["clientDataJSON"],
+            padding: false
+          )
 
         # Verify the registration
         # Wax.register returns {:ok, {auth_data, attestation_result_data}}
@@ -199,7 +209,10 @@ defmodule YscWeb.PasskeyRegistrationLive do
             case Accounts.create_user_passkey(user, attrs) do
               {:ok, passkey} ->
                 # Send security notification email
-                UserNotifier.deliver_passkey_added_notification(user, passkey.nickname)
+                UserNotifier.deliver_passkey_added_notification(
+                  user,
+                  passkey.nickname
+                )
 
                 {:noreply,
                  socket
@@ -207,7 +220,10 @@ defmodule YscWeb.PasskeyRegistrationLive do
                  |> assign(:error, nil)
                  |> assign(:loading, false)
                  |> assign(:passkey_challenge, nil)
-                 |> put_flash(:info, "Passkey added successfully! You can now use it to sign in.")}
+                 |> put_flash(
+                   :info,
+                   "Passkey added successfully! You can now use it to sign in."
+                 )}
 
               {:error, _changeset} ->
                 {:noreply,
@@ -221,7 +237,8 @@ defmodule YscWeb.PasskeyRegistrationLive do
           {:error, reason} ->
             {:noreply,
              assign(socket,
-               error: "Passkey registration failed: #{inspect(reason)}. Please try again.",
+               error:
+                 "Passkey registration failed: #{inspect(reason)}. Please try again.",
                loading: false,
                passkey_challenge: nil
              )}
@@ -275,7 +292,11 @@ defmodule YscWeb.PasskeyRegistrationLive do
      )}
   end
 
-  def handle_event("passkey_support_detected", %{"supported" => supported}, socket) do
+  def handle_event(
+        "passkey_support_detected",
+        %{"supported" => supported},
+        socket
+      ) do
     {:noreply, assign(socket, :passkey_supported, supported)}
   end
 

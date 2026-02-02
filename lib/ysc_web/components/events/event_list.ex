@@ -67,7 +67,8 @@ defmodule YscWeb.EventsListLive do
                   alt={
                     if @hero_event.image,
                       do:
-                        @hero_event.image.alt_text || @hero_event.image.title || @hero_event.title ||
+                        @hero_event.image.alt_text || @hero_event.image.title ||
+                          @hero_event.title ||
                           "Event image",
                       else: "Event image"
                   }
@@ -93,7 +94,10 @@ defmodule YscWeb.EventsListLive do
                         "px-3 py-1.5 text-white text-xs font-black uppercase tracking-widest rounded-lg shadow-lg",
                         badge_class_mobile(badge),
                         badge_class_desktop_responsive(badge),
-                        if(badge.text == "Going Fast!", do: "animate-badge-shine-emerald", else: "")
+                        if(badge.text == "Going Fast!",
+                          do: "animate-badge-shine-emerald",
+                          else: ""
+                        )
                       ]}>
                         <.icon
                           :if={badge.icon}
@@ -113,7 +117,10 @@ defmodule YscWeb.EventsListLive do
                     <span class="text-xs sm:text-sm font-black uppercase tracking-[0.1em]">
                       <%= format_event_date_time(@hero_event) %>
                     </span>
-                    <span :if={@hero_event.location_name} class="h-3 w-px bg-zinc-300 sm:bg-white/40">
+                    <span
+                      :if={@hero_event.location_name}
+                      class="h-3 w-px bg-zinc-300 sm:bg-white/40"
+                    >
                     </span>
                     <span
                       :if={@hero_event.location_name}
@@ -147,7 +154,10 @@ defmodule YscWeb.EventsListLive do
       </div>
 
       <%!-- Event List Section --%>
-      <div :if={!@defer_load && @event_count > 0} class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div
+        :if={!@defer_load && @event_count > 0}
+        class="grid grid-cols-1 md:grid-cols-2 gap-8"
+      >
         <div :for={{id, event} <- @streams.events} id={id}>
           <.event_card
             event={event}
@@ -163,7 +173,10 @@ defmodule YscWeb.EventsListLive do
       >
         <div class="flex flex-col items-center justify-center w-full border-2 border-dashed border-zinc-100 rounded-3xl bg-gradient-to-br from-zinc-50/50 via-white to-zinc-50/30 backdrop-blur-sm p-6 md:p-12 shadow-sm">
           <div class="p-4 bg-white rounded-2xl shadow-sm mb-6 ring-1 ring-zinc-100">
-            <.icon name="hero-calendar-days" class="w-10 h-10 md:w-12 md:h-12 text-zinc-300" />
+            <.icon
+              name="hero-calendar-days"
+              class="w-10 h-10 md:w-12 md:h-12 text-zinc-300"
+            />
           </div>
           <h3 class="text-xl md:text-2xl font-black text-zinc-900 tracking-tight mb-2 text-center">
             The calendar is clear (for now)
@@ -182,7 +195,8 @@ defmodule YscWeb.EventsListLive do
               navigate={~p"/contact"}
               class="inline-flex items-center justify-center px-6 py-3 bg-white border border-zinc-200 text-zinc-600 rounded-xl font-bold hover:bg-zinc-50 transition-all shadow-sm text-sm md:text-base"
             >
-              Suggest an Event <.icon name="hero-light-bulb-solid" class="w-5 h-5 ml-2" />
+              Suggest an Event
+              <.icon name="hero-light-bulb-solid" class="w-5 h-5 ml-2" />
             </.link>
           </div>
         </div>
@@ -242,7 +256,9 @@ defmodule YscWeb.EventsListLive do
   defp ensure_required_assigns(socket, assigns) do
     # Merge assigns from update with existing socket assigns
     # Prefer new assigns if provided, otherwise keep existing
-    show_hero = Map.get(assigns, :show_hero) || socket.assigns[:show_hero] || false
+    show_hero =
+      Map.get(assigns, :show_hero) || socket.assigns[:show_hero] || false
+
     upcoming = Map.get(assigns, :upcoming) || socket.assigns[:upcoming] || true
     limit = Map.get(assigns, :limit) || socket.assigns[:limit]
 
@@ -256,7 +272,8 @@ defmodule YscWeb.EventsListLive do
   # If stream doesn't exist, we need to load events first
   defp ensure_stream_initialized_for_message(socket) do
     has_stream =
-      Map.has_key?(socket.assigns, :streams) && Map.has_key?(socket.assigns.streams, :events)
+      Map.has_key?(socket.assigns, :streams) &&
+        Map.has_key?(socket.assigns.streams, :events)
 
     if has_stream do
       socket
@@ -267,7 +284,10 @@ defmodule YscWeb.EventsListLive do
       upcoming = socket.assigns[:upcoming] || true
       limit = socket.assigns[:limit]
 
-      load_events(%{show_hero: show_hero, upcoming: upcoming, limit: limit}, socket)
+      load_events(
+        %{show_hero: show_hero, upcoming: upcoming, limit: limit},
+        socket
+      )
     end
   end
 
@@ -296,18 +316,22 @@ defmodule YscWeb.EventsListLive do
           end
 
         # Apply limit after filtering
-        result_events = if limit, do: Enum.take(filtered_events, limit), else: filtered_events
+        result_events =
+          if limit, do: Enum.take(filtered_events, limit), else: filtered_events
 
         {result_events, hero_event}
       else
         result_events =
-          if limit, do: Events.list_past_events(limit), else: Events.list_past_events()
+          if limit,
+            do: Events.list_past_events(limit),
+            else: Events.list_past_events()
 
         {result_events, nil}
       end
 
     # Calculate total event count (including hero if shown separately)
-    total_event_count = if show_hero && hero_event, do: length(events) + 1, else: length(events)
+    total_event_count =
+      if show_hero && hero_event, do: length(events) + 1, else: length(events)
 
     socket
     |> stream(:events, events, reset: true)
@@ -351,18 +375,22 @@ defmodule YscWeb.EventsListLive do
           end
 
         # Apply limit after filtering
-        result_events = if limit, do: Enum.take(filtered_events, limit), else: filtered_events
+        result_events =
+          if limit, do: Enum.take(filtered_events, limit), else: filtered_events
 
         {result_events, hero_event}
       else
         result_events =
-          if limit, do: Events.list_past_events(limit), else: Events.list_past_events()
+          if limit,
+            do: Events.list_past_events(limit),
+            else: Events.list_past_events()
 
         {result_events, nil}
       end
 
     # Calculate total event count (including hero if shown separately)
-    total_event_count = if show_hero && hero_event, do: length(events) + 1, else: length(events)
+    total_event_count =
+      if show_hero && hero_event, do: length(events) + 1, else: length(events)
 
     socket
     |> stream(:events, events, reset: true)
@@ -423,7 +451,10 @@ defmodule YscWeb.EventsListLive do
               # Events from list_upcoming_events/list_past_events are preloaded with ticket_count
               # via add_pricing_info_batch, so this should always be available
               ticket_count = Map.get(event, :ticket_count) || 0
-              max_attendees = Map.get(event, :max_attendees) || Map.get(event, "max_attendees")
+
+              max_attendees =
+                Map.get(event, :max_attendees) ||
+                  Map.get(event, "max_attendees")
 
               ticket_count >= max_attendees
           end
@@ -434,8 +465,11 @@ defmodule YscWeb.EventsListLive do
   end
 
   defp tier_on_sale?(ticket_tier, now) do
-    start_date = Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
-    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+    start_date =
+      Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
+
+    end_date =
+      Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
 
     # Check if sale has started
     sale_started =
@@ -455,7 +489,8 @@ defmodule YscWeb.EventsListLive do
   end
 
   defp tier_sale_ended?(ticket_tier, now) do
-    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+    end_date =
+      Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
 
     case end_date do
       nil -> false
@@ -464,10 +499,12 @@ defmodule YscWeb.EventsListLive do
   end
 
   defp get_available_quantity(ticket_tier) do
-    quantity = Map.get(ticket_tier, :quantity) || Map.get(ticket_tier, "quantity")
+    quantity =
+      Map.get(ticket_tier, :quantity) || Map.get(ticket_tier, "quantity")
 
     sold_count =
-      Map.get(ticket_tier, :sold_tickets_count) || Map.get(ticket_tier, "sold_tickets_count") || 0
+      Map.get(ticket_tier, :sold_tickets_count) ||
+        Map.get(ticket_tier, "sold_tickets_count") || 0
 
     case quantity do
       # Unlimited
@@ -485,7 +522,9 @@ defmodule YscWeb.EventsListLive do
 
   # Hero event helper functions (from EventsLive)
   defp get_blur_hash(image) do
-    if image && image.blur_hash, do: image.blur_hash, else: "LKN]Rv%2Tw=w]~RBVZRi};RPxuwH"
+    if image && image.blur_hash,
+      do: image.blur_hash,
+      else: "LKN]Rv%2Tw=w]~RBVZRi};RPxuwH"
   end
 
   defp event_image_url(image) do
@@ -524,14 +563,23 @@ defmodule YscWeb.EventsListLive do
 
     badges =
       if Map.get(event, :selling_fast, false) do
-        [%{text: "Going Fast!", icon: "hero-fire", class: "bg-emerald-600"} | badges]
+        [
+          %{text: "Going Fast!", icon: "hero-fire", class: "bg-emerald-600"}
+          | badges
+        ]
       else
         badges
       end
 
     badges =
-      if (Map.get(event, :state) || Map.get(event, "state")) in [:cancelled, "cancelled"] do
-        [%{text: "Cancelled", icon: "hero-x-circle", class: "bg-zinc-600"} | badges]
+      if (Map.get(event, :state) || Map.get(event, "state")) in [
+           :cancelled,
+           "cancelled"
+         ] do
+        [
+          %{text: "Cancelled", icon: "hero-x-circle", class: "bg-zinc-600"}
+          | badges
+        ]
       else
         badges
       end
@@ -550,10 +598,17 @@ defmodule YscWeb.EventsListLive do
 
   defp badge_class_desktop_responsive(badge) do
     case badge.text do
-      "Sold Out" -> "sm:bg-red-500/90 sm:backdrop-blur-md sm:border sm:border-red-400"
-      "Going Fast!" -> "sm:bg-emerald-500/90 sm:backdrop-blur-md sm:border sm:border-emerald-400"
-      "Cancelled" -> "sm:bg-zinc-500/90 sm:backdrop-blur-md sm:border sm:border-zinc-400"
-      _ -> "sm:bg-slate-500/90 sm:backdrop-blur-md sm:border sm:border-slate-400"
+      "Sold Out" ->
+        "sm:bg-red-500/90 sm:backdrop-blur-md sm:border sm:border-red-400"
+
+      "Going Fast!" ->
+        "sm:bg-emerald-500/90 sm:backdrop-blur-md sm:border sm:border-emerald-400"
+
+      "Cancelled" ->
+        "sm:bg-zinc-500/90 sm:backdrop-blur-md sm:border sm:border-zinc-400"
+
+      _ ->
+        "sm:bg-slate-500/90 sm:backdrop-blur-md sm:border sm:border-slate-400"
     end
   end
 end

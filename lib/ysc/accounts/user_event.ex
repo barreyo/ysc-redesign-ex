@@ -12,7 +12,10 @@ defmodule Ysc.Accounts.UserEvent do
   @timestamps_opts [type: :utc_datetime]
   schema "user_events" do
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
-    belongs_to :updated_by, Ysc.Accounts.User, foreign_key: :updated_by_user_id, references: :id
+
+    belongs_to :updated_by, Ysc.Accounts.User,
+      foreign_key: :updated_by_user_id,
+      references: :id
 
     field :type, UserEventType
 

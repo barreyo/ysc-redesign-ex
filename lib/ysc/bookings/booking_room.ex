@@ -9,7 +9,10 @@ defmodule Ysc.Bookings.BookingRoom do
   @timestamps_opts [type: :utc_datetime]
 
   schema "booking_rooms" do
-    belongs_to :booking, Ysc.Bookings.Booking, foreign_key: :booking_id, references: :id
+    belongs_to :booking, Ysc.Bookings.Booking,
+      foreign_key: :booking_id,
+      references: :id
+
     belongs_to :room, Ysc.Bookings.Room, foreign_key: :room_id, references: :id
 
     timestamps(type: :utc_datetime)

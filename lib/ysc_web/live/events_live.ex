@@ -17,7 +17,9 @@ defmodule YscWeb.EventsLive do
             Events
           </p>
           <h1 class="text-4xl md:text-7xl font-black text-zinc-900">
-            <%= if @total_upcoming_count == 0, do: "The Calendar", else: "What's Next" %>
+            <%= if @total_upcoming_count == 0,
+              do: "The Calendar",
+              else: "What's Next" %>
           </h1>
         </div>
       </div>
@@ -72,7 +74,8 @@ defmodule YscWeb.EventsLive do
                 navigate={~p"/news"}
                 class="inline-flex items-center text-sm font-bold text-zinc-900 hover:text-blue-600 transition-colors"
               >
-                Read Club News <.icon name="hero-arrow-right" class="w-4 h-4 ml-1" />
+                Read Club News
+                <.icon name="hero-arrow-right" class="w-4 h-4 ml-1" />
               </.link>
             </div>
           </aside>
@@ -112,7 +115,10 @@ defmodule YscWeb.EventsLive do
                 id={id}
                 class="group relative aspect-video overflow-hidden rounded-2xl grayscale opacity-60 hover:opacity-100 hover:grayscale-0 transition-all duration-500 hover:scale-105 hover:rotate-1 ring-1 ring-zinc-200 shadow-sm hover:shadow-xl bg-white p-1"
               >
-                <.link navigate={~p"/events/#{event.id}"} class="block w-full h-full">
+                <.link
+                  navigate={~p"/events/#{event.id}"}
+                  class="block w-full h-full"
+                >
                   <div class="w-full h-full overflow-hidden rounded-xl relative">
                     <canvas
                       id={"blur-hash-past-#{event.id}"}
@@ -130,7 +136,8 @@ defmodule YscWeb.EventsLive do
                       alt={
                         if event.image,
                           do:
-                            event.image.alt_text || event.image.title || event.title || "Past event",
+                            event.image.alt_text || event.image.title || event.title ||
+                              "Past event",
                           else: "Past event"
                       }
                     />
@@ -141,7 +148,10 @@ defmodule YscWeb.EventsLive do
                       <h4 class="text-white text-sm font-black leading-tight line-clamp-2">
                         <%= event.title %>
                       </h4>
-                      <p :if={event.start_date} class="text-white/80 text-xs font-medium mt-1">
+                      <p
+                        :if={event.start_date}
+                        class="text-white/80 text-xs font-medium mt-1"
+                      >
                         <%= Timex.format!(event.start_date, "{Mshort} {D}, {YYYY}") %>
                       </p>
                     </div>
@@ -201,8 +211,12 @@ defmodule YscWeb.EventsLive do
 
       results =
         tasks
-        |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
-        |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
+        |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end,
+          timeout: :infinity
+        )
+        |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc ->
+          Map.put(acc, key, value)
+        end)
 
       # Compute has_more_past_events based on results
       past_events = Map.get(results, :past_events, [])
@@ -252,7 +266,8 @@ defmodule YscWeb.EventsLive do
 
   # Handle ticket tier events - refresh the associated event in the list
   def handle_info(
-        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
         socket
       ) do
     # Get the event and send an update to refresh it in the list
@@ -262,13 +277,19 @@ defmodule YscWeb.EventsLive do
 
       event ->
         event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
-        send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
+
+        send_update(YscWeb.EventsListLive,
+          id: "upcoming_events",
+          event: event_updated
+        )
+
         {:noreply, socket}
     end
   end
 
   def handle_info(
-        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierUpdated{ticket_tier: ticket_tier}},
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketTierUpdated{ticket_tier: ticket_tier}},
         socket
       ) do
     # Get the event and send an update to refresh it in the list
@@ -278,13 +299,19 @@ defmodule YscWeb.EventsLive do
 
       event ->
         event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
-        send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
+
+        send_update(YscWeb.EventsListLive,
+          id: "upcoming_events",
+          event: event_updated
+        )
+
         {:noreply, socket}
     end
   end
 
   def handle_info(
-        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
         socket
       ) do
     # Get the event and send an update to refresh it in the list
@@ -294,7 +321,12 @@ defmodule YscWeb.EventsLive do
 
       event ->
         event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
-        send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
+
+        send_update(YscWeb.EventsListLive,
+          id: "upcoming_events",
+          event: event_updated
+        )
+
         {:noreply, socket}
     end
   end
@@ -302,7 +334,9 @@ defmodule YscWeb.EventsLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationCreated{
+           ticket_reservation: reservation
+         }},
         socket
       ) do
     # Reservations affect availability, refresh the event
@@ -315,7 +349,12 @@ defmodule YscWeb.EventsLive do
 
         event ->
           event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
-          send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
+
+          send_update(YscWeb.EventsListLive,
+            id: "upcoming_events",
+            event: event_updated
+          )
+
           {:noreply, socket}
       end
     else
@@ -326,7 +365,9 @@ defmodule YscWeb.EventsLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationFulfilled{
+           ticket_reservation: reservation
+         }},
         socket
       ) do
     # Reservations affect availability, refresh the event
@@ -339,7 +380,12 @@ defmodule YscWeb.EventsLive do
 
         event ->
           event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
-          send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
+
+          send_update(YscWeb.EventsListLive,
+            id: "upcoming_events",
+            event: event_updated
+          )
+
           {:noreply, socket}
       end
     else
@@ -350,7 +396,9 @@ defmodule YscWeb.EventsLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationCancelled{
+           ticket_reservation: reservation
+         }},
         socket
       ) do
     # Reservations affect availability, refresh the event
@@ -363,7 +411,12 @@ defmodule YscWeb.EventsLive do
 
         event ->
           event_updated = %Ysc.MessagePassingEvents.EventUpdated{event: event}
-          send_update(YscWeb.EventsListLive, id: "upcoming_events", event: event_updated)
+
+          send_update(YscWeb.EventsListLive,
+            id: "upcoming_events",
+            event: event_updated
+          )
+
           {:noreply, socket}
       end
     else
@@ -398,8 +451,12 @@ defmodule YscWeb.EventsLive do
   defp get_blur_hash(%Image{blur_hash: blur_hash}), do: blur_hash
 
   defp event_image_url(nil), do: "/images/ysc_logo.png"
-  defp event_image_url(%Image{optimized_image_path: nil} = image), do: image.raw_image_path
-  defp event_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
+
+  defp event_image_url(%Image{optimized_image_path: nil} = image),
+    do: image.raw_image_path
+
+  defp event_image_url(%Image{optimized_image_path: optimized_path}),
+    do: optimized_path
 
   defp random_past_events_title do
     ["Hvad var", "Det Som Varit", "Hva var", "Mikä oli", "Hvað var"]

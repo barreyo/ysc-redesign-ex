@@ -95,7 +95,8 @@ defmodule LivePhone.UtilTest do
     end
 
     test "strips non-digit characters except plus" do
-      assert Util.normalize("+1 (650) abc-253-0000", "US") == {:ok, "+16502530000"}
+      assert Util.normalize("+1 (650) abc-253-0000", "US") ==
+               {:ok, "+16502530000"}
     end
 
     test "handles nil country code" do

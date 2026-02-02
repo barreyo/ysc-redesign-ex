@@ -16,7 +16,9 @@ defmodule YscWeb.Workers.FileExportCleanUp do
     files =
       File.ls!(directory)
       |> Enum.filter(fn f -> String.contains?(f, "ysc-user-export-") end)
-      |> Enum.map(&{Path.join(directory, &1), File.stat!(Path.join(directory, &1)).ctime})
+      |> Enum.map(
+        &{Path.join(directory, &1), File.stat!(Path.join(directory, &1)).ctime}
+      )
 
     files_with_create_date =
       Enum.map(files, fn {f, ctime} ->
@@ -54,7 +56,9 @@ defmodule YscWeb.Workers.FileExportCleanUp do
   def zero_pad(n), do: "#{n}"
 
   def ctime_to_datetime({{year, month, day}, {hour, minute, second}}) do
-    naive_dt = NaiveDateTime.new!(year, month, day, hour, minute, second, {0, 0})
+    naive_dt =
+      NaiveDateTime.new!(year, month, day, hour, minute, second, {0, 0})
+
     DateTime.from_naive!(naive_dt, "Etc/UTC")
   end
 end

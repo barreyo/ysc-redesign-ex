@@ -33,8 +33,18 @@ defmodule YscWeb.AdminPostsLive do
         <.header>
           Add new post
         </.header>
-        <.simple_form for={@form} phx-change="validate" phx-submit="save" phx-key="enter">
-          <.input type="text" field={@form[:title]} label="Title" phx-mounted={JS.focus()} />
+        <.simple_form
+          for={@form}
+          phx-change="validate"
+          phx-submit="save"
+          phx-key="enter"
+        >
+          <.input
+            type="text"
+            field={@form[:title]}
+            label="Title"
+            phx-mounted={JS.focus()}
+          />
 
           <div class="flex flex-row justify-end w-full pt-8">
             <button
@@ -43,7 +53,9 @@ defmodule YscWeb.AdminPostsLive do
             >
               Cancel
             </button>
-            <.button type="submit" phx-disable-with="Creating...">Create Post</.button>
+            <.button type="submit" phx-disable-with="Creating...">
+              Create Post
+            </.button>
           </div>
         </.simple_form>
       </.modal>
@@ -54,7 +66,10 @@ defmodule YscWeb.AdminPostsLive do
         </h1>
 
         <.button phx-click={JS.navigate(~p"/admin/posts/new")}>
-          <.icon name="hero-document-plus" class="w-5 h-5 -mt-1" /><span class="ms-1">New Post</span>
+          <.icon name="hero-document-plus" class="w-5 h-5 -mt-1" />
+          <span class="ms-1">
+            New Post
+          </span>
         </.button>
       </div>
 
@@ -130,7 +145,11 @@ defmodule YscWeb.AdminPostsLive do
                   phx-value-id={post.id}
                 >
                   <.icon
-                    name={if post.featured_post, do: "hero-star-solid", else: "hero-star"}
+                    name={
+                      if post.featured_post,
+                        do: "hero-star-solid",
+                        else: "hero-star"
+                    }
                     class={"w-5 h-5 #{if post.featured_post, do: "text-yellow-500", else: "text-zinc-600"}"}
                   />
                   <span class="sr-only">Toggle featured</span>
@@ -141,14 +160,19 @@ defmodule YscWeb.AdminPostsLive do
                 <div class="flex items-center gap-3">
                   <.tooltip
                     :if={post.published_on != nil}
-                    tooltip_text={Timex.format!(post.published_on, "%b %e, %Y", :strftime)}
+                    tooltip_text={
+                      Timex.format!(post.published_on, "%b %e, %Y", :strftime)
+                    }
                   >
                     <.badge type={post_state_to_badge_style(post.state)}>
                       <%= String.capitalize("#{post.state}") %>
                     </.badge>
                   </.tooltip>
 
-                  <.badge :if={post.published_on == nil} type={post_state_to_badge_style(post.state)}>
+                  <.badge
+                    :if={post.published_on == nil}
+                    type={post_state_to_badge_style(post.state)}
+                  >
                     <%= String.capitalize("#{post.state}") %>
                   </.badge>
 
@@ -221,14 +245,19 @@ defmodule YscWeb.AdminPostsLive do
             <:col :let={{_, post}} label="State" field={:state}>
               <.tooltip
                 :if={post.published_on != nil}
-                tooltip_text={Timex.format!(post.published_on, "%b %e, %Y", :strftime)}
+                tooltip_text={
+                  Timex.format!(post.published_on, "%b %e, %Y", :strftime)
+                }
               >
                 <.badge type={post_state_to_badge_style(post.state)}>
                   <%= String.capitalize("#{post.state}") %>
                 </.badge>
               </.tooltip>
 
-              <.badge :if={post.published_on == nil} type={post_state_to_badge_style(post.state)}>
+              <.badge
+                :if={post.published_on == nil}
+                type={post_state_to_badge_style(post.state)}
+              >
                 <%= String.capitalize("#{post.state}") %>
               </.badge>
             </:col>
@@ -245,7 +274,9 @@ defmodule YscWeb.AdminPostsLive do
                 phx-value-id={post.id}
               >
                 <.icon
-                  name={if post.featured_post, do: "hero-star-solid", else: "hero-star"}
+                  name={
+                    if post.featured_post, do: "hero-star-solid", else: "hero-star"
+                  }
                   class={"w-4 h-4 #{if post.featured_post, do: "text-yellow-500", else: "text-zinc-600"}"}
                 />
                 <span class="sr-only">Toggle featured</span>
@@ -313,12 +344,18 @@ defmodule YscWeb.AdminPostsLive do
   end
 
   def handle_event("save", %{"new_post" => params}, socket) do
-    updated_params = Map.put(params, "url_name", title_to_url_name(params["title"]))
+    updated_params =
+      Map.put(params, "url_name", title_to_url_name(params["title"]))
+
     result = Posts.create_post(updated_params, socket.assigns[:current_user])
 
     case result do
-      {:ok, new_post} -> {:noreply, socket |> redirect(to: ~p"/admin/posts/#{new_post.id}")}
-      _ -> {:noreply, socket |> put_flash(:error, "Something went wrong try again.")}
+      {:ok, new_post} ->
+        {:noreply, socket |> redirect(to: ~p"/admin/posts/#{new_post.id}")}
+
+      _ ->
+        {:noreply,
+         socket |> put_flash(:error, "Something went wrong try again.")}
     end
   end
 
@@ -335,12 +372,21 @@ defmodule YscWeb.AdminPostsLive do
           {:error, :not_found}
 
         current_featured && current_featured.id == target_id ->
-          Posts.update_post(current_featured, %{"featured_post" => false}, current_user)
+          Posts.update_post(
+            current_featured,
+            %{"featured_post" => false},
+            current_user
+          )
 
         true ->
           _ =
             if current_featured,
-              do: Posts.update_post(current_featured, %{"featured_post" => false}, current_user)
+              do:
+                Posts.update_post(
+                  current_featured,
+                  %{"featured_post" => false},
+                  current_user
+                )
 
           Posts.update_post(target, %{"featured_post" => true}, current_user)
       end
@@ -353,9 +399,14 @@ defmodule YscWeb.AdminPostsLive do
 
         socket =
           case current_featured do
-            nil -> socket
-            cf when cf.id == target_id -> socket
-            cf -> maybe_stream_update_post(socket, Posts.get_post(cf.id, [:author]))
+            nil ->
+              socket
+
+            cf when cf.id == target_id ->
+              socket
+
+            cf ->
+              maybe_stream_update_post(socket, Posts.get_post(cf.id, [:author]))
           end
 
         {:noreply, socket}
@@ -367,11 +418,20 @@ defmodule YscWeb.AdminPostsLive do
 
   def handle_event("new-post", _params, socket) do
     url_name = title_to_url_name("")
-    result = Posts.create_post(%{"url_name" => url_name}, socket.assigns[:current_user])
+
+    result =
+      Posts.create_post(
+        %{"url_name" => url_name},
+        socket.assigns[:current_user]
+      )
 
     case result do
-      {:ok, new_post} -> {:noreply, socket |> redirect(to: ~p"/admin/posts/#{new_post.id}")}
-      _ -> {:noreply, socket |> put_flash(:error, "Something went wrong try again.")}
+      {:ok, new_post} ->
+        {:noreply, socket |> redirect(to: ~p"/admin/posts/#{new_post.id}")}
+
+      _ ->
+        {:noreply,
+         socket |> put_flash(:error, "Something went wrong try again.")}
     end
   end
 
@@ -402,7 +462,9 @@ defmodule YscWeb.AdminPostsLive do
     end
   end
 
-  defp maybe_update_filter(%{"value" => [""]} = filter), do: Map.replace(filter, "value", "")
+  defp maybe_update_filter(%{"value" => [""]} = filter),
+    do: Map.replace(filter, "value", "")
+
   defp maybe_update_filter(filter), do: filter
 
   defp post_state_to_badge_style(:draft), do: "yellow"

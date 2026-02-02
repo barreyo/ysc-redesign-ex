@@ -383,7 +383,11 @@ defmodule Ysc.Bookings.RefundPolicyCacheTest do
 
       assert cached_policy.name == "Non-Refundable"
       assert length(cached_policy.rules) == 1
-      assert Decimal.equal?(hd(cached_policy.rules).refund_percentage, Decimal.new("0.0"))
+
+      assert Decimal.equal?(
+               hd(cached_policy.rules).refund_percentage,
+               Decimal.new("0.0")
+             )
     end
 
     test "graduated refund tiers policy" do

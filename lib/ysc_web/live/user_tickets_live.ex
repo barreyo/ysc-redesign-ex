@@ -26,14 +26,23 @@ defmodule YscWeb.UserTicketsLive do
           </.link>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" id="ticket-orders-list" phx-update="stream">
+        <div
+          class="grid grid-cols-1 lg:grid-cols-2 gap-8"
+          id="ticket-orders-list"
+          phx-update="stream"
+        >
           <%!-- Empty state --%>
-          <div id="ticket-orders-empty" class="only:block hidden lg:col-span-2 text-center py-16">
+          <div
+            id="ticket-orders-empty"
+            class="only:block hidden lg:col-span-2 text-center py-16"
+          >
             <div class="text-zinc-400 mb-4">
               <.icon name="hero-ticket" class="w-16 h-16 mx-auto" />
             </div>
             <h3 class="text-lg font-black text-zinc-900 mb-2">No tickets yet</h3>
-            <p class="text-zinc-600 mb-6">You haven't purchased any event tickets yet.</p>
+            <p class="text-zinc-600 mb-6">
+              You haven't purchased any event tickets yet.
+            </p>
             <.link
               navigate={~p"/events"}
               class="inline-flex items-center gap-2 px-6 py-3 bg-zinc-900 text-white font-bold rounded-xl hover:bg-zinc-700 transition shadow-lg"
@@ -72,7 +81,9 @@ defmodule YscWeb.UserTicketsLive do
                   </div>
                   <div class="flex items-center gap-1.5">
                     <.icon name="hero-ticket" class="w-4 h-4 text-teal-600" />
-                    <%= length(ticket_order.tickets) %> Ticket<%= if length(ticket_order.tickets) !=
+                    <%= length(ticket_order.tickets) %> Ticket<%= if length(
+                                                                       ticket_order.tickets
+                                                                     ) !=
                                                                        1,
                                                                      do: "s",
                                                                      else: "" %>
@@ -142,9 +153,15 @@ defmodule YscWeb.UserTicketsLive do
                               <% :free -> %>
                                 Free
                               <% "donation" -> %>
-                                <%= get_donation_amount_for_ticket(ticket, ticket_order) %>
+                                <%= get_donation_amount_for_ticket(
+                                  ticket,
+                                  ticket_order
+                                ) %>
                               <% :donation -> %>
-                                <%= get_donation_amount_for_ticket(ticket, ticket_order) %>
+                                <%= get_donation_amount_for_ticket(
+                                  ticket,
+                                  ticket_order
+                                ) %>
                               <% _ -> %>
                                 <%= format_price(ticket.ticket_tier.price) %>
                             <% end %>
@@ -240,7 +257,8 @@ defmodule YscWeb.UserTicketsLive do
     now = DateTime.utc_now()
 
     # Get all ticket orders and filter for upcoming events only (excluding cancelled orders)
-    all_ticket_orders = Tickets.list_user_ticket_orders(socket.assigns.current_user.id)
+    all_ticket_orders =
+      Tickets.list_user_ticket_orders(socket.assigns.current_user.id)
 
     upcoming_ticket_orders =
       all_ticket_orders
@@ -272,7 +290,9 @@ defmodule YscWeb.UserTicketsLive do
           {:ok, _cancelled_order} ->
             # Refresh the ticket orders list (excluding cancelled orders)
             now = DateTime.utc_now()
-            all_ticket_orders = Tickets.list_user_ticket_orders(socket.assigns.current_user.id)
+
+            all_ticket_orders =
+              Tickets.list_user_ticket_orders(socket.assigns.current_user.id)
 
             ticket_orders =
               all_ticket_orders
@@ -288,7 +308,8 @@ defmodule YscWeb.UserTicketsLive do
              |> put_flash(:info, "Order cancelled successfully")}
 
           {:error, reason} ->
-            {:noreply, put_flash(socket, :error, "Failed to cancel order: #{reason}")}
+            {:noreply,
+             put_flash(socket, :error, "Failed to cancel order: #{reason}")}
         end
     end
   end

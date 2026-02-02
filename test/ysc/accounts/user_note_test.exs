@@ -175,7 +175,10 @@ defmodule Ysc.Accounts.UserNoteTest do
       changeset = UserNote.changeset(%UserNote{}, attrs)
       assert changeset.valid?
       assert Ecto.Changeset.get_change(changeset, :user_id) == user_id
-      assert Ecto.Changeset.get_change(changeset, :created_by_user_id) == created_by_id
+
+      assert Ecto.Changeset.get_change(changeset, :created_by_user_id) ==
+               created_by_id
+
       assert Ecto.Changeset.get_change(changeset, :note) == "Important note"
       assert Ecto.Changeset.get_change(changeset, :category) == :violation
     end

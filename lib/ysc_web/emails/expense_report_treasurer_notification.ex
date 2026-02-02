@@ -41,7 +41,9 @@ defmodule YscWeb.Emails.ExpenseReportTreasurerNotification do
 
     expense_items = format_expense_items(expense_items_list)
     income_items = format_income_items(income_items_list)
-    reimbursement_method = format_reimbursement_method(expense_report.reimbursement_method)
+
+    reimbursement_method =
+      format_reimbursement_method(expense_report.reimbursement_method)
 
     user_info = build_user_info(expense_report.user)
     event_info = build_event_info(expense_report.event)
@@ -75,13 +77,15 @@ defmodule YscWeb.Emails.ExpenseReportTreasurerNotification do
     end
 
     if is_nil(expense_report.id) do
-      raise ArgumentError, "Expense report missing id: #{inspect(expense_report)}"
+      raise ArgumentError,
+            "Expense report missing id: #{inspect(expense_report)}"
     end
 
     expense_report = ensure_expense_report_preloaded(expense_report)
 
     if is_nil(expense_report.user) do
-      raise ArgumentError, "Expense report missing user association: #{expense_report.id}"
+      raise ArgumentError,
+            "Expense report missing user association: #{expense_report.id}"
     end
 
     expense_report
@@ -219,7 +223,10 @@ defmodule YscWeb.Emails.ExpenseReportTreasurerNotification do
 
   defp format_reimbursement_method("bank_transfer"), do: "Bank Transfer"
   defp format_reimbursement_method("check"), do: "Check"
-  defp format_reimbursement_method(method) when is_binary(method), do: String.capitalize(method)
+
+  defp format_reimbursement_method(method) when is_binary(method),
+    do: String.capitalize(method)
+
   defp format_reimbursement_method(_), do: "Not specified"
 
   defp format_date(nil), do: "N/A"
@@ -237,7 +244,11 @@ defmodule YscWeb.Emails.ExpenseReportTreasurerNotification do
   end
 
   defp format_money(%Money{} = money) do
-    Money.to_string!(money, separator: ".", delimiter: ",", fractional_digits: 2)
+    Money.to_string!(money,
+      separator: ".",
+      delimiter: ",",
+      fractional_digits: 2
+    )
   end
 
   defp format_money(_), do: "$0.00"

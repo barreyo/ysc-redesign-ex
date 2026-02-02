@@ -58,7 +58,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
         />
 
         <.input
-          :if={!donation_type?(@form[:type].value) && !@form[:unlimited_quantity].value}
+          :if={
+            !donation_type?(@form[:type].value) && !@form[:unlimited_quantity].value
+          }
           type="number"
           label="Quantity"
           field={@form[:quantity]}
@@ -88,14 +90,21 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
           phx-feedback-for={@form[:requires_registration].name}
         >
           <label class="flex items-center gap-4 text-sm leading-6 text-zinc-600">
-            <input type="hidden" name={@form[:requires_registration].name} value="false" />
+            <input
+              type="hidden"
+              name={@form[:requires_registration].name}
+              value="false"
+            />
             <input
               type="checkbox"
               id={@form[:requires_registration].id}
               name={@form[:requires_registration].name}
               value="true"
               checked={
-                Phoenix.HTML.Form.normalize_value("checkbox", @form[:requires_registration].value)
+                Phoenix.HTML.Form.normalize_value(
+                  "checkbox",
+                  @form[:requires_registration].value
+                )
               }
               class="rounded border-zinc-300 text-zinc-900 focus:ring-0"
             />
@@ -112,7 +121,10 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
               </.tooltip>
             </span>
           </label>
-          <.error :for={msg <- Enum.map(@form[:requires_registration].errors, &translate_error(&1))}>
+          <.error :for={
+            msg <-
+              Enum.map(@form[:requires_registration].errors, &translate_error(&1))
+          }>
             <%= msg %>
           </.error>
         </div>
@@ -145,13 +157,17 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
           ticket_tier = assigns.ticket_tier
 
           attrs = %{
-            unlimited_quantity: is_nil(ticket_tier.quantity) or ticket_tier.quantity == 0
+            unlimited_quantity:
+              is_nil(ticket_tier.quantity) or ticket_tier.quantity == 0
           }
 
           TicketTier.changeset(ticket_tier, attrs)
         else
           # Creating new ticket tier - default to free so price starts hidden
-          TicketTier.changeset(%TicketTier{}, %{unlimited_quantity: false, type: :free})
+          TicketTier.changeset(%TicketTier{}, %{
+            unlimited_quantity: false,
+            type: :free
+          })
         end
       end
 
@@ -224,7 +240,10 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
     result =
       if socket.assigns[:ticket_tier] do
         # Updating existing ticket tier
-        Ysc.Events.update_ticket_tier(socket.assigns.ticket_tier, ticket_tier_params)
+        Ysc.Events.update_ticket_tier(
+          socket.assigns.ticket_tier,
+          ticket_tier_params
+        )
       else
         # Creating new ticket tier
         Ysc.Events.create_ticket_tier(ticket_tier_params)
@@ -233,14 +252,18 @@ defmodule YscWeb.AdminEventsLive.TicketTierForm do
     case result do
       {:ok, _ticket_tier} ->
         # Reset the form and close modal
-        changeset = TicketTier.changeset(%TicketTier{}, %{unlimited_quantity: false})
+        changeset =
+          TicketTier.changeset(%TicketTier{}, %{unlimited_quantity: false})
+
         action = if socket.assigns[:ticket_tier], do: "updated", else: "added"
 
         {:noreply,
          socket
          |> put_flash(:info, "Ticket tier #{action} successfully")
          |> assign_form(changeset)
-         |> push_navigate(to: ~p"/admin/events/#{socket.assigns.event_id}/tickets")}
+         |> push_navigate(
+           to: ~p"/admin/events/#{socket.assigns.event_id}/tickets"
+         )}
 
       {:error, changeset} ->
         {:noreply, socket |> assign_form(changeset)}

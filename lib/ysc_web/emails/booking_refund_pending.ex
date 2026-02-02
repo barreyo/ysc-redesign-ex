@@ -47,7 +47,8 @@ defmodule YscWeb.Emails.BookingRefundPending do
       if Ecto.assoc_loaded?(booking.user) do
         booking
       else
-        case Ysc.Repo.get(Ysc.Bookings.Booking, booking.id) |> Ysc.Repo.preload(:user) do
+        case Ysc.Repo.get(Ysc.Bookings.Booking, booking.id)
+             |> Ysc.Repo.preload(:user) do
           nil ->
             raise ArgumentError, "Booking not found: #{booking.id}"
 
@@ -102,7 +103,8 @@ defmodule YscWeb.Emails.BookingRefundPending do
       },
       pending_refund: %{
         policy_refund_amount: policy_refund_amount,
-        cancellation_reason: pending_refund.cancellation_reason || "Booking cancelled",
+        cancellation_reason:
+          pending_refund.cancellation_reason || "Booking cancelled",
         request_date: request_date,
         refund_percentage: refund_percentage
       },
@@ -137,7 +139,11 @@ defmodule YscWeb.Emails.BookingRefundPending do
   end
 
   defp format_money(%Money{} = money) do
-    Money.to_string!(money, separator: ".", delimiter: ",", fractional_digits: 2)
+    Money.to_string!(money,
+      separator: ".",
+      delimiter: ",",
+      fractional_digits: 2
+    )
   end
 
   defp format_money(_), do: "$0.00"

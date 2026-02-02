@@ -44,7 +44,8 @@ defmodule YscWeb.AdminMoneyLiveTest do
       })
       |> render_submit()
 
-      assert render(view) =~ "Showing data from January 01, 2023 to December 31, 2023"
+      assert render(view) =~
+               "Showing data from January 01, 2023 to December 31, 2023"
     end
   end
 end

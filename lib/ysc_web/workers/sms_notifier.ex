@@ -114,7 +114,15 @@ defmodule YscWeb.Workers.SmsNotifier do
         category
       )
     else
-      send_sms(job, phone_number, idempotency_key, template, params, user_id, category)
+      send_sms(
+        job,
+        phone_number,
+        idempotency_key,
+        template,
+        params,
+        user_id,
+        category
+      )
     end
   end
 
@@ -161,7 +169,15 @@ defmodule YscWeb.Workers.SmsNotifier do
           template: template
         )
 
-        send_sms(job, phone_number, idempotency_key, template, params, user_id, category)
+        send_sms(
+          job,
+          phone_number,
+          idempotency_key,
+          template,
+          params,
+          user_id,
+          category
+        )
 
       user ->
         handle_sms_for_user(
@@ -231,7 +247,13 @@ defmodule YscWeb.Workers.SmsNotifier do
        ) do
     if Ysc.Accounts.SmsCategories.has_phone_number?(user) do
       final_phone_number = phone_number || user.phone_number
-      log_phone_number_selection(job, phone_number, user.phone_number, final_phone_number)
+
+      log_phone_number_selection(
+        job,
+        phone_number,
+        user.phone_number,
+        final_phone_number
+      )
 
       send_sms(
         job,
@@ -286,8 +308,24 @@ defmodule YscWeb.Workers.SmsNotifier do
     end
   end
 
-  defp send_sms(job, phone_number, idempotency_key, template, params, user_id, category) do
-    log_send_sms_start(job, phone_number, params, idempotency_key, template, user_id, category)
+  defp send_sms(
+         job,
+         phone_number,
+         idempotency_key,
+         template,
+         params,
+         user_id,
+         category
+       ) do
+    log_send_sms_start(
+      job,
+      phone_number,
+      params,
+      idempotency_key,
+      template,
+      user_id,
+      category
+    )
 
     atomized_params = prepare_and_atomize_params(job, params)
 
@@ -302,7 +340,15 @@ defmodule YscWeb.Workers.SmsNotifier do
     )
   end
 
-  defp log_send_sms_start(job, phone_number, params, idempotency_key, template, user_id, category) do
+  defp log_send_sms_start(
+         job,
+         phone_number,
+         params,
+         idempotency_key,
+         template,
+         user_id,
+         category
+       ) do
     phone_number_type = get_phone_number_type_string(phone_number)
     params_type = get_params_type_string(params)
 
@@ -389,7 +435,15 @@ defmodule YscWeb.Workers.SmsNotifier do
       result: inspect(result, limit: :infinity)
     )
 
-    handle_sms_result(result, job, phone_number, idempotency_key, template, user_id, category)
+    handle_sms_result(
+      result,
+      job,
+      phone_number,
+      idempotency_key,
+      template,
+      user_id,
+      category
+    )
   end
 
   defp handle_sms_result(
@@ -460,9 +514,11 @@ defmodule YscWeb.Workers.SmsNotifier do
           Map.put(acc, atom_key, atomize_keys(value))
         rescue
           ArgumentError ->
-            key_type = if is_struct(key), do: inspect(key.__struct__), else: "not_struct"
+            key_type =
+              if is_struct(key), do: inspect(key.__struct__), else: "not_struct"
 
-            Logger.error("Failed to convert key to existing atom in atomize_keys",
+            Logger.error(
+              "Failed to convert key to existing atom in atomize_keys",
               key: key,
               key_type: key_type,
               value: inspect(value, limit: 100),
@@ -489,7 +545,8 @@ defmodule YscWeb.Workers.SmsNotifier do
   end
 
   defp atomize_keys(value) do
-    value_type = if is_struct(value), do: inspect(value.__struct__), else: "not_struct"
+    value_type =
+      if is_struct(value), do: inspect(value.__struct__), else: "not_struct"
 
     Logger.debug("Atomizing non-map, non-list value",
       value_type: value_type,

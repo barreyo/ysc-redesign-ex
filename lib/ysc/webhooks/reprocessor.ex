@@ -115,7 +115,11 @@ defmodule Ysc.Webhooks.Reprocessor do
     dry_run = Keyword.get(opts, :dry_run, false)
 
     failed_webhooks =
-      list_failed_webhooks(limit: limit, provider: provider, event_type: event_type)
+      list_failed_webhooks(
+        limit: limit,
+        provider: provider,
+        event_type: event_type
+      )
 
     if dry_run do
       %{
@@ -139,7 +143,8 @@ defmodule Ysc.Webhooks.Reprocessor do
         successful: successful,
         failed: failed,
         results: results,
-        summary: "Processed #{successful} webhooks successfully, #{failed} failed"
+        summary:
+          "Processed #{successful} webhooks successfully, #{failed} failed"
       }
     end
   end
@@ -151,7 +156,9 @@ defmodule Ysc.Webhooks.Reprocessor do
   such as all failed Stripe invoice payment webhooks.
   """
   def reprocess_webhooks_by_type(provider, event_type, opts \\ []) do
-    reprocess_all_failed_webhooks(Keyword.merge(opts, provider: provider, event_type: event_type))
+    reprocess_all_failed_webhooks(
+      Keyword.merge(opts, provider: provider, event_type: event_type)
+    )
   end
 
   @doc """
@@ -251,7 +258,8 @@ defmodule Ysc.Webhooks.Reprocessor do
               {:ok, result}
 
             {:error, changeset} ->
-              Logger.error("Failed to update webhook state after successful re-processing",
+              Logger.error(
+                "Failed to update webhook state after successful re-processing",
                 webhook_id: webhook_event.id,
                 error: changeset
               )
@@ -274,7 +282,8 @@ defmodule Ysc.Webhooks.Reprocessor do
               {:ok, result}
 
             {:error, changeset} ->
-              Logger.error("Failed to update webhook state after successful re-processing",
+              Logger.error(
+                "Failed to update webhook state after successful re-processing",
                 webhook_id: webhook_event.id,
                 error: changeset
               )
@@ -330,11 +339,15 @@ defmodule Ysc.Webhooks.Reprocessor do
             amount_paid: invoice_data.amount_paid
           )
 
-          WebhookHandler.handle_webhook_event("invoice.payment_succeeded", invoice_data)
+          WebhookHandler.handle_webhook_event(
+            "invoice.payment_succeeded",
+            invoice_data
+          )
 
         "payment_intent.succeeded" ->
           # Convert the data object to a Stripe.PaymentIntent struct-like map
-          payment_intent_data = convert_map_to_stripe_payment_intent(data_object)
+          payment_intent_data =
+            convert_map_to_stripe_payment_intent(data_object)
 
           Logger.info("Calling webhook handler for payment_intent.succeeded",
             payment_intent_id: payment_intent_data.id,
@@ -342,11 +355,17 @@ defmodule Ysc.Webhooks.Reprocessor do
             amount: payment_intent_data.amount
           )
 
-          WebhookHandler.handle_webhook_event("payment_intent.succeeded", payment_intent_data)
+          WebhookHandler.handle_webhook_event(
+            "payment_intent.succeeded",
+            payment_intent_data
+          )
 
         _ ->
           # For other event types, try to call the handler with the raw data
-          Logger.info("Calling webhook handler for unknown event type", event_type: event_type)
+          Logger.info("Calling webhook handler for unknown event type",
+            event_type: event_type
+          )
+
           WebhookHandler.handle_webhook_event(event_type, data_object)
       end
 

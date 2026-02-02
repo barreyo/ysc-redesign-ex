@@ -170,7 +170,8 @@ defmodule YscWeb.Sms.SmsNotifierTest do
     end
 
     test "get_template_name returns correct name" do
-      assert BookingCheckinReminder.get_template_name() == "booking_checkin_reminder"
+      assert BookingCheckinReminder.get_template_name() ==
+               "booking_checkin_reminder"
     end
   end
 
@@ -242,7 +243,9 @@ defmodule YscWeb.Sms.SmsNotifierTest do
       %{user: user}
     end
 
-    test "renders message and calls FlowRoute with correct parameters", %{user: user} do
+    test "renders message and calls FlowRoute with correct parameters", %{
+      user: user
+    } do
       variables = %{
         first_name: user.first_name,
         property_name: "Clear Lake",

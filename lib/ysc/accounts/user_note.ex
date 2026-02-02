@@ -13,7 +13,10 @@ defmodule Ysc.Accounts.UserNote do
   @timestamps_opts [type: :utc_datetime]
   schema "user_notes" do
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
-    belongs_to :created_by, Ysc.Accounts.User, foreign_key: :created_by_user_id, references: :id
+
+    belongs_to :created_by, Ysc.Accounts.User,
+      foreign_key: :created_by_user_id,
+      references: :id
 
     field :note, :string
     field :category, UserNoteCategory

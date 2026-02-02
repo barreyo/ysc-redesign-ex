@@ -20,7 +20,8 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
 
         user
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Repo.update!()
       end)
@@ -28,7 +29,8 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
     organizer =
       user_fixture()
       |> Ecto.Changeset.change(
-        lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        lifetime_membership_awarded_at:
+          DateTime.truncate(DateTime.utc_now(), :second)
       )
       |> Repo.update!()
 
@@ -38,7 +40,8 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         description: "Testing concurrent bookings",
         state: :published,
         organizer_id: organizer.id,
-        start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
+        start_date:
+          DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
         max_attendees: 50,
         published_at: DateTime.truncate(DateTime.utc_now(), :second)
       })
@@ -72,12 +75,13 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
   end
 
   describe "concurrent ticket bookings - tier capacity limits" do
-    test "prevents overbooking when multiple users book same tier simultaneously", %{
-      users: users,
-      event: event,
-      tier1: tier1,
-      sandbox_owner: owner
-    } do
+    test "prevents overbooking when multiple users book same tier simultaneously",
+         %{
+           users: users,
+           event: event,
+           tier1: tier1,
+           sandbox_owner: owner
+         } do
       # Tier has capacity of 10, 15 users try to book
       concurrent_users = Enum.take(users, 10)
 
@@ -121,7 +125,10 @@ defmodule Ysc.Tickets.BookingLockerConcurrencyTest do
         |> Task.async_stream(
           fn user ->
             Ysc.DataCase.allow_sandbox(self(), owner)
-            BookingLocker.atomic_booking(user.id, event.id, %{tier_unlimited.id => 1})
+
+            BookingLocker.atomic_booking(user.id, event.id, %{
+              tier_unlimited.id => 1
+            })
           end,
           max_concurrency: 5,
           timeout: 5_000

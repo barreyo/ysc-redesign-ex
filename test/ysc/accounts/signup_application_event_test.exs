@@ -13,7 +13,12 @@ defmodule Ysc.Accounts.SignupApplicationEventTest do
         result: "approved"
       }
 
-      changeset = SignupApplicationEvent.new_event_changeset(%SignupApplicationEvent{}, attrs)
+      changeset =
+        SignupApplicationEvent.new_event_changeset(
+          %SignupApplicationEvent{},
+          attrs
+        )
+
       assert changeset.valid?
     end
 
@@ -25,7 +30,12 @@ defmodule Ysc.Accounts.SignupApplicationEventTest do
         reviewer_user_id: Ecto.ULID.generate()
       }
 
-      changeset = SignupApplicationEvent.new_event_changeset(%SignupApplicationEvent{}, attrs)
+      changeset =
+        SignupApplicationEvent.new_event_changeset(
+          %SignupApplicationEvent{},
+          attrs
+        )
+
       assert changeset.valid?
     end
 
@@ -36,7 +46,12 @@ defmodule Ysc.Accounts.SignupApplicationEventTest do
         reviewer_user_id: Ecto.ULID.generate()
       }
 
-      changeset = SignupApplicationEvent.new_event_changeset(%SignupApplicationEvent{}, attrs)
+      changeset =
+        SignupApplicationEvent.new_event_changeset(
+          %SignupApplicationEvent{},
+          attrs
+        )
+
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).event
     end
@@ -48,7 +63,12 @@ defmodule Ysc.Accounts.SignupApplicationEventTest do
         reviewer_user_id: Ecto.ULID.generate()
       }
 
-      changeset = SignupApplicationEvent.new_event_changeset(%SignupApplicationEvent{}, attrs)
+      changeset =
+        SignupApplicationEvent.new_event_changeset(
+          %SignupApplicationEvent{},
+          attrs
+        )
+
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).application_id
     end
@@ -60,7 +80,12 @@ defmodule Ysc.Accounts.SignupApplicationEventTest do
         reviewer_user_id: Ecto.ULID.generate()
       }
 
-      changeset = SignupApplicationEvent.new_event_changeset(%SignupApplicationEvent{}, attrs)
+      changeset =
+        SignupApplicationEvent.new_event_changeset(
+          %SignupApplicationEvent{},
+          attrs
+        )
+
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).user_id
     end
@@ -72,7 +97,12 @@ defmodule Ysc.Accounts.SignupApplicationEventTest do
         user_id: Ecto.ULID.generate()
       }
 
-      changeset = SignupApplicationEvent.new_event_changeset(%SignupApplicationEvent{}, attrs)
+      changeset =
+        SignupApplicationEvent.new_event_changeset(
+          %SignupApplicationEvent{},
+          attrs
+        )
+
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).reviewer_user_id
     end
@@ -90,7 +120,12 @@ defmodule Ysc.Accounts.SignupApplicationEventTest do
           reviewer_user_id: reviewer_id
         }
 
-        changeset = SignupApplicationEvent.new_event_changeset(%SignupApplicationEvent{}, attrs)
+        changeset =
+          SignupApplicationEvent.new_event_changeset(
+            %SignupApplicationEvent{},
+            attrs
+          )
+
         assert changeset.valid?
         assert Ecto.Changeset.get_change(changeset, :event) == event
       end

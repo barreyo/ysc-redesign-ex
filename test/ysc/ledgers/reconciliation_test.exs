@@ -191,7 +191,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
   end
 
   describe "reconcile_payments/0" do
-    test "returns ok when all payments have proper ledger entries", %{user: user} do
+    test "returns ok when all payments have proper ledger entries", %{
+      user: user
+    } do
       # Create multiple valid payments
       for i <- 1..3 do
         Ledgers.process_payment(%{
@@ -215,6 +217,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert result.total_payments == 3
       assert result.discrepancies_count == 0
       assert result.totals.match == true
+
       # Payments: i=1: 10_000+1_000=11_000, i=2: 10_000+2_000=12_000, i=3: 10_000+3_000=13_000
       # Total = 11_000 + 12_000 + 13_000 = 36_000 cents = $360.00
       total_cents = 11_000 + 12_000 + 13_000
@@ -271,7 +274,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert "No ledger entries found" in discrepancy.issues
     end
 
-    test "detects amount mismatches between payment and transaction", %{user: user} do
+    test "detects amount mismatches between payment and transaction", %{
+      user: user
+    } do
       payment =
         Repo.insert!(%Payment{
           user_id: user.id,
@@ -294,7 +299,11 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       assert result.status == :error
       discrepancy = List.first(result.discrepancies)
-      assert Enum.any?(discrepancy.issues, &String.contains?(&1, "doesn't match"))
+
+      assert Enum.any?(
+               discrepancy.issues,
+               &String.contains?(&1, "doesn't match")
+             )
     end
 
     test "detects unbalanced ledger entries for payments", %{user: user} do
@@ -330,7 +339,11 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       assert result.status == :error
       discrepancy = List.first(result.discrepancies)
-      assert Enum.any?(discrepancy.issues, &String.contains?(&1, "don't balance"))
+
+      assert Enum.any?(
+               discrepancy.issues,
+               &String.contains?(&1, "don't balance")
+             )
     end
 
     test "calculates correct payment totals", %{user: user} do
@@ -465,7 +478,10 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       # Get refund IDs first
       refund_ids =
-        from(r in Refund, where: r.payment_id == ^saved_payment_id, select: r.id)
+        from(r in Refund,
+          where: r.payment_id == ^saved_payment_id,
+          select: r.id
+        )
         |> Repo.all()
         |> Enum.map(&to_uuid/1)
 
@@ -709,7 +725,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert result.orphaned_transactions_count == 0
     end
 
-    test "detects ledger entries pointing to non-existent payments", %{user: user} do
+    test "detects ledger entries pointing to non-existent payments", %{
+      user: user
+    } do
       # Create a real payment first
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
@@ -776,7 +794,11 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert result.status == :error
       assert result.orphaned_entries_count > 0
 
-      orphan = Enum.find(result.orphaned_entries, fn e -> e.payment_id == orphaned_payment_id end)
+      orphan =
+        Enum.find(result.orphaned_entries, fn e ->
+          e.payment_id == orphaned_payment_id
+        end)
+
       assert orphan != nil
       assert orphan.payment_id == orphaned_payment_id
     end
@@ -844,7 +866,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert result.orphaned_transactions_count > 0
 
       orphan =
-        Enum.find(result.orphaned_transactions, fn t -> t.payment_id == orphaned_payment_id end)
+        Enum.find(result.orphaned_transactions, fn t ->
+          t.payment_id == orphaned_payment_id
+        end)
 
       assert orphan != nil
       assert orphan.payment_id == orphaned_payment_id
@@ -916,7 +940,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert result.orphaned_transactions_count > 0
 
       orphan =
-        Enum.find(result.orphaned_transactions, fn t -> t.refund_id == orphaned_refund_id end)
+        Enum.find(result.orphaned_transactions, fn t ->
+          t.refund_id == orphaned_refund_id
+        end)
 
       assert orphan != nil
       assert orphan.refund_id == orphaned_refund_id
@@ -1017,7 +1043,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
   end
 
   describe "format_report/1" do
-    test "generates readable report for successful reconciliation", %{user: user} do
+    test "generates readable report for successful reconciliation", %{
+      user: user
+    } do
       # Create valid payment
       Ledgers.process_payment(%{
         user_id: user.id,
@@ -1249,7 +1277,11 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert report.checks.refunds.discrepancies_count == 0
 
       total_refunded = Money.new(Enum.sum(partial_amounts), :USD)
-      assert Money.equal?(report.checks.refunds.totals.refunds_table, total_refunded)
+
+      assert Money.equal?(
+               report.checks.refunds.totals.refunds_table,
+               total_refunded
+             )
 
       # Refunds status might be :error due to ledger entries calculation issue (3x counting)
       # But we verify no individual refund discrepancies and correct refunds table total
@@ -1393,7 +1425,11 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       # Verify exact total
       expected_total = Money.new(Enum.sum(amounts), :USD)
-      assert Money.equal?(report.checks.payments.totals.payments_table, expected_total)
+
+      assert Money.equal?(
+               report.checks.payments.totals.payments_table,
+               expected_total
+             )
     end
 
     test "handles edge case money values", %{user: user} do
@@ -1447,7 +1483,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
     # Note: Async is set to true for these tests, but they verify data consistency
     # under concurrent database access patterns
 
-    test "handles concurrent payment processing without race conditions", %{user: user} do
+    test "handles concurrent payment processing without race conditions", %{
+      user: user
+    } do
       # Process multiple payments concurrently
       tasks =
         for i <- 1..20 do
@@ -1456,7 +1494,8 @@ defmodule Ysc.Ledgers.ReconciliationTest do
               user_id: user.id,
               amount: Money.new(10_000 + i * 100, :USD),
               external_provider: :stripe,
-              external_payment_id: "pi_concurrent_#{i}_#{System.unique_integer()}",
+              external_payment_id:
+                "pi_concurrent_#{i}_#{System.unique_integer()}",
               payment_date: DateTime.truncate(DateTime.utc_now(), :second),
               entity_type: :membership,
               entity_id: Ecto.ULID.generate(),
@@ -1473,7 +1512,10 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       # All should succeed
       assert Enum.all?(results, fn result ->
-               match?({:ok, {%Payment{}, %LedgerTransaction{}, _entries}}, result)
+               match?(
+                 {:ok, {%Payment{}, %LedgerTransaction{}, _entries}},
+                 result
+               )
              end)
 
       # Run reconciliation
@@ -1485,7 +1527,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert report.checks.payments.discrepancies_count == 0
     end
 
-    test "handles concurrent payment and refund operations safely", %{user: user} do
+    test "handles concurrent payment and refund operations safely", %{
+      user: user
+    } do
       # Create initial payment
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
@@ -1511,7 +1555,8 @@ defmodule Ysc.Ledgers.ReconciliationTest do
               payment_id: payment.id,
               refund_amount: Money.new(5000, :USD),
               external_provider: :stripe,
-              external_refund_id: "re_concurrent_#{i}_#{System.unique_integer()}",
+              external_refund_id:
+                "re_concurrent_#{i}_#{System.unique_integer()}",
               reason: "concurrent_test"
             })
           end)
@@ -1522,7 +1567,10 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       # All should succeed
       assert Enum.all?(refund_results, fn result ->
-               match?({:ok, {%Refund{}, %LedgerTransaction{}, _entries}}, result)
+               match?(
+                 {:ok, {%Refund{}, %LedgerTransaction{}, _entries}},
+                 result
+               )
              end)
 
       # Run reconciliation
@@ -1534,7 +1582,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert report.checks.refunds.total_refunds == 5
     end
 
-    test "maintains data integrity during concurrent reconciliations", %{user: user} do
+    test "maintains data integrity during concurrent reconciliations", %{
+      user: user
+    } do
       # Create some payments
       for i <- 1..10 do
         Ledgers.process_payment(%{
@@ -1617,7 +1667,8 @@ defmodule Ysc.Ledgers.ReconciliationTest do
               user_id: user.id,
               amount: Money.new(payment_amount, :USD),
               external_provider: :stripe,
-              external_payment_id: "pi_double_count_#{i}_#{System.unique_integer()}",
+              external_payment_id:
+                "pi_double_count_#{i}_#{System.unique_integer()}",
               payment_date: DateTime.truncate(DateTime.utc_now(), :second),
               entity_type: :membership,
               entity_id: Ecto.ULID.generate(),
@@ -1638,7 +1689,12 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       # Verify exact count and amount (no double counting)
       assert report.checks.payments.total_payments == 10
       expected_total = Money.new(payment_amount * 10, :USD)
-      assert Money.equal?(report.checks.payments.totals.payments_table, expected_total)
+
+      assert Money.equal?(
+               report.checks.payments.totals.payments_table,
+               expected_total
+             )
+
       assert report.checks.payments.totals.match == true
     end
   end
@@ -1676,7 +1732,8 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, _report} = Reconciliation.run_full_reconciliation()
 
       # Verify telemetry event was emitted
-      assert_receive {:telemetry_event, [:ysc, :ledgers, :reconciliation_completed], measurements,
+      assert_receive {:telemetry_event,
+                      [:ysc, :ledgers, :reconciliation_completed], measurements,
                       metadata},
                      1000
 
@@ -1693,7 +1750,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       :telemetry.detach("test-reconciliation-success")
     end
 
-    test "emits telemetry event on failed reconciliation with errors", %{user: user} do
+    test "emits telemetry event on failed reconciliation with errors", %{
+      user: user
+    } do
       # Set up telemetry handlers
       test_pid = self()
 
@@ -1729,7 +1788,8 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       {:ok, _report} = Reconciliation.run_full_reconciliation()
 
       # Verify completion event with error status
-      assert_receive {:completed_event, [:ysc, :ledgers, :reconciliation_completed],
+      assert_receive {:completed_event,
+                      [:ysc, :ledgers, :reconciliation_completed],
                       _measurements, metadata},
                      1000
 
@@ -1737,8 +1797,8 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert metadata.has_errors == true
 
       # Verify error count event
-      assert_receive {:error_event, [:ysc, :ledgers, :reconciliation_errors], error_measurements,
-                      _error_metadata},
+      assert_receive {:error_event, [:ysc, :ledgers, :reconciliation_errors],
+                      error_measurements, _error_metadata},
                      1000
 
       assert is_integer(error_measurements.count)
@@ -1802,7 +1862,9 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       assert DateTime.compare(report.timestamp, after_time) in [:lt, :eq]
     end
 
-    test "provides detailed error metrics for monitoring dashboards", %{user: user} do
+    test "provides detailed error metrics for monitoring dashboards", %{
+      user: user
+    } do
       # Create various error scenarios
       # 1. Payment without transaction
       Repo.insert!(%Payment{

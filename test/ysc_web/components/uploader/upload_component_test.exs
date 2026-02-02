@@ -23,7 +23,9 @@ defmodule YscWeb.UploadComponentTest do
       accept = upload_config.accept
       assert accept != nil
       # Verify it contains the expected extensions
-      accept_str = if is_list(accept), do: Enum.join(accept, ","), else: to_string(accept)
+      accept_str =
+        if is_list(accept), do: Enum.join(accept, ","), else: to_string(accept)
+
       assert String.contains?(accept_str, "jpg")
       assert String.contains?(accept_str, "png")
       assert upload_config.max_entries == 1
@@ -58,7 +60,8 @@ defmodule YscWeb.UploadComponentTest do
     test "validate event returns socket unchanged" do
       socket = new_socket(%{id: "test-id"})
 
-      {:noreply, updated_socket} = UploadComponent.handle_event("validate", %{}, socket)
+      {:noreply, updated_socket} =
+        UploadComponent.handle_event("validate", %{}, socket)
 
       assert updated_socket == socket
     end
@@ -87,7 +90,8 @@ defmodule YscWeb.UploadComponentTest do
       # Test that save event can be called
       # Note: This will call YscWeb.Uploads.consume_entries which requires
       # actual upload entries. For full testing, use integration tests.
-      {:noreply, updated_socket} = UploadComponent.handle_event("save", %{}, socket)
+      {:noreply, updated_socket} =
+        UploadComponent.handle_event("save", %{}, socket)
 
       # Verify socket structure is maintained
       assert %Phoenix.LiveView.Socket{} = updated_socket

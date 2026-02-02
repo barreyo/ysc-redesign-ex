@@ -74,7 +74,9 @@ defmodule YscWeb.Workers.EventNotificationWorkerTest do
     test "schedules notifications for future publish time", %{event: event} do
       future_time = DateTime.add(DateTime.utc_now(), 3600, :second)
 
-      result = EventNotificationWorker.schedule_notifications(event.id, future_time)
+      result =
+        EventNotificationWorker.schedule_notifications(event.id, future_time)
+
       assert result == :ok
     end
 
@@ -86,7 +88,9 @@ defmodule YscWeb.Workers.EventNotificationWorkerTest do
       |> Event.changeset(%{state: :published})
       |> Ysc.Repo.update!()
 
-      result = EventNotificationWorker.schedule_notifications(event.id, past_time)
+      result =
+        EventNotificationWorker.schedule_notifications(event.id, past_time)
+
       assert result == :ok
     end
   end

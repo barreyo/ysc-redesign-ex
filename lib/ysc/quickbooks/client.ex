@@ -121,7 +121,8 @@ defmodule Ysc.Quickbooks.Client do
       })
 
   """
-  @spec create_sales_receipt(map(), keyword()) :: {:ok, map()} | {:error, atom() | String.t()}
+  @spec create_sales_receipt(map(), keyword()) ::
+          {:ok, map()} | {:error, atom() | String.t()}
   def create_sales_receipt(params, opts \\ []) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
@@ -150,14 +151,16 @@ defmodule Ysc.Quickbooks.Client do
         "[QB Client] create_sales_receipt: Full request body being sent to QuickBooks:\n#{body_json}"
       )
 
-      Logger.debug("[QB Client] create_sales_receipt: Request body (structured)",
+      Logger.debug(
+        "[QB Client] create_sales_receipt: Request body (structured)",
         body: inspect(body, limit: :infinity, pretty: true)
       )
 
       request = Finch.build(:post, url, headers, Jason.encode!(body))
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, data} ->
               sales_receipt = get_response_entity(data, "SalesReceipt")
@@ -179,7 +182,10 @@ defmodule Ysc.Quickbooks.Client do
           end
 
         {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-          Logger.warning("QuickBooks authentication failed, attempting token refresh")
+          Logger.warning(
+            "QuickBooks authentication failed, attempting token refresh"
+          )
+
           # Try to refresh token and retry once
           case refresh_access_token() do
             {:ok, new_access_token} ->
@@ -188,7 +194,8 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, data} ->
@@ -196,14 +203,16 @@ defmodule Ysc.Quickbooks.Client do
                       {:ok, sales_receipt}
 
                     {:error, error} ->
-                      Logger.error("Failed to parse QuickBooks response after retry",
+                      Logger.error(
+                        "Failed to parse QuickBooks response after retry",
                         error: inspect(error)
                       )
 
                       {:error, :invalid_response}
                   end
 
-                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}} ->
                   error = parse_error_response(retry_response_body)
 
                   Logger.error("QuickBooks API error after token refresh",
@@ -214,12 +223,18 @@ defmodule Ysc.Quickbooks.Client do
                   {:error, error}
 
                 {:error, error} ->
-                  Logger.error("Request failed after token refresh", error: inspect(error))
+                  Logger.error("Request failed after token refresh",
+                    error: inspect(error)
+                  )
+
                   {:error, :request_failed}
               end
 
             error ->
-              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+              Logger.error("Failed to refresh QuickBooks access token",
+                error: inspect(error)
+              )
+
               {:error, :authentication_failed}
           end
 
@@ -235,7 +250,10 @@ defmodule Ysc.Quickbooks.Client do
           {:error, error}
 
         {:error, error} ->
-          Logger.error("Failed to create QuickBooks SalesReceipt", error: inspect(error))
+          Logger.error("Failed to create QuickBooks SalesReceipt",
+            error: inspect(error)
+          )
+
           {:error, :request_failed}
       end
     end
@@ -247,7 +265,8 @@ defmodule Ysc.Quickbooks.Client do
   Refund Receipts are used to record refunds. Unlike SalesReceipts,
   Refund Receipts use positive amounts - the transaction type determines the direction.
   """
-  @spec create_refund_receipt(map(), keyword()) :: {:ok, map()} | {:error, atom() | String.t()}
+  @spec create_refund_receipt(map(), keyword()) ::
+          {:ok, map()} | {:error, atom() | String.t()}
   def create_refund_receipt(params, opts \\ []) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
@@ -272,7 +291,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:post, url, headers, Jason.encode!(body))
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, data} ->
               refund_receipt = get_response_entity(data, "RefundReceipt")
@@ -293,7 +313,10 @@ defmodule Ysc.Quickbooks.Client do
           end
 
         {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-          Logger.warning("QuickBooks authentication failed, attempting token refresh")
+          Logger.warning(
+            "QuickBooks authentication failed, attempting token refresh"
+          )
+
           # Try to refresh token and retry once
           case refresh_access_token() do
             {:ok, new_access_token} ->
@@ -302,22 +325,27 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, data} ->
-                      refund_receipt = get_response_entity(data, "RefundReceipt")
+                      refund_receipt =
+                        get_response_entity(data, "RefundReceipt")
+
                       {:ok, refund_receipt}
 
                     {:error, error} ->
-                      Logger.error("Failed to parse QuickBooks response after retry",
+                      Logger.error(
+                        "Failed to parse QuickBooks response after retry",
                         error: inspect(error)
                       )
 
                       {:error, :invalid_response}
                   end
 
-                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}} ->
                   error = parse_error_response(retry_response_body)
 
                   Logger.error("QuickBooks API error after token refresh",
@@ -328,12 +356,18 @@ defmodule Ysc.Quickbooks.Client do
                   {:error, error}
 
                 {:error, error} ->
-                  Logger.error("Request failed after token refresh", error: inspect(error))
+                  Logger.error("Request failed after token refresh",
+                    error: inspect(error)
+                  )
+
                   {:error, :request_failed}
               end
 
             error ->
-              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+              Logger.error("Failed to refresh QuickBooks access token",
+                error: inspect(error)
+              )
+
               {:error, :authentication_failed}
           end
 
@@ -349,7 +383,10 @@ defmodule Ysc.Quickbooks.Client do
           {:error, error}
 
         {:error, error} ->
-          Logger.error("Failed to create QuickBooks Refund Receipt", error: inspect(error))
+          Logger.error("Failed to create QuickBooks Refund Receipt",
+            error: inspect(error)
+          )
+
           {:error, :request_failed}
       end
     end
@@ -427,7 +464,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:post, url, headers, Jason.encode!(body))
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, data} ->
               deposit = get_response_entity(data, "Deposit")
@@ -449,7 +487,10 @@ defmodule Ysc.Quickbooks.Client do
           end
 
         {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-          Logger.warning("QuickBooks authentication failed, attempting token refresh")
+          Logger.warning(
+            "QuickBooks authentication failed, attempting token refresh"
+          )
+
           # Try to refresh token and retry once
           case refresh_access_token() do
             {:ok, new_access_token} ->
@@ -458,7 +499,8 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, data} ->
@@ -466,14 +508,16 @@ defmodule Ysc.Quickbooks.Client do
                       {:ok, deposit}
 
                     {:error, error} ->
-                      Logger.error("Failed to parse QuickBooks response after retry",
+                      Logger.error(
+                        "Failed to parse QuickBooks response after retry",
                         error: inspect(error)
                       )
 
                       {:error, :invalid_response}
                   end
 
-                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}} ->
                   error = parse_error_response(retry_response_body)
 
                   Logger.error("QuickBooks API error after token refresh",
@@ -484,12 +528,18 @@ defmodule Ysc.Quickbooks.Client do
                   {:error, error}
 
                 {:error, error} ->
-                  Logger.error("Request failed after token refresh", error: inspect(error))
+                  Logger.error("Request failed after token refresh",
+                    error: inspect(error)
+                  )
+
                   {:error, :request_failed}
               end
 
             error ->
-              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+              Logger.error("Failed to refresh QuickBooks access token",
+                error: inspect(error)
+              )
+
               {:error, :authentication_failed}
           end
 
@@ -505,7 +555,10 @@ defmodule Ysc.Quickbooks.Client do
           {:error, error}
 
         {:error, error} ->
-          Logger.error("Failed to create QuickBooks Deposit", error: inspect(error))
+          Logger.error("Failed to create QuickBooks Deposit",
+            error: inspect(error)
+          )
+
           {:error, :request_failed}
       end
     end
@@ -562,7 +615,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:post, url, headers, Jason.encode!(body))
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, data} ->
               customer = get_response_entity(data, "Customer")
@@ -584,7 +638,10 @@ defmodule Ysc.Quickbooks.Client do
           end
 
         {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-          Logger.warning("QuickBooks authentication failed, attempting token refresh")
+          Logger.warning(
+            "QuickBooks authentication failed, attempting token refresh"
+          )
+
           # Try to refresh token and retry once
           case refresh_access_token() do
             {:ok, new_access_token} ->
@@ -593,7 +650,8 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, data} ->
@@ -601,14 +659,16 @@ defmodule Ysc.Quickbooks.Client do
                       {:ok, customer}
 
                     {:error, error} ->
-                      Logger.error("Failed to parse QuickBooks response after retry",
+                      Logger.error(
+                        "Failed to parse QuickBooks response after retry",
                         error: inspect(error)
                       )
 
                       {:error, :invalid_response}
                   end
 
-                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}} ->
                   error = parse_error_response(retry_response_body)
 
                   Logger.error("QuickBooks API error after token refresh",
@@ -619,12 +679,18 @@ defmodule Ysc.Quickbooks.Client do
                   {:error, error}
 
                 {:error, error} ->
-                  Logger.error("Request failed after token refresh", error: inspect(error))
+                  Logger.error("Request failed after token refresh",
+                    error: inspect(error)
+                  )
+
                   {:error, :request_failed}
               end
 
             error ->
-              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+              Logger.error("Failed to refresh QuickBooks access token",
+                error: inspect(error)
+              )
+
               {:error, :authentication_failed}
           end
 
@@ -640,7 +706,10 @@ defmodule Ysc.Quickbooks.Client do
           {:error, error}
 
         {:error, error} ->
-          Logger.error("Failed to create QuickBooks Customer", error: inspect(error))
+          Logger.error("Failed to create QuickBooks Customer",
+            error: inspect(error)
+          )
+
           {:error, :request_failed}
       end
     end
@@ -693,7 +762,8 @@ defmodule Ysc.Quickbooks.Client do
 
         {:error, :not_found} ->
           # Create new item
-          Logger.info("[QB Client] get_or_create_item: Item not found, creating new item",
+          Logger.info(
+            "[QB Client] get_or_create_item: Item not found, creating new item",
             name: name
           )
 
@@ -730,7 +800,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:get, url, headers)
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Item" => items}}}
             when is_list(items) and items != [] ->
@@ -762,7 +833,8 @@ defmodule Ysc.Quickbooks.Client do
               {:error, :not_found}
 
             {:ok, data} ->
-              Logger.error("[QB Client] query_item_by_name: Unexpected response format",
+              Logger.error(
+                "[QB Client] query_item_by_name: Unexpected response format",
                 name: name,
                 data: inspect(data)
               )
@@ -770,7 +842,8 @@ defmodule Ysc.Quickbooks.Client do
               {:error, :invalid_response}
 
             {:error, error} ->
-              Logger.error("[QB Client] query_item_by_name: Failed to parse response",
+              Logger.error(
+                "[QB Client] query_item_by_name: Failed to parse response",
                 name: name,
                 error: inspect(error)
               )
@@ -789,7 +862,8 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:get, url, headers)
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, %{"QueryResponse" => %{"Item" => items}}}
@@ -797,7 +871,8 @@ defmodule Ysc.Quickbooks.Client do
                       item_id = List.first(items) |> Map.get("Id")
                       {:ok, item_id}
 
-                    {:ok, %{"QueryResponse" => %{"Item" => item}}} when is_map(item) ->
+                    {:ok, %{"QueryResponse" => %{"Item" => item}}}
+                    when is_map(item) ->
                       item_id = Map.get(item, "Id")
                       {:ok, item_id}
 
@@ -860,7 +935,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:post, url, headers, Jason.encode!(body))
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, data} ->
               item = get_response_entity(data, "Item")
@@ -894,7 +970,8 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, data} ->
@@ -983,6 +1060,7 @@ defmodule Ysc.Quickbooks.Client do
 
   defp build_url(company_id, endpoint, opts \\ []) do
     base_url = get_api_base_url()
+
     # Ensure base_url doesn't have trailing slash and doesn't already include /company
     base_url = String.trim_trailing(base_url, "/")
 
@@ -1083,7 +1161,10 @@ defmodule Ysc.Quickbooks.Client do
       |> maybe_put("PaymentMethodRef", params[:payment_method_ref])
       |> maybe_put("DocNumber", params[:doc_number])
       |> maybe_put("TxnDate", params[:txn_date])
-      |> maybe_put("CustomerMemo", if(params[:memo], do: %{value: params[:memo]}, else: nil))
+      |> maybe_put(
+        "CustomerMemo",
+        if(params[:memo], do: %{value: params[:memo]}, else: nil)
+      )
       |> maybe_put("PrivateNote", params[:private_note])
 
     Logger.info(
@@ -1143,7 +1224,10 @@ defmodule Ysc.Quickbooks.Client do
       |> maybe_put("TxnDate", params[:txn_date])
       |> maybe_put("DepositToAccountRef", params[:refund_from_account_ref])
       |> maybe_put("PaymentMethodRef", params[:payment_method_ref])
-      |> maybe_put("CustomerMemo", if(params[:memo], do: %{value: params[:memo]}, else: nil))
+      |> maybe_put(
+        "CustomerMemo",
+        if(params[:memo], do: %{value: params[:memo]}, else: nil)
+      )
       |> maybe_put("PrivateNote", params[:private_note])
 
     Logger.info(
@@ -1169,8 +1253,14 @@ defmodule Ysc.Quickbooks.Client do
     |> maybe_put("GivenName", params[:given_name])
     |> maybe_put("FamilyName", params[:family_name])
     |> maybe_put("CompanyName", params[:company_name])
-    |> maybe_put("PrimaryEmailAddr", params[:email] && %{"Address" => params.email})
-    |> maybe_put("PrimaryPhone", params[:phone] && %{"FreeFormNumber" => params.phone})
+    |> maybe_put(
+      "PrimaryEmailAddr",
+      params[:email] && %{"Address" => params.email}
+    )
+    |> maybe_put(
+      "PrimaryPhone",
+      params[:phone] && %{"FreeFormNumber" => params.phone}
+    )
     |> maybe_put("Notes", params[:notes])
     |> maybe_put("BillAddr", build_address(params[:bill_address]))
   end
@@ -1323,13 +1413,28 @@ defmodule Ysc.Quickbooks.Client do
     discount_detail = %{}
 
     discount_detail =
-      add_discount_field_if_present(discount_detail, detail, :class_ref, "ClassRef")
+      add_discount_field_if_present(
+        discount_detail,
+        detail,
+        :class_ref,
+        "ClassRef"
+      )
 
     discount_detail =
-      add_discount_field_if_present(discount_detail, detail, :percent_based, "PercentBased")
+      add_discount_field_if_present(
+        discount_detail,
+        detail,
+        :percent_based,
+        "PercentBased"
+      )
 
     discount_detail =
-      add_discount_field_if_present(discount_detail, detail, :discount_percent, "DiscountPercent")
+      add_discount_field_if_present(
+        discount_detail,
+        detail,
+        :discount_percent,
+        "DiscountPercent"
+      )
 
     discount_detail =
       add_discount_field_if_present(
@@ -1342,7 +1447,12 @@ defmodule Ysc.Quickbooks.Client do
     Map.put(base, "DiscountLineDetail", discount_detail)
   end
 
-  defp add_discount_field_if_present(discount_detail, detail, field_key, map_key) do
+  defp add_discount_field_if_present(
+         discount_detail,
+         detail,
+         field_key,
+         map_key
+       ) do
     if detail[field_key] do
       Map.put(discount_detail, map_key, detail[field_key])
     else
@@ -1494,7 +1604,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:get, url, headers)
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Class" => classes}}}
             when is_list(classes) and classes != [] ->
@@ -1511,7 +1622,8 @@ defmodule Ysc.Quickbooks.Client do
 
               {:ok, class_id}
 
-            {:ok, %{"QueryResponse" => %{"Class" => class}}} when is_map(class) ->
+            {:ok, %{"QueryResponse" => %{"Class" => class}}}
+            when is_map(class) ->
               class_id = Map.get(class, "Id")
 
               Logger.debug("[QB Client] query_class_by_name: Found class",
@@ -1532,7 +1644,8 @@ defmodule Ysc.Quickbooks.Client do
               {:error, :not_found}
 
             {:ok, data} ->
-              Logger.error("[QB Client] query_class_by_name: Unexpected response format",
+              Logger.error(
+                "[QB Client] query_class_by_name: Unexpected response format",
                 name: name,
                 data: inspect(data)
               )
@@ -1540,7 +1653,8 @@ defmodule Ysc.Quickbooks.Client do
               {:error, :invalid_response}
 
             {:error, error} ->
-              Logger.error("[QB Client] query_class_by_name: Failed to parse response",
+              Logger.error(
+                "[QB Client] query_class_by_name: Failed to parse response",
                 name: name,
                 error: inspect(error)
               )
@@ -1559,19 +1673,23 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:get, url, headers)
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, %{"QueryResponse" => %{"Class" => classes}}}
                     when is_list(classes) and classes != [] ->
                       class = List.first(classes)
                       class_id = Map.get(class, "Id")
+
                       # Cache the result (aggressive caching - these don't change)
                       cache_class_id(cache_key, class_id)
                       {:ok, class_id}
 
-                    {:ok, %{"QueryResponse" => %{"Class" => class}}} when is_map(class) ->
+                    {:ok, %{"QueryResponse" => %{"Class" => class}}}
+                    when is_map(class) ->
                       class_id = Map.get(class, "Id")
+
                       # Cache the result (aggressive caching - these don't change)
                       cache_class_id(cache_key, class_id)
                       {:ok, class_id}
@@ -1615,7 +1733,8 @@ defmodule Ysc.Quickbooks.Client do
   Returns a map of class name -> class ID.
   Useful for populating dropdowns and mapping user selections to Class IDs.
   """
-  @spec query_all_classes() :: {:ok, %{String.t() => String.t()}} | {:error, atom()}
+  @spec query_all_classes() ::
+          {:ok, %{String.t() => String.t()}} | {:error, atom()}
   def query_all_classes do
     # Check cache first
     cache_key = "quickbooks:classes:all"
@@ -1648,9 +1767,11 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:get, url, headers)
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
-            {:ok, %{"QueryResponse" => %{"Class" => classes}}} when is_list(classes) ->
+            {:ok, %{"QueryResponse" => %{"Class" => classes}}}
+            when is_list(classes) ->
               # Build map of name -> id
               classes_map =
                 classes
@@ -1669,13 +1790,15 @@ defmodule Ysc.Quickbooks.Client do
               # Cache the full map
               Cachex.put(:ysc_cache, cache_key, classes_map, ttl: :infinity)
 
-              Logger.info("[QB Client] query_all_classes: Found and cached classes",
+              Logger.info(
+                "[QB Client] query_all_classes: Found and cached classes",
                 class_count: map_size(classes_map)
               )
 
               {:ok, classes_map}
 
-            {:ok, %{"QueryResponse" => %{"Class" => class}}} when is_map(class) ->
+            {:ok, %{"QueryResponse" => %{"Class" => class}}}
+            when is_map(class) ->
               # Single class returned
               name = Map.get(class, "Name")
               id = Map.get(class, "Id")
@@ -1688,7 +1811,8 @@ defmodule Ysc.Quickbooks.Client do
               # Cache the full map
               Cachex.put(:ysc_cache, cache_key, classes_map, ttl: :infinity)
 
-              Logger.info("[QB Client] query_all_classes: Found and cached single class",
+              Logger.info(
+                "[QB Client] query_all_classes: Found and cached single class",
                 class_name: name
               )
 
@@ -1700,7 +1824,8 @@ defmodule Ysc.Quickbooks.Client do
               {:ok, %{}}
 
             {:error, error} ->
-              Logger.error("[QB Client] query_all_classes: Failed to parse response",
+              Logger.error(
+                "[QB Client] query_all_classes: Failed to parse response",
                 error: inspect(error)
               )
 
@@ -1714,10 +1839,12 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:get, url, headers)
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
-                    {:ok, %{"QueryResponse" => %{"Class" => classes}}} when is_list(classes) ->
+                    {:ok, %{"QueryResponse" => %{"Class" => classes}}}
+                    when is_list(classes) ->
                       classes_map =
                         classes
                         |> Enum.reduce(%{}, fn class, acc ->
@@ -1731,17 +1858,25 @@ defmodule Ysc.Quickbooks.Client do
                         cache_class_id(individual_cache_key, id)
                       end)
 
-                      Cachex.put(:ysc_cache, cache_key, classes_map, ttl: :infinity)
+                      Cachex.put(:ysc_cache, cache_key, classes_map,
+                        ttl: :infinity
+                      )
+
                       {:ok, classes_map}
 
-                    {:ok, %{"QueryResponse" => %{"Class" => class}}} when is_map(class) ->
+                    {:ok, %{"QueryResponse" => %{"Class" => class}}}
+                    when is_map(class) ->
                       name = Map.get(class, "Name")
                       id = Map.get(class, "Id")
                       classes_map = %{name => id}
 
                       individual_cache_key = "quickbooks:class:#{name}"
                       cache_class_id(individual_cache_key, id)
-                      Cachex.put(:ysc_cache, cache_key, classes_map, ttl: :infinity)
+
+                      Cachex.put(:ysc_cache, cache_key, classes_map,
+                        ttl: :infinity
+                      )
+
                       {:ok, classes_map}
 
                     _ ->
@@ -1783,7 +1918,8 @@ defmodule Ysc.Quickbooks.Client do
 
   Results are aggressively cached since account references don't change.
   """
-  @spec query_account_by_name(String.t()) :: {:ok, String.t()} | {:error, atom()}
+  @spec query_account_by_name(String.t()) ::
+          {:ok, String.t()} | {:error, atom()}
   def query_account_by_name(name) do
     # Step 1: Check cache first (aggressive caching - these don't change)
     cache_key = "quickbooks:account:#{name}"
@@ -1821,7 +1957,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:get, url, headers)
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Account" => accounts}}}
             when is_list(accounts) and accounts != [] ->
@@ -1838,7 +1975,8 @@ defmodule Ysc.Quickbooks.Client do
 
               {:ok, account_id}
 
-            {:ok, %{"QueryResponse" => %{"Account" => account}}} when is_map(account) ->
+            {:ok, %{"QueryResponse" => %{"Account" => account}}}
+            when is_map(account) ->
               account_id = Map.get(account, "Id")
 
               Logger.debug("[QB Client] query_account_by_name: Found account",
@@ -1852,14 +1990,16 @@ defmodule Ysc.Quickbooks.Client do
               {:ok, account_id}
 
             {:ok, %{"QueryResponse" => _}} ->
-              Logger.debug("[QB Client] query_account_by_name: Account not found",
+              Logger.debug(
+                "[QB Client] query_account_by_name: Account not found",
                 name: name
               )
 
               {:error, :not_found}
 
             {:ok, data} ->
-              Logger.error("[QB Client] query_account_by_name: Unexpected response format",
+              Logger.error(
+                "[QB Client] query_account_by_name: Unexpected response format",
                 name: name,
                 data: inspect(data)
               )
@@ -1867,7 +2007,8 @@ defmodule Ysc.Quickbooks.Client do
               {:error, :invalid_response}
 
             {:error, error} ->
-              Logger.error("[QB Client] query_account_by_name: Failed to parse response",
+              Logger.error(
+                "[QB Client] query_account_by_name: Failed to parse response",
                 name: name,
                 error: inspect(error)
               )
@@ -1886,19 +2027,23 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:get, url, headers)
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, %{"QueryResponse" => %{"Account" => accounts}}}
                     when is_list(accounts) and accounts != [] ->
                       account = List.first(accounts)
                       account_id = Map.get(account, "Id")
+
                       # Cache the result (aggressive caching - these don't change)
                       cache_account_id(cache_key, account_id)
                       {:ok, account_id}
 
-                    {:ok, %{"QueryResponse" => %{"Account" => account}}} when is_map(account) ->
+                    {:ok, %{"QueryResponse" => %{"Account" => account}}}
+                    when is_map(account) ->
                       account_id = Map.get(account, "Id")
+
                       # Cache the result (aggressive caching - these don't change)
                       cache_account_id(cache_key, account_id)
                       {:ok, account_id}
@@ -1918,7 +2063,8 @@ defmodule Ysc.Quickbooks.Client do
         {:ok, %Finch.Response{status: status, body: response_body}} ->
           error = parse_error_response(response_body)
 
-          Logger.error("[QB Client] query_account_by_name: Failed to query account",
+          Logger.error(
+            "[QB Client] query_account_by_name: Failed to query account",
             name: name,
             status: status,
             error: error
@@ -1955,7 +2101,10 @@ defmodule Ysc.Quickbooks.Client do
       {:ok, %{"Fault" => fault}} ->
         error = fault["Error"] || []
         first_error = List.first(error) || %{}
-        message = first_error["Message"] || first_error["Detail"] || "Unknown error"
+
+        message =
+          first_error["Message"] || first_error["Detail"] || "Unknown error"
+
         code = first_error["code"] || "UNKNOWN"
         "#{code}: #{message}"
 
@@ -2039,11 +2188,15 @@ defmodule Ysc.Quickbooks.Client do
             # Try to refresh the token if we have a refresh token
             case refresh_access_token() do
               {:ok, new_token} ->
-                Logger.debug("[QB Client] get_access_token: Successfully refreshed access token")
+                Logger.debug(
+                  "[QB Client] get_access_token: Successfully refreshed access token"
+                )
+
                 {:ok, new_token}
 
               error ->
-                Logger.warning("[QB Client] get_access_token: Failed to refresh token",
+                Logger.warning(
+                  "[QB Client] get_access_token: Failed to refresh token",
                   error: inspect(error)
                 )
 
@@ -2051,7 +2204,10 @@ defmodule Ysc.Quickbooks.Client do
             end
 
           token ->
-            Logger.debug("[QB Client] get_access_token: Using configured access token")
+            Logger.debug(
+              "[QB Client] get_access_token: Using configured access token"
+            )
+
             {:ok, token}
         end
       end
@@ -2099,11 +2255,13 @@ defmodule Ysc.Quickbooks.Client do
             "[QB Client] ⚠️  IMPORTANT: New refresh token received. Update your .env file with: QUICKBOOKS_REFRESH_TOKEN=\"#{new_refresh_token}\""
           )
 
-          Logger.info("[QB Client] Successfully refreshed QuickBooks access token",
+          Logger.info(
+            "[QB Client] Successfully refreshed QuickBooks access token",
             access_token_length: String.length(access_token),
             refresh_token_length: String.length(new_refresh_token),
             access_token_preview: String.slice(access_token, 0, 20) <> "...",
-            refresh_token_preview: String.slice(new_refresh_token, 0, 20) <> "..."
+            refresh_token_preview:
+              String.slice(new_refresh_token, 0, 20) <> "..."
           )
 
           {:ok, access_token}
@@ -2174,20 +2332,26 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:post, url, headers, body)
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
-          Logger.debug("[QB Client] attempt_token_refresh: Got successful response",
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
+          Logger.debug(
+            "[QB Client] attempt_token_refresh: Got successful response",
             status: status
           )
 
           case Jason.decode(response_body) do
             {:ok,
-             %{"access_token" => access_token, "refresh_token" => new_refresh_token} =
+             %{
+               "access_token" => access_token,
+               "refresh_token" => new_refresh_token
+             } =
                  response_data} ->
               # Extract expiration info if available
               expires_in = Map.get(response_data, "expires_in")
               token_type = Map.get(response_data, "token_type", "Bearer")
 
-              Logger.debug("[QB Client] attempt_token_refresh: Token refresh successful",
+              Logger.debug(
+                "[QB Client] attempt_token_refresh: Token refresh successful",
                 expires_in: expires_in,
                 token_type: token_type
               )
@@ -2198,7 +2362,8 @@ defmodule Ysc.Quickbooks.Client do
               Logger.warning(
                 "[QB Client] attempt_token_refresh: Unexpected token refresh response",
                 data: inspect(data),
-                response_keys: if(is_map(data), do: Map.keys(data), else: :not_a_map)
+                response_keys:
+                  if(is_map(data), do: Map.keys(data), else: :not_a_map)
               )
 
               {:error, :invalid_token_response}
@@ -2213,7 +2378,8 @@ defmodule Ysc.Quickbooks.Client do
           end
 
         {:ok, %Finch.Response{status: status, body: response_body}} ->
-          Logger.warning("[QB Client] attempt_token_refresh: Token refresh failed",
+          Logger.warning(
+            "[QB Client] attempt_token_refresh: Token refresh failed",
             status: status,
             response: response_body
           )
@@ -2221,7 +2387,8 @@ defmodule Ysc.Quickbooks.Client do
           {:error, :token_refresh_failed}
 
         {:error, error} ->
-          Logger.warning("[QB Client] attempt_token_refresh: Request failed during token refresh",
+          Logger.warning(
+            "[QB Client] attempt_token_refresh: Request failed during token refresh",
             error: inspect(error)
           )
 
@@ -2229,7 +2396,8 @@ defmodule Ysc.Quickbooks.Client do
       end
     else
       error ->
-        Logger.warning("[QB Client] attempt_token_refresh: Failed to get required credentials",
+        Logger.warning(
+          "[QB Client] attempt_token_refresh: Failed to get required credentials",
           error: inspect(error)
         )
 
@@ -2240,7 +2408,10 @@ defmodule Ysc.Quickbooks.Client do
   defp get_client_id do
     case Application.get_env(:ysc, :quickbooks)[:client_id] do
       nil ->
-        Logger.warning("[QB Client] get_client_id: QUICKBOOKS_CLIENT_ID not configured")
+        Logger.warning(
+          "[QB Client] get_client_id: QUICKBOOKS_CLIENT_ID not configured"
+        )
+
         {:error, :quickbooks_client_id_not_configured}
 
       client_id ->
@@ -2255,7 +2426,10 @@ defmodule Ysc.Quickbooks.Client do
   defp get_client_secret do
     case Application.get_env(:ysc, :quickbooks)[:client_secret] do
       nil ->
-        Logger.warning("[QB Client] get_client_secret: QUICKBOOKS_CLIENT_SECRET not configured")
+        Logger.warning(
+          "[QB Client] get_client_secret: QUICKBOOKS_CLIENT_SECRET not configured"
+        )
+
         {:error, :quickbooks_client_secret_not_configured}
 
       client_secret ->
@@ -2432,7 +2606,9 @@ defmodule Ysc.Quickbooks.Client do
     # Also cache for performance
     case Cachex.put(:ysc_cache, "quickbooks:access_token", access_token) do
       {:ok, true} ->
-        Logger.debug("[QB Client] cache_access_token: Successfully cached access token")
+        Logger.debug(
+          "[QB Client] cache_access_token: Successfully cached access token"
+        )
 
       {:error, reason} ->
         Logger.warning(
@@ -2462,9 +2638,14 @@ defmodule Ysc.Quickbooks.Client do
 
       current_token != access_token ->
         # Token changed, update it
-        case Ysc.Settings.update_setting("quickbooks_access_token", access_token) do
+        case Ysc.Settings.update_setting(
+               "quickbooks_access_token",
+               access_token
+             ) do
           {:ok, _} ->
-            Logger.debug("[QB Client] persist_access_token_to_db: Updated access token in DB")
+            Logger.debug(
+              "[QB Client] persist_access_token_to_db: Updated access token in DB"
+            )
 
           {:error, reason} ->
             Logger.error(
@@ -2494,7 +2675,9 @@ defmodule Ysc.Quickbooks.Client do
     # Also cache for performance
     case Cachex.put(:ysc_cache, "quickbooks:refresh_token", refresh_token) do
       {:ok, true} ->
-        Logger.debug("[QB Client] cache_refresh_token: Successfully cached refresh token")
+        Logger.debug(
+          "[QB Client] cache_refresh_token: Successfully cached refresh token"
+        )
 
       {:error, reason} ->
         Logger.warning(
@@ -2524,9 +2707,14 @@ defmodule Ysc.Quickbooks.Client do
 
       current_token != refresh_token ->
         # Token changed, update it
-        case Ysc.Settings.update_setting("quickbooks_refresh_token", refresh_token) do
+        case Ysc.Settings.update_setting(
+               "quickbooks_refresh_token",
+               refresh_token
+             ) do
           {:ok, _} ->
-            Logger.info("[QB Client] persist_refresh_token_to_db: Updated refresh token in DB")
+            Logger.info(
+              "[QB Client] persist_refresh_token_to_db: Updated refresh token in DB"
+            )
 
           {:error, reason} ->
             Logger.error(
@@ -2602,7 +2790,8 @@ defmodule Ysc.Quickbooks.Client do
     # Cache with no expiration (these don't change)
     case Cachex.put(:ysc_cache, cache_key, account_id, ttl: :infinity) do
       {:ok, true} ->
-        Logger.debug("[QB Client] cache_account_id: Successfully cached account",
+        Logger.debug(
+          "[QB Client] cache_account_id: Successfully cached account",
           cache_key: cache_key,
           account_id: account_id
         )
@@ -2626,7 +2815,8 @@ defmodule Ysc.Quickbooks.Client do
           {:ok, String.t()} | {:error, atom()}
   def query_vendor_by_email(email, opts \\ [])
 
-  def query_vendor_by_email(email, opts) when is_binary(email) and email != "" do
+  def query_vendor_by_email(email, opts)
+      when is_binary(email) and email != "" do
     include_inactive = Keyword.get(opts, :include_inactive, false)
 
     with {:ok, access_token} <- get_access_token(),
@@ -2635,7 +2825,8 @@ defmodule Ysc.Quickbooks.Client do
 
       # Query all vendors (QuickBooks doesn't support nested field queries)
       # We'll filter by email in memory
-      query = "SELECT Id, DisplayName, PrimaryEmailAddr FROM Vendor#{active_filter}"
+      query =
+        "SELECT Id, DisplayName, PrimaryEmailAddr FROM Vendor#{active_filter}"
 
       url = build_query_url(company_id, query)
       headers = build_headers(access_token)
@@ -2648,7 +2839,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:get, url, headers)
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
             when is_list(vendors) and vendors != [] ->
@@ -2664,7 +2856,8 @@ defmodule Ysc.Quickbooks.Client do
 
               {:ok, vendor_id}
 
-            {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}} when is_map(vendor) ->
+            {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}}
+            when is_map(vendor) ->
               vendor_id = Map.get(vendor, "Id")
               found_display_name = Map.get(vendor, "DisplayName")
 
@@ -2677,11 +2870,15 @@ defmodule Ysc.Quickbooks.Client do
               {:ok, vendor_id}
 
             {:ok, %{"QueryResponse" => _}} ->
-              Logger.debug("[QB Client] query_vendor_by_email: No vendor found", email: email)
+              Logger.debug("[QB Client] query_vendor_by_email: No vendor found",
+                email: email
+              )
+
               {:error, :not_found}
 
             {:error, error} ->
-              Logger.error("[QB Client] query_vendor_by_email: Failed to parse response",
+              Logger.error(
+                "[QB Client] query_vendor_by_email: Failed to parse response",
                 error: inspect(error)
               )
 
@@ -2695,16 +2892,22 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:get, url, headers)
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
-                    {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}} when is_list(vendors) ->
+                    {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
+                    when is_list(vendors) ->
                       # Filter vendors by email in memory
                       matching_vendor =
                         Enum.find(vendors, fn vendor ->
-                          primary_email = Map.get(vendor, "PrimaryEmailAddr", %{})
+                          primary_email =
+                            Map.get(vendor, "PrimaryEmailAddr", %{})
+
                           vendor_email = Map.get(primary_email, "Address", "")
-                          String.downcase(vendor_email) == String.downcase(email)
+
+                          String.downcase(vendor_email) ==
+                            String.downcase(email)
                         end)
 
                       case matching_vendor do
@@ -2716,7 +2919,8 @@ defmodule Ysc.Quickbooks.Client do
                           {:ok, vendor_id}
                       end
 
-                    {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}} when is_map(vendor) ->
+                    {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}}
+                    when is_map(vendor) ->
                       # Single vendor returned, check if email matches
                       primary_email = Map.get(vendor, "PrimaryEmailAddr", %{})
                       vendor_email = Map.get(primary_email, "Address", "")
@@ -2783,7 +2987,8 @@ defmodule Ysc.Quickbooks.Client do
       url = build_query_url(company_id, query)
       headers = build_headers(access_token)
 
-      Logger.debug("[QB Client] query_vendor_by_display_name: Querying for vendor",
+      Logger.debug(
+        "[QB Client] query_vendor_by_display_name: Querying for vendor",
         display_name: display_name,
         query: query
       )
@@ -2791,7 +2996,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:get, url, headers)
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
             when is_list(vendors) and vendors != [] ->
@@ -2799,7 +3005,8 @@ defmodule Ysc.Quickbooks.Client do
               vendor_id = Map.get(vendor, "Id")
               found_display_name = Map.get(vendor, "DisplayName")
 
-              Logger.debug("[QB Client] query_vendor_by_display_name: Found vendor",
+              Logger.debug(
+                "[QB Client] query_vendor_by_display_name: Found vendor",
                 vendor_id: vendor_id,
                 searched_for: display_name,
                 found_display_name: found_display_name
@@ -2807,11 +3014,13 @@ defmodule Ysc.Quickbooks.Client do
 
               {:ok, vendor_id}
 
-            {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}} when is_map(vendor) ->
+            {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}}
+            when is_map(vendor) ->
               vendor_id = Map.get(vendor, "Id")
               found_display_name = Map.get(vendor, "DisplayName")
 
-              Logger.debug("[QB Client] query_vendor_by_display_name: Found vendor",
+              Logger.debug(
+                "[QB Client] query_vendor_by_display_name: Found vendor",
                 vendor_id: vendor_id,
                 searched_for: display_name,
                 found_display_name: found_display_name
@@ -2820,14 +3029,16 @@ defmodule Ysc.Quickbooks.Client do
               {:ok, vendor_id}
 
             {:ok, %{"QueryResponse" => _}} ->
-              Logger.debug("[QB Client] query_vendor_by_display_name: No vendor found",
+              Logger.debug(
+                "[QB Client] query_vendor_by_display_name: No vendor found",
                 display_name: display_name
               )
 
               {:error, :not_found}
 
             {:error, error} ->
-              Logger.error("[QB Client] query_vendor_by_display_name: Failed to parse response",
+              Logger.error(
+                "[QB Client] query_vendor_by_display_name: Failed to parse response",
                 error: inspect(error)
               )
 
@@ -2841,7 +3052,8 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:get, url, headers)
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
@@ -2849,7 +3061,8 @@ defmodule Ysc.Quickbooks.Client do
                       vendor_id = List.first(vendors) |> Map.get("Id")
                       {:ok, vendor_id}
 
-                    {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}} when is_map(vendor) ->
+                    {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}}
+                    when is_map(vendor) ->
                       vendor_id = Map.get(vendor, "Id")
                       {:ok, vendor_id}
 
@@ -2878,7 +3091,8 @@ defmodule Ysc.Quickbooks.Client do
           {:error, error}
 
         {:error, error} ->
-          Logger.error("[QB Client] query_vendor_by_display_name: Request failed",
+          Logger.error(
+            "[QB Client] query_vendor_by_display_name: Request failed",
             error: inspect(error)
           )
 
@@ -2917,7 +3131,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:post, url, headers, Jason.encode!(body))
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, data} ->
               vendor = get_response_entity(data, "Vendor")
@@ -2933,12 +3148,17 @@ defmodule Ysc.Quickbooks.Client do
               {:ok, vendor}
 
             {:error, error} ->
-              Logger.error("Failed to parse QuickBooks response", error: inspect(error))
+              Logger.error("Failed to parse QuickBooks response",
+                error: inspect(error)
+              )
+
               {:error, :invalid_response}
           end
 
         {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-          Logger.warning("QuickBooks authentication failed, attempting token refresh")
+          Logger.warning(
+            "QuickBooks authentication failed, attempting token refresh"
+          )
 
           case refresh_access_token() do
             {:ok, new_access_token} ->
@@ -2947,7 +3167,8 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, data} ->
@@ -2958,7 +3179,8 @@ defmodule Ysc.Quickbooks.Client do
                       {:error, :invalid_response}
                   end
 
-                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}} ->
                   error = parse_error_response(retry_response_body)
 
                   Logger.error(
@@ -2970,12 +3192,18 @@ defmodule Ysc.Quickbooks.Client do
                   {:error, error}
 
                 {:error, error} ->
-                  Logger.error("Request failed after token refresh", error: inspect(error))
+                  Logger.error("Request failed after token refresh",
+                    error: inspect(error)
+                  )
+
                   {:error, :request_failed}
               end
 
             error ->
-              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+              Logger.error("Failed to refresh QuickBooks access token",
+                error: inspect(error)
+              )
+
               {:error, :authentication_failed}
           end
 
@@ -3001,14 +3229,18 @@ defmodule Ysc.Quickbooks.Client do
           end
 
         {:error, error} ->
-          Logger.error("Failed to create QuickBooks Vendor", error: inspect(error))
+          Logger.error("Failed to create QuickBooks Vendor",
+            error: inspect(error)
+          )
+
           {:error, :request_failed}
       end
     end
   end
 
   # Helper function to create vendor with retry logic for duplicate names
-  defp create_vendor_with_retry(params, original_display_name, attempt) when attempt < 3 do
+  defp create_vendor_with_retry(params, original_display_name, attempt)
+       when attempt < 3 do
     case create_vendor(params) do
       {:ok, vendor} ->
         vendor_id = Map.get(vendor, "Id")
@@ -3018,7 +3250,8 @@ defmodule Ysc.Quickbooks.Client do
         # Check if this is a duplicate name error
         if String.starts_with?(error_message, "DUPLICATE_VENDOR_ID:") do
           # Extract vendor ID from error and verify it's actually a Vendor
-          extracted_id = String.replace_prefix(error_message, "DUPLICATE_VENDOR_ID:", "")
+          extracted_id =
+            String.replace_prefix(error_message, "DUPLICATE_VENDOR_ID:", "")
 
           case verify_vendor_id(extracted_id) do
             {:ok, vendor_id} ->
@@ -3045,7 +3278,12 @@ defmodule Ysc.Quickbooks.Client do
 
               new_display_name = original_display_name <> suffix
               new_params = Map.put(params, :display_name, new_display_name)
-              create_vendor_with_retry(new_params, original_display_name, attempt + 1)
+
+              create_vendor_with_retry(
+                new_params,
+                original_display_name,
+                attempt + 1
+              )
 
             error ->
               Logger.error(
@@ -3076,7 +3314,12 @@ defmodule Ysc.Quickbooks.Client do
 
             # Retry with modified display name
             new_params = Map.put(params, :display_name, new_display_name)
-            create_vendor_with_retry(new_params, original_display_name, attempt + 1)
+
+            create_vendor_with_retry(
+              new_params,
+              original_display_name,
+              attempt + 1
+            )
           else
             {:error, error_message}
           end
@@ -3094,27 +3337,32 @@ defmodule Ysc.Quickbooks.Client do
       attempts: attempt
     )
 
-    {:error, "Failed to create vendor after #{attempt} attempts due to duplicate name conflicts"}
+    {:error,
+     "Failed to create vendor after #{attempt} attempts due to duplicate name conflicts"}
   end
 
   # Verify that an ID is actually a Vendor (not a Customer or other entity type)
   defp verify_vendor_id(vendor_id) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
-      query = "SELECT Id FROM Vendor WHERE Id = '#{escape_query_string(vendor_id)}'"
+      query =
+        "SELECT Id FROM Vendor WHERE Id = '#{escape_query_string(vendor_id)}'"
+
       url = build_query_url(company_id, query)
       headers = build_headers(access_token)
 
       request = Finch.build(:get, url, headers)
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, %{"QueryResponse" => %{"Vendor" => vendors}}}
             when is_list(vendors) and vendors != [] ->
               {:ok, vendor_id}
 
-            {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}} when is_map(vendor) ->
+            {:ok, %{"QueryResponse" => %{"Vendor" => vendor}}}
+            when is_map(vendor) ->
               {:ok, vendor_id}
 
             {:ok, %{"QueryResponse" => _}} ->
@@ -3122,7 +3370,8 @@ defmodule Ysc.Quickbooks.Client do
               {:error, :not_a_vendor}
 
             {:error, error} ->
-              Logger.error("[QB Client] verify_vendor_id: Failed to parse response",
+              Logger.error(
+                "[QB Client] verify_vendor_id: Failed to parse response",
                 error: inspect(error)
               )
 
@@ -3154,8 +3403,14 @@ defmodule Ysc.Quickbooks.Client do
     |> maybe_put("GivenName", params[:given_name])
     |> maybe_put("FamilyName", params[:family_name])
     |> maybe_put("CompanyName", params[:company_name])
-    |> maybe_put("PrimaryEmailAddr", params[:email] && %{"Address" => params.email})
-    |> maybe_put("PrimaryPhone", params[:phone] && %{"FreeFormNumber" => params.phone})
+    |> maybe_put(
+      "PrimaryEmailAddr",
+      params[:email] && %{"Address" => params.email}
+    )
+    |> maybe_put(
+      "PrimaryPhone",
+      params[:phone] && %{"FreeFormNumber" => params.phone}
+    )
     |> maybe_put("AcctNum", params[:acct_num])
     |> maybe_put("BillAddr", build_address(params[:bill_address]))
     |> maybe_put("Notes", params[:notes])
@@ -3173,7 +3428,8 @@ defmodule Ysc.Quickbooks.Client do
       if vendor_params[:email] && vendor_params[:email] != "" do
         case query_vendor_by_email(vendor_params[:email]) do
           {:ok, id} ->
-            Logger.debug("[QB Client] get_or_create_vendor: Found vendor by email",
+            Logger.debug(
+              "[QB Client] get_or_create_vendor: Found vendor by email",
               email: vendor_params[:email],
               vendor_id: id
             )
@@ -3194,7 +3450,8 @@ defmodule Ysc.Quickbooks.Client do
       # Otherwise, search by display name
       case query_vendor_by_display_name(display_name) do
         {:ok, vendor_id} ->
-          Logger.debug("[QB Client] get_or_create_vendor: Found existing vendor",
+          Logger.debug(
+            "[QB Client] get_or_create_vendor: Found existing vendor",
             display_name: display_name,
             vendor_id: vendor_id
           )
@@ -3202,7 +3459,8 @@ defmodule Ysc.Quickbooks.Client do
           {:ok, vendor_id}
 
         {:error, :not_found} ->
-          Logger.info("[QB Client] get_or_create_vendor: Vendor not found, creating",
+          Logger.info(
+            "[QB Client] get_or_create_vendor: Vendor not found, creating",
             display_name: display_name,
             email: vendor_params[:email]
           )
@@ -3246,20 +3504,30 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:post, url, headers, Jason.encode!(body))
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, data} ->
               bill = get_response_entity(data, "Bill")
-              Logger.info("Successfully created QuickBooks Bill", bill_id: Map.get(bill, "Id"))
+
+              Logger.info("Successfully created QuickBooks Bill",
+                bill_id: Map.get(bill, "Id")
+              )
+
               {:ok, bill}
 
             {:error, error} ->
-              Logger.error("Failed to parse QuickBooks response", error: inspect(error))
+              Logger.error("Failed to parse QuickBooks response",
+                error: inspect(error)
+              )
+
               {:error, :invalid_response}
           end
 
         {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-          Logger.warning("QuickBooks authentication failed, attempting token refresh")
+          Logger.warning(
+            "QuickBooks authentication failed, attempting token refresh"
+          )
 
           case refresh_access_token() do
             {:ok, new_access_token} ->
@@ -3268,7 +3536,8 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:post, url, headers, Jason.encode!(body))
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, data} ->
@@ -3279,7 +3548,8 @@ defmodule Ysc.Quickbooks.Client do
                       {:error, :invalid_response}
                   end
 
-                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}} ->
                   error = parse_error_response(retry_response_body)
 
                   Logger.error(
@@ -3291,12 +3561,18 @@ defmodule Ysc.Quickbooks.Client do
                   {:error, error}
 
                 {:error, error} ->
-                  Logger.error("Request failed after token refresh", error: inspect(error))
+                  Logger.error("Request failed after token refresh",
+                    error: inspect(error)
+                  )
+
                   {:error, :request_failed}
               end
 
             error ->
-              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+              Logger.error("Failed to refresh QuickBooks access token",
+                error: inspect(error)
+              )
+
               {:error, :authentication_failed}
           end
 
@@ -3313,7 +3589,10 @@ defmodule Ysc.Quickbooks.Client do
           {:error, error}
 
         {:error, error} ->
-          Logger.error("Failed to create QuickBooks Bill", error: inspect(error))
+          Logger.error("Failed to create QuickBooks Bill",
+            error: inspect(error)
+          )
+
           {:error, :request_failed}
       end
     end
@@ -3356,12 +3635,20 @@ defmodule Ysc.Quickbooks.Client do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
       {request, content_type_header, url, body} =
-        build_upload_request(file_path, file_name, content_type, company_id, access_token, opts)
+        build_upload_request(
+          file_path,
+          file_name,
+          content_type,
+          company_id,
+          access_token,
+          opts
+        )
 
       Logger.info("Uploading attachment to QuickBooks", file_name: file_name)
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           handle_upload_success_response(response_body, file_name)
 
         {:ok, %Finch.Response{status: 401, body: _response_body}} ->
@@ -3380,13 +3667,23 @@ defmodule Ysc.Quickbooks.Client do
           {:error, error}
 
         {:error, error} ->
-          Logger.error("Failed to upload attachment to QuickBooks", error: inspect(error))
+          Logger.error("Failed to upload attachment to QuickBooks",
+            error: inspect(error)
+          )
+
           {:error, :request_failed}
       end
     end
   end
 
-  defp build_upload_request(file_path, file_name, content_type, company_id, access_token, opts) do
+  defp build_upload_request(
+         file_path,
+         file_name,
+         content_type,
+         company_id,
+         access_token,
+         opts
+       ) do
     # Support idempotency via requestid parameter
     idempotency_key =
       case Keyword.get(opts, :idempotency_key) do
@@ -3477,7 +3774,10 @@ defmodule Ysc.Quickbooks.Client do
         end
 
       {:error, error} ->
-        Logger.error("Failed to parse QuickBooks response", error: inspect(error))
+        Logger.error("Failed to parse QuickBooks response",
+          error: inspect(error)
+        )
+
         {:error, :invalid_response}
     end
   end
@@ -3681,12 +3981,18 @@ defmodule Ysc.Quickbooks.Client do
             {:error, error}
 
           {:error, error} ->
-            Logger.error("Request failed after token refresh", error: inspect(error))
+            Logger.error("Request failed after token refresh",
+              error: inspect(error)
+            )
+
             {:error, :request_failed}
         end
 
       error ->
-        Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+        Logger.error("Failed to refresh QuickBooks access token",
+          error: inspect(error)
+        )
+
         {:error, :authentication_failed}
     end
   end
@@ -3724,15 +4030,22 @@ defmodule Ysc.Quickbooks.Client do
           ]
         }
 
-        Logger.info("Linking attachment to Bill", attachable_id: attachable_id, bill_id: bill_id)
+        Logger.info("Linking attachment to Bill",
+          attachable_id: attachable_id,
+          bill_id: bill_id
+        )
 
         body_json = Jason.encode!(body, pretty: true)
-        Logger.info("[QB Client] link_attachment_to_bill: Full request body:\n#{body_json}")
+
+        Logger.info(
+          "[QB Client] link_attachment_to_bill: Full request body:\n#{body_json}"
+        )
 
         request = Finch.build(:post, url, headers, Jason.encode!(body))
 
         case Finch.request(request, Ysc.Finch) do
-          {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+          {:ok, %Finch.Response{status: status, body: response_body}}
+          when status in 200..299 ->
             Logger.info(
               "[QB Client] link_attachment_to_bill: Success response received",
               status: status,
@@ -3752,9 +4065,15 @@ defmodule Ysc.Quickbooks.Client do
                 Logger.info(
                   "[QB Client] link_attachment_to_bill: Extracted attachable",
                   attachable_keys:
-                    if(is_map(attachable), do: Map.keys(attachable), else: :not_map),
+                    if(is_map(attachable),
+                      do: Map.keys(attachable),
+                      else: :not_map
+                    ),
                   attachable_id:
-                    if(is_map(attachable), do: Map.get(attachable, "Id"), else: :not_map),
+                    if(is_map(attachable),
+                      do: Map.get(attachable, "Id"),
+                      else: :not_map
+                    ),
                   attachable_ref:
                     if(is_map(attachable),
                       do: Map.get(attachable, "AttachableRef"),
@@ -3776,7 +4095,12 @@ defmodule Ysc.Quickbooks.Client do
                   linked_to_bill =
                     Enum.any?(attachable_refs, fn ref ->
                       case ref do
-                        %{"EntityRef" => %{"type" => "Bill", "value" => ref_bill_id}} ->
+                        %{
+                          "EntityRef" => %{
+                            "type" => "Bill",
+                            "value" => ref_bill_id
+                          }
+                        } ->
                           ref_bill_id == bill_id
 
                         _ ->
@@ -3804,12 +4128,17 @@ defmodule Ysc.Quickbooks.Client do
                 {:ok, attachable}
 
               {:error, error} ->
-                Logger.error("Failed to parse QuickBooks response", error: inspect(error))
+                Logger.error("Failed to parse QuickBooks response",
+                  error: inspect(error)
+                )
+
                 {:error, :invalid_response}
             end
 
           {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-            Logger.warning("QuickBooks authentication failed, attempting token refresh")
+            Logger.warning(
+              "QuickBooks authentication failed, attempting token refresh"
+            )
 
             case refresh_access_token() do
               {:ok, new_access_token} ->
@@ -3817,7 +4146,8 @@ defmodule Ysc.Quickbooks.Client do
                 request = Finch.build(:post, url, headers, Jason.encode!(body))
 
                 case Finch.request(request, Ysc.Finch) do
-                  {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                  {:ok,
+                   %Finch.Response{status: status, body: retry_response_body}}
                   when status in 200..299 ->
                     case Jason.decode(retry_response_body) do
                       {:ok, data} ->
@@ -3828,7 +4158,8 @@ defmodule Ysc.Quickbooks.Client do
                         {:error, :invalid_response}
                     end
 
-                  {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                  {:ok,
+                   %Finch.Response{status: status, body: retry_response_body}} ->
                     error = parse_error_response(retry_response_body)
 
                     Logger.error(
@@ -3840,12 +4171,18 @@ defmodule Ysc.Quickbooks.Client do
                     {:error, error}
 
                   {:error, error} ->
-                    Logger.error("Request failed after token refresh", error: inspect(error))
+                    Logger.error("Request failed after token refresh",
+                      error: inspect(error)
+                    )
+
                     {:error, :request_failed}
                 end
 
               error ->
-                Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+                Logger.error("Failed to refresh QuickBooks access token",
+                  error: inspect(error)
+                )
+
                 {:error, :authentication_failed}
             end
 
@@ -3862,7 +4199,10 @@ defmodule Ysc.Quickbooks.Client do
             {:error, error}
 
           {:error, error} ->
-            Logger.error("Failed to link attachment to Bill", error: inspect(error))
+            Logger.error("Failed to link attachment to Bill",
+              error: inspect(error)
+            )
+
             {:error, :request_failed}
         end
       end
@@ -3872,7 +4212,8 @@ defmodule Ysc.Quickbooks.Client do
   @doc """
   Gets a BillPayment by ID from QuickBooks.
   """
-  @spec get_bill_payment(String.t()) :: {:ok, map()} | {:error, atom() | String.t()}
+  @spec get_bill_payment(String.t()) ::
+          {:ok, map()} | {:error, atom() | String.t()}
   def get_bill_payment(bill_payment_id) do
     with {:ok, access_token} <- get_access_token(),
          {:ok, company_id} <- get_company_id() do
@@ -3887,7 +4228,8 @@ defmodule Ysc.Quickbooks.Client do
       request = Finch.build(:get, url, headers)
 
       case Finch.request(request, Ysc.Finch) do
-        {:ok, %Finch.Response{status: status, body: response_body}} when status in 200..299 ->
+        {:ok, %Finch.Response{status: status, body: response_body}}
+        when status in 200..299 ->
           case Jason.decode(response_body) do
             {:ok, data} ->
               bill_payment = get_response_entity(data, "BillPayment")
@@ -3908,7 +4250,9 @@ defmodule Ysc.Quickbooks.Client do
           end
 
         {:ok, %Finch.Response{status: 401, body: _response_body}} ->
-          Logger.warning("QuickBooks authentication failed, attempting token refresh")
+          Logger.warning(
+            "QuickBooks authentication failed, attempting token refresh"
+          )
 
           case refresh_access_token() do
             {:ok, new_access_token} ->
@@ -3916,7 +4260,8 @@ defmodule Ysc.Quickbooks.Client do
               request = Finch.build(:get, url, headers)
 
               case Finch.request(request, Ysc.Finch) do
-                {:ok, %Finch.Response{status: status, body: retry_response_body}}
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}}
                 when status in 200..299 ->
                   case Jason.decode(retry_response_body) do
                     {:ok, data} ->
@@ -3927,7 +4272,8 @@ defmodule Ysc.Quickbooks.Client do
                       {:error, :invalid_response}
                   end
 
-                {:ok, %Finch.Response{status: status, body: retry_response_body}} ->
+                {:ok,
+                 %Finch.Response{status: status, body: retry_response_body}} ->
                   error = parse_error_response(retry_response_body)
 
                   Logger.error(
@@ -3939,12 +4285,18 @@ defmodule Ysc.Quickbooks.Client do
                   {:error, error}
 
                 {:error, error} ->
-                  Logger.error("Request failed after token refresh", error: inspect(error))
+                  Logger.error("Request failed after token refresh",
+                    error: inspect(error)
+                  )
+
                   {:error, :request_failed}
               end
 
             error ->
-              Logger.error("Failed to refresh QuickBooks access token", error: inspect(error))
+              Logger.error("Failed to refresh QuickBooks access token",
+                error: inspect(error)
+              )
+
               {:error, :authentication_failed}
           end
 
@@ -3960,7 +4312,10 @@ defmodule Ysc.Quickbooks.Client do
           {:error, error}
 
         {:error, error} ->
-          Logger.error("Failed to get BillPayment from QuickBooks", error: inspect(error))
+          Logger.error("Failed to get BillPayment from QuickBooks",
+            error: inspect(error)
+          )
+
           {:error, :request_failed}
       end
     end

@@ -15,7 +15,10 @@ defmodule YscWeb.TrixUploadsControllerTest do
 
   describe "create/2" do
     @tag :skip
-    test "returns 201 with image URL when upload succeeds", %{conn: conn, user: user} do
+    test "returns 201 with image URL when upload succeeds", %{
+      conn: conn,
+      user: user
+    } do
       # Create a test post
       {:ok, post} =
         Posts.create_post(
@@ -28,9 +31,14 @@ defmodule YscWeb.TrixUploadsControllerTest do
         )
 
       # Create a minimal valid JPEG file
-      test_image_path = "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
+      test_image_path =
+        "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
+
       # Valid minimal JPEG header
-      File.write!(test_image_path, <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>)
+      File.write!(
+        test_image_path,
+        <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>
+      )
 
       upload = %Plug.Upload{
         path: test_image_path,
@@ -68,7 +76,10 @@ defmodule YscWeb.TrixUploadsControllerTest do
     end
 
     @tag :skip
-    test "returns raw image URL when optimized path is nil", %{conn: conn, user: user} do
+    test "returns raw image URL when optimized path is nil", %{
+      conn: conn,
+      user: user
+    } do
       {:ok, post} =
         Posts.create_post(
           %{
@@ -79,8 +90,13 @@ defmodule YscWeb.TrixUploadsControllerTest do
           user
         )
 
-      test_image_path = "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
-      File.write!(test_image_path, <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>)
+      test_image_path =
+        "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
+
+      File.write!(
+        test_image_path,
+        <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>
+      )
 
       upload = %Plug.Upload{
         path: test_image_path,
@@ -117,8 +133,13 @@ defmodule YscWeb.TrixUploadsControllerTest do
           user
         )
 
-      test_image_path = "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
-      File.write!(test_image_path, <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>)
+      test_image_path =
+        "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
+
+      File.write!(
+        test_image_path,
+        <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>
+      )
 
       upload = %Plug.Upload{
         path: test_image_path,
@@ -143,7 +164,10 @@ defmodule YscWeb.TrixUploadsControllerTest do
     end
 
     @tag :skip
-    test "does not set cover photo when post already has image_id", %{conn: conn, user: user} do
+    test "does not set cover photo when post already has image_id", %{
+      conn: conn,
+      user: user
+    } do
       {:ok, existing_image} =
         %Image{
           user_id: user.id,
@@ -163,8 +187,13 @@ defmodule YscWeb.TrixUploadsControllerTest do
           user
         )
 
-      test_image_path = "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
-      File.write!(test_image_path, <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>)
+      test_image_path =
+        "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
+
+      File.write!(
+        test_image_path,
+        <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>
+      )
 
       upload = %Plug.Upload{
         path: test_image_path,
@@ -190,8 +219,13 @@ defmodule YscWeb.TrixUploadsControllerTest do
 
     @tag :skip
     test "handles missing post_id gracefully", %{conn: conn, user: _user} do
-      test_image_path = "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
-      File.write!(test_image_path, <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>)
+      test_image_path =
+        "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
+
+      File.write!(
+        test_image_path,
+        <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>
+      )
 
       upload = %Plug.Upload{
         path: test_image_path,
@@ -216,7 +250,10 @@ defmodule YscWeb.TrixUploadsControllerTest do
     end
 
     @tag :skip
-    test "uses fallback URL when S3 location is empty", %{conn: conn, user: user} do
+    test "uses fallback URL when S3 location is empty", %{
+      conn: conn,
+      user: user
+    } do
       {:ok, post} =
         Posts.create_post(
           %{
@@ -227,8 +264,13 @@ defmodule YscWeb.TrixUploadsControllerTest do
           user
         )
 
-      test_image_path = "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
-      File.write!(test_image_path, <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>)
+      test_image_path =
+        "/tmp/test_image_#{System.unique_integer([:positive])}.jpg"
+
+      File.write!(
+        test_image_path,
+        <<0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46>>
+      )
 
       upload = %Plug.Upload{
         path: test_image_path,

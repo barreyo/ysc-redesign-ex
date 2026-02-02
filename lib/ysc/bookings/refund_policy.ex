@@ -22,7 +22,9 @@ defmodule Ysc.Bookings.RefundPolicy do
     field :booking_mode, BookingMode
     field :is_active, :boolean, default: true
 
-    has_many :rules, RefundPolicyRule, foreign_key: :refund_policy_id, on_delete: :delete_all
+    has_many :rules, RefundPolicyRule,
+      foreign_key: :refund_policy_id,
+      on_delete: :delete_all
 
     timestamps()
   end
@@ -38,7 +40,8 @@ defmodule Ysc.Bookings.RefundPolicy do
     |> validate_length(:description, max: 5000)
     |> unique_constraint([:property, :booking_mode],
       name: :refund_policies_property_mode_active_unique,
-      message: "An active policy already exists for this property and booking mode"
+      message:
+        "An active policy already exists for this property and booking mode"
     )
   end
 end

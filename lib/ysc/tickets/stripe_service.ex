@@ -104,8 +104,10 @@ defmodule Ysc.Tickets.StripeService do
   - `{:error, reason}` on failure
   """
   def process_successful_payment(payment_intent_id) do
-    with {:ok, payment_intent} <- stripe_client().retrieve_payment_intent(payment_intent_id, %{}),
-         {:ok, ticket_order} <- get_ticket_order_from_payment_intent(payment_intent),
+    with {:ok, payment_intent} <-
+           stripe_client().retrieve_payment_intent(payment_intent_id, %{}),
+         {:ok, ticket_order} <-
+           get_ticket_order_from_payment_intent(payment_intent),
          :ok <- validate_payment_intent(payment_intent, ticket_order) do
       Tickets.process_ticket_order_payment(ticket_order, payment_intent_id)
     end
@@ -122,9 +124,14 @@ defmodule Ysc.Tickets.StripeService do
   - `{:ok, %TicketOrder{}}` on success
   - `{:error, reason}` on failure
   """
-  def handle_failed_payment(payment_intent_id, failure_reason \\ "Payment failed") do
-    with {:ok, payment_intent} <- stripe_client().retrieve_payment_intent(payment_intent_id, %{}),
-         {:ok, ticket_order} <- get_ticket_order_from_payment_intent(payment_intent) do
+  def handle_failed_payment(
+        payment_intent_id,
+        failure_reason \\ "Payment failed"
+      ) do
+    with {:ok, payment_intent} <-
+           stripe_client().retrieve_payment_intent(payment_intent_id, %{}),
+         {:ok, ticket_order} <-
+           get_ticket_order_from_payment_intent(payment_intent) do
       Tickets.cancel_ticket_order(ticket_order, failure_reason)
     end
   end
@@ -139,7 +146,8 @@ defmodule Ysc.Tickets.StripeService do
   - `:ok` on success
   - `{:error, reason}` on failure
   """
-  def cancel_payment_intent(payment_intent_id) when is_binary(payment_intent_id) do
+  def cancel_payment_intent(payment_intent_id)
+      when is_binary(payment_intent_id) do
     require Logger
 
     case stripe_client().cancel_payment_intent(payment_intent_id, %{}) do

@@ -34,11 +34,17 @@ defmodule Ysc.Bookings.Room do
     field :king_beds, :integer, default: 0
 
     # Relationships
-    belongs_to :room_category, Ysc.Bookings.RoomCategory, foreign_key: :room_category_id
-    belongs_to :default_season, Ysc.Bookings.Season, foreign_key: :default_season_id
+    belongs_to :room_category, Ysc.Bookings.RoomCategory,
+      foreign_key: :room_category_id
+
+    belongs_to :default_season, Ysc.Bookings.Season,
+      foreign_key: :default_season_id
+
     belongs_to :image, Ysc.Media.Image, foreign_key: :image_id
 
-    many_to_many :bookings, Ysc.Bookings.Booking, join_through: Ysc.Bookings.BookingRoom
+    many_to_many :bookings, Ysc.Bookings.Booking,
+      join_through: Ysc.Bookings.BookingRoom
+
     has_many :pricing_rules, Ysc.Bookings.PricingRule, foreign_key: :room_id
 
     timestamps()
@@ -67,7 +73,10 @@ defmodule Ysc.Bookings.Room do
     |> validate_required([:name, :property, :capacity_max])
     |> validate_length(:name, max: 255)
     |> validate_length(:description, max: 1000)
-    |> validate_number(:capacity_max, greater_than: 0, less_than_or_equal_to: 12)
+    |> validate_number(:capacity_max,
+      greater_than: 0,
+      less_than_or_equal_to: 12
+    )
     |> validate_number(:min_billable_occupancy, greater_than_or_equal_to: 1)
     |> validate_number(:single_beds, greater_than_or_equal_to: 0)
     |> validate_number(:queen_beds, greater_than_or_equal_to: 0)
@@ -95,7 +104,8 @@ defmodule Ysc.Bookings.Room do
       iex> Room.billable_people(room, 3)
       3
   """
-  def billable_people(%__MODULE__{} = room, guests_count) when is_integer(guests_count) do
+  def billable_people(%__MODULE__{} = room, guests_count)
+      when is_integer(guests_count) do
     min_occupancy = room.min_billable_occupancy || 1
     max(guests_count, min_occupancy)
   end

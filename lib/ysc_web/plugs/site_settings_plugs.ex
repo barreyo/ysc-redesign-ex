@@ -15,7 +15,11 @@ defmodule YscWeb.Plugs.SiteSettingsPlugs do
   end
 
   def mount_site_settings(conn, _opts) do
-    assign(conn, :site_setting_socials_instagram, Settings.get_setting("instagram"))
+    assign(
+      conn,
+      :site_setting_socials_instagram,
+      Settings.get_setting("instagram")
+    )
     |> assign(:site_setting_socials_facebook, Settings.get_setting("facebook"))
     |> assign(:site_setting_socials_discord, Settings.get_setting("discord"))
   end

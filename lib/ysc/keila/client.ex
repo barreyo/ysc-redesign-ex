@@ -28,13 +28,19 @@ defmodule Ysc.Keila.Client do
 
         # Add first_name if provided
         data =
-          if opts[:first_name], do: Map.put(data, "first_name", opts[:first_name]), else: data
+          if opts[:first_name],
+            do: Map.put(data, "first_name", opts[:first_name]),
+            else: data
 
         # Add last_name if provided
-        data = if opts[:last_name], do: Map.put(data, "last_name", opts[:last_name]), else: data
+        data =
+          if opts[:last_name],
+            do: Map.put(data, "last_name", opts[:last_name]),
+            else: data
 
         # Add custom metadata if provided
-        data = if opts[:data], do: Map.put(data, "data", opts[:data]), else: data
+        data =
+          if opts[:data], do: Map.put(data, "data", opts[:data]), else: data
 
         body = %{"data" => data}
 

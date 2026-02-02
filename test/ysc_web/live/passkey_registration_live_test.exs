@@ -9,12 +9,16 @@ defmodule YscWeb.PasskeyRegistrationLiveTest do
   setup :register_and_log_in_user
 
   describe "Passkey registration page" do
-    test "renders registration page for authenticated user", %{conn: conn, user: _user} do
+    test "renders registration page for authenticated user", %{
+      conn: conn,
+      user: _user
+    } do
       {:ok, _lv, html} = live(conn, ~p"/users/settings/passkeys/new")
 
       assert html =~ "Add a Passkey to Your Account"
       # Check for subtitle text (may be in different format)
-      assert html =~ "fingerprint" || html =~ "face scan" || html =~ "sign in faster"
+      assert html =~ "fingerprint" || html =~ "face scan" ||
+               html =~ "sign in faster"
     end
 
     test "redirects unauthenticated users to login", %{conn: _conn} do
@@ -78,10 +82,15 @@ defmodule YscWeb.PasskeyRegistrationLiveTest do
       Application.put_env(:wax_, :rp_id, original_rp_id)
 
       # Should not crash; we should still push a registration challenge
-      assert_push_event(lv, "create_registration_challenge", %{options: _options})
+      assert_push_event(lv, "create_registration_challenge", %{
+        options: _options
+      })
     end
 
-    test "handles invalid WebAuthn response gracefully", %{conn: conn, user: _user} do
+    test "handles invalid WebAuthn response gracefully", %{
+      conn: conn,
+      user: _user
+    } do
       {:ok, lv, _html} = live(conn, ~p"/users/settings/passkeys/new")
 
       # First enable passkey support so the button is visible
@@ -96,6 +105,7 @@ defmodule YscWeb.PasskeyRegistrationLiveTest do
 
       # Get the challenge from the push event
       assert_push_event(lv, "create_registration_challenge", %{options: options})
+
       challenge_base64 = options[:challenge]
       assert is_binary(challenge_base64)
 
@@ -116,8 +126,10 @@ defmodule YscWeb.PasskeyRegistrationLiveTest do
         "rawId" => Base.url_encode64(credential_id, padding: false),
         "type" => "public-key",
         "response" => %{
-          "attestationObject" => Base.url_encode64(invalid_attestation_object, padding: false),
-          "clientDataJSON" => Base.url_encode64(client_data_json, padding: false)
+          "attestationObject" =>
+            Base.url_encode64(invalid_attestation_object, padding: false),
+          "clientDataJSON" =>
+            Base.url_encode64(client_data_json, padding: false)
         }
       }
 

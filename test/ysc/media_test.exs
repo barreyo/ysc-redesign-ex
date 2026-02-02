@@ -83,7 +83,9 @@ defmodule Ysc.MediaTest do
         }
         |> Repo.insert()
 
-      assert {:ok, updated} = Media.set_image_processing_state(image, :processing)
+      assert {:ok, updated} =
+               Media.set_image_processing_state(image, :processing)
+
       assert updated.processing_state == :processing
     end
   end

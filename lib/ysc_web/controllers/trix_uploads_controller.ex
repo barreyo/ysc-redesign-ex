@@ -39,7 +39,13 @@ defmodule YscWeb.TrixUploadsController do
     tmp_path = plug_upload["file"].path
 
     # Validate file MIME type before processing
-    case FileValidator.validate_image(tmp_path, [".jpg", ".jpeg", ".png", ".gif", ".webp"]) do
+    case FileValidator.validate_image(tmp_path, [
+           ".jpg",
+           ".jpeg",
+           ".png",
+           ".gif",
+           ".webp"
+         ]) do
       {:ok, _mime_type} ->
         :ok
 
@@ -96,6 +102,9 @@ defmodule YscWeb.TrixUploadsController do
     updated_image
   end
 
-  defp get_return_url(%Media.Image{optimized_image_path: nil} = image), do: image.raw_image_path
-  defp get_return_url(%Media.Image{optimized_image_path: optimized_path}), do: optimized_path
+  defp get_return_url(%Media.Image{optimized_image_path: nil} = image),
+    do: image.raw_image_path
+
+  defp get_return_url(%Media.Image{optimized_image_path: optimized_path}),
+    do: optimized_path
 end

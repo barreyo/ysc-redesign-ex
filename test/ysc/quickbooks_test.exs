@@ -38,7 +38,9 @@ defmodule Ysc.QuickbooksTest do
 
       updated_user =
         user
-        |> User.update_user_changeset(%{quickbooks_customer_id: existing_customer_id})
+        |> User.update_user_changeset(%{
+          quickbooks_customer_id: existing_customer_id
+        })
         |> Repo.update!()
 
       # Reload to ensure the customer_id is set
@@ -46,7 +48,8 @@ defmodule Ysc.QuickbooksTest do
       assert updated_user.quickbooks_customer_id == existing_customer_id
 
       # Should not call create_customer, should return existing ID
-      assert {:ok, ^existing_customer_id} = Quickbooks.get_or_create_customer(updated_user)
+      assert {:ok, ^existing_customer_id} =
+               Quickbooks.get_or_create_customer(updated_user)
     end
 
     test "creates new customer successfully" do
@@ -65,7 +68,8 @@ defmodule Ysc.QuickbooksTest do
         assert params.family_name == user.last_name
         assert params.email == user.email
 
-        {:ok, %{"Id" => "new_customer_123", "DisplayName" => params.display_name}}
+        {:ok,
+         %{"Id" => "new_customer_123", "DisplayName" => params.display_name}}
       end)
 
       assert {:ok, "new_customer_123"} = Quickbooks.get_or_create_customer(user)
@@ -105,15 +109,19 @@ defmodule Ysc.QuickbooksTest do
             user_id
           end
 
-        assert params.display_name == "#{original_display_name} (#{expected_suffix})"
+        assert params.display_name ==
+                 "#{original_display_name} (#{expected_suffix})"
+
         assert params.given_name == user.first_name
         assert params.family_name == user.last_name
         assert params.email == user.email
 
-        {:ok, %{"Id" => "retry_customer_456", "DisplayName" => params.display_name}}
+        {:ok,
+         %{"Id" => "retry_customer_456", "DisplayName" => params.display_name}}
       end)
 
-      assert {:ok, "retry_customer_456"} = Quickbooks.get_or_create_customer(user)
+      assert {:ok, "retry_customer_456"} =
+               Quickbooks.get_or_create_customer(user)
 
       # Verify user was updated with customer ID
       updated_user = Repo.reload!(user)
@@ -150,11 +158,15 @@ defmodule Ysc.QuickbooksTest do
             user_id
           end
 
-        assert params.display_name == "#{original_display_name} (#{expected_suffix})"
-        {:ok, %{"Id" => "retry_customer_789", "DisplayName" => params.display_name}}
+        assert params.display_name ==
+                 "#{original_display_name} (#{expected_suffix})"
+
+        {:ok,
+         %{"Id" => "retry_customer_789", "DisplayName" => params.display_name}}
       end)
 
-      assert {:ok, "retry_customer_789"} = Quickbooks.get_or_create_customer(user)
+      assert {:ok, "retry_customer_789"} =
+               Quickbooks.get_or_create_customer(user)
     end
 
     test "does not retry on non-duplicate errors" do
@@ -172,7 +184,8 @@ defmodule Ysc.QuickbooksTest do
         {:error, "500: Internal Server Error"}
       end)
 
-      assert {:error, "500: Internal Server Error"} = Quickbooks.get_or_create_customer(user)
+      assert {:error, "500: Internal Server Error"} =
+               Quickbooks.get_or_create_customer(user)
 
       # Verify user was NOT updated
       updated_user = Repo.reload!(user)
@@ -213,10 +226,13 @@ defmodule Ysc.QuickbooksTest do
 
         # Should include the suffix (either last 6 chars or full ID if < 6 chars)
         assert String.contains?(params.display_name, expected_suffix)
-        {:ok, %{"Id" => "short_id_customer", "DisplayName" => params.display_name}}
+
+        {:ok,
+         %{"Id" => "short_id_customer", "DisplayName" => params.display_name}}
       end)
 
-      assert {:ok, "short_id_customer"} = Quickbooks.get_or_create_customer(user)
+      assert {:ok, "short_id_customer"} =
+               Quickbooks.get_or_create_customer(user)
     end
 
     test "returns error if display name is missing" do

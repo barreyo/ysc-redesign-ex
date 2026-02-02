@@ -33,7 +33,9 @@ defmodule YscWeb.UserResetPasswordLiveTest do
       {:error, {:redirect, to}} = live(conn, ~p"/users/reset-password/invalid")
 
       assert to == %{
-               flash: %{"error" => "Reset password link is invalid or it has expired."},
+               flash: %{
+                 "error" => "Reset password link is invalid or it has expired."
+               },
                to: ~p"/"
              }
     end
@@ -45,7 +47,10 @@ defmodule YscWeb.UserResetPasswordLiveTest do
         lv
         |> element("#reset_password_form")
         |> render_change(
-          user: %{"password" => "secret12", "password_confirmation" => "secret123456"}
+          user: %{
+            "password" => "secret12",
+            "password_confirmation" => "secret123456"
+          }
         )
 
       assert result =~ "should be at least 12 character"
@@ -69,8 +74,14 @@ defmodule YscWeb.UserResetPasswordLiveTest do
         |> follow_redirect(conn, ~p"/users/log-in")
 
       refute get_session(conn, :user_token)
-      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Password reset successfully"
-      assert Accounts.get_user_by_email_and_password(user.email, "new valid password")
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~
+               "Password reset successfully"
+
+      assert Accounts.get_user_by_email_and_password(
+               user.email,
+               "new valid password"
+             )
     end
 
     test "does not reset password on invalid data", %{conn: conn, token: token} do

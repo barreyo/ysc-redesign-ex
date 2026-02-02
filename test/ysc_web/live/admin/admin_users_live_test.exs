@@ -37,11 +37,16 @@ defmodule YscWeb.AdminUsersLiveTest do
 
     test "approves a user application", %{conn: conn} do
       pending_user =
-        user_fixture(%{state: "pending_approval", first_name: "Approve", last_name: "Me"})
+        user_fixture(%{
+          state: "pending_approval",
+          first_name: "Approve",
+          last_name: "Me"
+        })
 
       signup_application_fixture(pending_user)
 
-      {:ok, view, _html} = live(conn, ~p"/admin/users/#{pending_user.id}/review")
+      {:ok, view, _html} =
+        live(conn, ~p"/admin/users/#{pending_user.id}/review")
 
       assert render(view) =~ "Review Application"
       assert render(view) =~ "Approve Me"
@@ -59,11 +64,16 @@ defmodule YscWeb.AdminUsersLiveTest do
 
     test "rejects a user application", %{conn: conn} do
       pending_user =
-        user_fixture(%{state: "pending_approval", first_name: "Reject", last_name: "Me"})
+        user_fixture(%{
+          state: "pending_approval",
+          first_name: "Reject",
+          last_name: "Me"
+        })
 
       signup_application_fixture(pending_user)
 
-      {:ok, view, _html} = live(conn, ~p"/admin/users/#{pending_user.id}/review")
+      {:ok, view, _html} =
+        live(conn, ~p"/admin/users/#{pending_user.id}/review")
 
       view
       |> element("button", "Reject")

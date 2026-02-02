@@ -17,7 +17,10 @@ defmodule YscWeb.Components.News.NewsCard do
 
   attr :post, :any, required: true
   attr :class, :string, default: nil
-  attr :variant, :string, default: "default", doc: "Card variant: 'default' or 'elevated'"
+
+  attr :variant, :string,
+    default: "default",
+    doc: "Card variant: 'default' or 'elevated'"
 
   def news_card(assigns) do
     assigns =
@@ -30,7 +33,8 @@ defmodule YscWeb.Components.News.NewsCard do
       "group flex flex-col bg-white rounded-xl p-4 transition-all duration-500 border border-transparent hover:border-blue-500/20",
       if(@variant == "elevated",
         do: "shadow-lg hover:shadow-2xl hover:-translate-y-1",
-        else: "shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-xl hover:-translate-y-2"
+        else:
+          "shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-xl hover:-translate-y-2"
       ),
       @class
     ]}>
@@ -52,7 +56,8 @@ defmodule YscWeb.Components.News.NewsCard do
             alt={
               if @post.featured_image,
                 do:
-                  @post.featured_image.alt_text || @post.featured_image.title || @post.title ||
+                  @post.featured_image.alt_text || @post.featured_image.title ||
+                    @post.title ||
                     "News article image",
                 else: "News article image"
             }
@@ -119,8 +124,13 @@ defmodule YscWeb.Components.News.NewsCard do
   defp get_blur_hash(_), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
 
   defp featured_image_url(nil), do: "/images/ysc_logo.png"
-  defp featured_image_url(%Image{optimized_image_path: nil} = image), do: image.raw_image_path
-  defp featured_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
+
+  defp featured_image_url(%Image{optimized_image_path: nil} = image),
+    do: image.raw_image_path
+
+  defp featured_image_url(%Image{optimized_image_path: optimized_path}),
+    do: optimized_path
+
   defp featured_image_url(_), do: "/images/ysc_logo.png"
 
   # Calculate reading time based on word count (average 225 words per minute)
@@ -131,7 +141,12 @@ defmodule YscWeb.Components.News.NewsCard do
         calculate_minutes(word_count)
 
       post.raw_body && post.raw_body != "" ->
-        text = Scrubber.scrub(post.raw_body, YscWeb.Scrubber.StripEverythingExceptText)
+        text =
+          Scrubber.scrub(
+            post.raw_body,
+            YscWeb.Scrubber.StripEverythingExceptText
+          )
+
         word_count = count_words_in_text(text)
         calculate_minutes(word_count)
 
@@ -192,7 +207,11 @@ defmodule YscWeb.Components.News.NewsCard do
   }
 
   defp format_board_position(position) when is_atom(position) do
-    Map.get(@board_position_to_title_lookup, position, String.capitalize(to_string(position)))
+    Map.get(
+      @board_position_to_title_lookup,
+      position,
+      String.capitalize(to_string(position))
+    )
   end
 
   defp format_board_position(position) when is_binary(position) do

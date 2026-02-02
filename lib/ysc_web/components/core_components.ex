@@ -56,7 +56,11 @@ defmodule YscWeb.CoreComponents do
       data-cancel={JS.exec(@on_cancel, "phx-remove")}
       class={"relative #{@z_index} hidden"}
     >
-      <div id={"#{@id}-bg"} class="fixed inset-0 transition-opacity bg-zinc-50/90" aria-hidden="true" />
+      <div
+        id={"#{@id}-bg"}
+        class="fixed inset-0 transition-opacity bg-zinc-50/90"
+        aria-hidden="true"
+      />
       <div
         class="fixed inset-0 overflow-y-auto"
         aria-labelledby={"#{@id}-title"}
@@ -106,11 +110,18 @@ defmodule YscWeb.CoreComponents do
   attr :id, :string, default: "flash", doc: "the optional id of flash container"
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
   attr :title, :string, default: nil
-  attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
-  attr :rest, :global, doc: "the arbitrary HTML attributes to add to the flash container"
+
+  attr :kind, :atom,
+    values: [:info, :error],
+    doc: "used for styling and flash lookup"
+
+  attr :rest, :global,
+    doc: "the arbitrary HTML attributes to add to the flash container"
+
   attr :class, :string, default: nil
 
-  slot :inner_block, doc: "the optional inner block that renders the flash message"
+  slot :inner_block,
+    doc: "the optional inner block that renders the flash message"
 
   def flash(assigns) do
     ~H"""
@@ -122,19 +133,39 @@ defmodule YscWeb.CoreComponents do
       class={[
         "fixed top-2 right-2 w-80 sm:w-96 z-[110] rounded-lg p-3 ring-1",
         @class,
-        @kind == :info && "bg-emerald-50 text-emerald-800 ring-emerald-500 fill-cyan-900",
-        @kind == :error && "bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900"
+        @kind == :info &&
+          "bg-emerald-50 text-emerald-800 ring-emerald-500 fill-cyan-900",
+        @kind == :error &&
+          "bg-rose-50 text-rose-900 shadow-md ring-rose-500 fill-rose-900"
       ]}
       {@rest}
     >
-      <p :if={@title} class="flex items-center gap-1.5 text-sm font-semibold leading-6">
-        <.icon :if={@kind == :info} name="hero-information-circle-mini" class="w-4 h-4" />
-        <.icon :if={@kind == :error} name="hero-exclamation-circle-mini" class="w-4 h-4" />
+      <p
+        :if={@title}
+        class="flex items-center gap-1.5 text-sm font-semibold leading-6"
+      >
+        <.icon
+          :if={@kind == :info}
+          name="hero-information-circle-mini"
+          class="w-4 h-4"
+        />
+        <.icon
+          :if={@kind == :error}
+          name="hero-exclamation-circle-mini"
+          class="w-4 h-4"
+        />
         <%= @title %>
       </p>
       <p class="mt-2 text-sm leading-5"><%= msg %></p>
-      <button type="button" class="absolute p-2 group top-1 right-1" aria-label={gettext("close")}>
-        <.icon name="hero-x-mark-solid" class="w-5 h-5 opacity-40 group-hover:opacity-70" />
+      <button
+        type="button"
+        class="absolute p-2 group top-1 right-1"
+        aria-label={gettext("close")}
+      >
+        <.icon
+          name="hero-x-mark-solid"
+          class="w-5 h-5 opacity-40 group-hover:opacity-70"
+        />
       </button>
     </div>
     """
@@ -162,7 +193,8 @@ defmodule YscWeb.CoreComponents do
       class="delay-700"
       hidden
     >
-      Attempting to reconnect <.icon name="hero-arrow-path" class="w-3 h-3 ml-1 animate-spin" />
+      Attempting to reconnect
+      <.icon name="hero-arrow-path" class="w-3 h-3 ml-1 animate-spin" />
     </.flash>
 
     <.flash
@@ -193,10 +225,14 @@ defmodule YscWeb.CoreComponents do
       </.simple_form>
   """
   attr :for, :any, required: true, doc: "the datastructure for the form"
-  attr :as, :any, default: nil, doc: "the server side parameter to collect all input under"
+
+  attr :as, :any,
+    default: nil,
+    doc: "the server side parameter to collect all input under"
 
   attr :rest, :global,
-    include: ~w(autocomplete name rel action enctype method novalidate target multipart),
+    include:
+      ~w(autocomplete name rel action enctype method novalidate target multipart),
     doc: "the arbitrary HTML attributes to apply to the form tag"
 
   slot :inner_block, required: true
@@ -207,7 +243,10 @@ defmodule YscWeb.CoreComponents do
     <.form :let={f} for={@for} as={@as} {@rest}>
       <div class="space-y-8 bg-white">
         <%= render_slot(@inner_block, f) %>
-        <div :for={action <- @actions} class="flex items-center justify-between gap-6 mt-2">
+        <div
+          :for={action <- @actions}
+          class="flex items-center justify-between gap-6 mt-2"
+        >
           <%= render_slot(action, f) %>
         </div>
       </div>
@@ -327,21 +366,29 @@ defmodule YscWeb.CoreComponents do
 
   attr :type, :string,
     default: "text",
-    values: ~w(checkbox color date datetime-local email file hidden month number password
+    values:
+      ~w(checkbox color date datetime-local email file hidden month number password
                range radio search select tel text textarea time url week checkgroup
                country-select large-radio phone-input date-text text-growing password-toggle otp)
 
   attr :field, Phoenix.HTML.FormField,
-    doc: "a form field struct retrieved from the form, for example: @form[:email]"
+    doc:
+      "a form field struct retrieved from the form, for example: @form[:email]"
 
   attr :errors, :list, default: []
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
-  attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
-  attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
+
+  attr :options, :list,
+    doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
+
+  attr :multiple, :boolean,
+    default: false,
+    doc: "the multiple flag for select inputs"
 
   attr :rest, :global,
-    include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
+    include:
+      ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
                 multiple pattern placeholder readonly required rows size step)
 
   slot :inner_block
@@ -350,14 +397,18 @@ defmodule YscWeb.CoreComponents do
     assigns
     |> assign(field: nil, id: assigns.id || field.id)
     |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
-    |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
+    |> assign_new(:name, fn ->
+      if assigns.multiple, do: field.name <> "[]", else: field.name
+    end)
     |> assign_new(:value, fn -> field.value end)
     |> input()
   end
 
   def input(%{type: "checkbox", value: value} = assigns) do
     assigns =
-      assign_new(assigns, :checked, fn -> Phoenix.HTML.Form.normalize_value("checkbox", value) end)
+      assign_new(assigns, :checked, fn ->
+        Phoenix.HTML.Form.normalize_value("checkbox", value)
+      end)
 
     ~H"""
     <div phx-feedback-for={@name}>
@@ -418,7 +469,9 @@ defmodule YscWeb.CoreComponents do
           <.icon name={"hero-" <> @icon} class="w-8 h-8" />
         </div>
         <div class="block">
-          <div class="w-full font-semibold text-md text-zinc-800"><%= @label %></div>
+          <div class="w-full font-semibold text-md text-zinc-800">
+            <%= @label %>
+          </div>
           <div class="w-full text-sm text-zinc-600"><%= @subtitle %></div>
           <div :if={@footer != nil} class="w-full text-sm font-semibold pt-2">
             <%= @footer %>
@@ -464,9 +517,12 @@ defmodule YscWeb.CoreComponents do
       >
         <option :if={@prompt} value=""><%= @prompt %></option>
         <%= Phoenix.HTML.Form.options_for_select(
-          Enum.map(LivePhone.Country.list(["US", "SE", "FI", "DK", "NO", "IS"]), fn x ->
-            {x.name, x.code}
-          end),
+          Enum.map(
+            LivePhone.Country.list(["US", "SE", "FI", "DK", "NO", "IS"]),
+            fn x ->
+              {x.name, x.code}
+            end
+          ),
           @value
         ) %>
       </select>
@@ -508,7 +564,10 @@ defmodule YscWeb.CoreComponents do
                 id={"#{@name}-#{value}"}
                 name={@name}
                 value={value}
-                checked={@value && Enum.any?(@value, fn v -> to_string(v) == to_string(value) end)}
+                checked={
+                  @value &&
+                    Enum.any?(@value, fn v -> to_string(v) == to_string(value) end)
+                }
                 class="mr-2 h-4 w-4 rounded border-zinc-300 text-blue-600 focus:ring-blue-400 transition duration-150 ease-in-out"
                 {@rest}
               />
@@ -621,7 +680,9 @@ defmodule YscWeb.CoreComponents do
 
   def input(%{type: "otp"} = assigns) do
     # Generate id from name if not provided
-    id = assigns.id || assigns.name || "input-#{System.unique_integer([:positive])}"
+    id =
+      assigns.id || assigns.name ||
+        "input-#{System.unique_integer([:positive])}"
 
     assigns = assign(assigns, :id, id)
 
@@ -650,7 +711,9 @@ defmodule YscWeb.CoreComponents do
   # Hidden inputs - no label needed
   def input(%{type: "hidden"} = assigns) do
     # Generate id from name if not provided
-    id = assigns.id || assigns.name || "input-#{System.unique_integer([:positive])}"
+    id =
+      assigns.id || assigns.name ||
+        "input-#{System.unique_integer([:positive])}"
 
     assigns = assign(assigns, :id, id)
 
@@ -668,7 +731,9 @@ defmodule YscWeb.CoreComponents do
   # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     # Generate id from name if not provided
-    id = assigns.id || assigns.name || "input-#{System.unique_integer([:positive])}"
+    id =
+      assigns.id || assigns.name ||
+        "input-#{System.unique_integer([:positive])}"
 
     # Handle password-toggle type
     {type, is_password_toggle} =
@@ -710,7 +775,10 @@ defmodule YscWeb.CoreComponents do
           data-target={"##{@id}"}
           aria-label="Toggle password visibility"
         >
-          <.icon name="hero-eye-solid" class="h-5 w-5 text-zinc-400 hover:text-zinc-600" />
+          <.icon
+            name="hero-eye-solid"
+            class="h-5 w-5 text-zinc-400 hover:text-zinc-600"
+          />
         </button>
       </div>
       <.error :for={msg <- @errors}><%= msg %></.error>
@@ -719,7 +787,8 @@ defmodule YscWeb.CoreComponents do
   end
 
   attr :field, Phoenix.HTML.FormField,
-    doc: "a form field struct retrieved from the form, for example: @form[:email]"
+    doc:
+      "a form field struct retrieved from the form, for example: @form[:email]"
 
   attr :options, :list, doc: "the options for the radio buttons in the fieldset"
   attr :checked_value, :string, doc: "the currently checked value"
@@ -736,7 +805,8 @@ defmodule YscWeb.CoreComponents do
             label={String.capitalize(values[:option])}
             value={values[:option]}
             checked={
-              @checked_value == values[:option] || @field.value == String.to_atom(values[:option])
+              @checked_value == values[:option] ||
+                @field.value == String.to_atom(values[:option])
             }
             subtitle={values[:subtitle]}
             icon={values[:icon]}
@@ -756,10 +826,14 @@ defmodule YscWeb.CoreComponents do
   attr :label, :string, default: nil
 
   attr :field, Phoenix.HTML.FormField,
-    doc: "a form field struct retrieved from the form, for example: @form[:email]"
+    doc:
+      "a form field struct retrieved from the form, for example: @form[:email]"
 
   attr :errors, :list
-  attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
+
+  attr :options, :list,
+    doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
+
   attr :rest, :global, include: ~w(disabled form readonly)
   attr :class, :string, default: nil
 
@@ -806,11 +880,13 @@ defmodule YscWeb.CoreComponents do
   attr(:label, :string, required: true)
 
   attr(:start_date_field, :any,
-    doc: "a %Phoenix.HTML.Form{}/field name tuple, for example: @form[:start_date]"
+    doc:
+      "a %Phoenix.HTML.Form{}/field name tuple, for example: @form[:start_date]"
   )
 
   attr(:end_date_field, :any,
-    doc: "a %Phoenix.HTML.Form{}/field name tuple, for example: @form[:end_date]"
+    doc:
+      "a %Phoenix.HTML.Form{}/field name tuple, for example: @form[:end_date]"
   )
 
   attr(:required, :boolean, default: false)
@@ -850,10 +926,14 @@ defmodule YscWeb.CoreComponents do
       allow_saturdays={@allow_saturdays}
     />
     <div phx-feedback-for={@start_date_field.name}>
-      <.error :for={msg <- @start_date_field.errors}><%= format_form_error(msg) %></.error>
+      <.error :for={msg <- @start_date_field.errors}>
+        <%= format_form_error(msg) %>
+      </.error>
     </div>
     <div phx-feedback-for={@end_date_field.name}>
-      <.error :for={msg <- @end_date_field.errors}><%= format_form_error(msg) %></.error>
+      <.error :for={msg <- @end_date_field.errors}>
+        <%= format_form_error(msg) %>
+      </.error>
     </div>
     """
   end
@@ -862,7 +942,8 @@ defmodule YscWeb.CoreComponents do
   attr(:label, :string, required: true)
 
   attr(:start_date_field, :any,
-    doc: "a %Phoenix.HTML.Form{}/field name tuple, for example: @form[:start_date]"
+    doc:
+      "a %Phoenix.HTML.Form{}/field name tuple, for example: @form[:start_date]"
   )
 
   attr(:required, :boolean, default: false)
@@ -885,7 +966,9 @@ defmodule YscWeb.CoreComponents do
       min={@min}
     />
     <div phx-feedback-for={@start_date_field.name}>
-      <.error :for={msg <- @start_date_field.form.errors}><%= format_form_error(msg) %></.error>
+      <.error :for={msg <- @start_date_field.form.errors}>
+        <%= format_form_error(msg) %>
+      </.error>
     </div>
     """
   end
@@ -904,7 +987,10 @@ defmodule YscWeb.CoreComponents do
 
   def header(assigns) do
     ~H"""
-    <header class={[@actions != [] && "flex items-center justify-between gap-6", @class]}>
+    <header class={[
+      @actions != [] && "flex items-center justify-between gap-6",
+      @class
+    ]}>
       <div>
         <h1 class="text-lg font-semibold leading-8 text-zinc-800">
           <%= render_slot(@inner_block) %>
@@ -941,12 +1027,19 @@ defmodule YscWeb.CoreComponents do
         To access events, you need an active membership.
       </.alert_banner>
   """
-  attr :type, :string, default: "info", doc: "alert type: info, warning, error, success, orange"
+  attr :type, :string,
+    default: "info",
+    doc: "alert type: info, warning, error, success, orange"
+
   attr :icon, :string, required: true, doc: "heroicon name"
   attr :title, :string, default: nil, doc: "optional title text"
   attr :action_label, :string, default: nil, doc: "optional action button label"
   attr :action_path, :string, default: nil, doc: "optional action button path"
-  attr :action_class, :string, default: nil, doc: "optional action button custom classes"
+
+  attr :action_class, :string,
+    default: nil,
+    doc: "optional action button custom classes"
+
   slot :inner_block, required: true, doc: "the main message content"
 
   def alert_banner(assigns) do
@@ -1026,18 +1119,26 @@ defmodule YscWeb.CoreComponents do
   """
   attr :id, :string, required: true
   attr :rows, :list, required: true
-  attr :row_id, :any, default: nil, doc: "the function for generating the row id"
-  attr :row_click, :any, default: nil, doc: "the function for handling phx-click on each row"
+
+  attr :row_id, :any,
+    default: nil,
+    doc: "the function for generating the row id"
+
+  attr :row_click, :any,
+    default: nil,
+    doc: "the function for handling phx-click on each row"
 
   attr :row_item, :any,
     default: &Function.identity/1,
-    doc: "the function for mapping each row before calling the :col and :action slots"
+    doc:
+      "the function for mapping each row before calling the :col and :action slots"
 
   slot :col, required: true do
     attr :label, :string
   end
 
-  slot :action, doc: "the slot for showing user actions in the last table column"
+  slot :action,
+    doc: "the slot for showing user actions in the last table column"
 
   def table(assigns) do
     assigns =
@@ -1050,8 +1151,12 @@ defmodule YscWeb.CoreComponents do
       <table class="w-[40rem] mt-11 sm:w-full">
         <thead class="text-sm leading-6 text-left text-zinc-500">
           <tr>
-            <th :for={col <- @col} class="p-0 pb-4 pr-6 font-normal"><%= col[:label] %></th>
-            <th class="relative p-0 pb-4"><span class="sr-only"><%= gettext("Actions") %></span></th>
+            <th :for={col <- @col} class="p-0 pb-4 pr-6 font-normal">
+              <%= col[:label] %>
+            </th>
+            <th class="relative p-0 pb-4">
+              <span class="sr-only"><%= gettext("Actions") %></span>
+            </th>
           </tr>
         </thead>
         <tbody
@@ -1059,7 +1164,11 @@ defmodule YscWeb.CoreComponents do
           phx-update={match?(%Phoenix.LiveView.LiveStream{}, @rows) && "stream"}
           class="relative text-sm leading-6 border-t divide-y divide-zinc-100 border-zinc-200 text-zinc-700"
         >
-          <tr :for={row <- @rows} id={@row_id && @row_id.(row)} class="group hover:bg-zinc-50">
+          <tr
+            :for={row <- @rows}
+            id={@row_id && @row_id.(row)}
+            class="group hover:bg-zinc-50"
+          >
             <td
               :for={{col, i} <- Enum.with_index(@col)}
               phx-click={@row_click && @row_click.(row)}
@@ -1319,7 +1428,9 @@ defmodule YscWeb.CoreComponents do
                 name="hero-chart-pie"
                 class="w-5 h-5 transition duration-75 text-blue-500"
               />
-              <span class={["ms-3", @active_page == :dashboard && "font-semibold"]}>Overview</span>
+              <span class={["ms-3", @active_page == :dashboard && "font-semibold"]}>
+                Overview
+              </span>
             </.link>
           </li>
 
@@ -1346,7 +1457,9 @@ defmodule YscWeb.CoreComponents do
                 name="hero-document-text"
                 class="w-5 h-5 transition duration-75 text-blue-500"
               />
-              <span class={["ms-3", @active_page == :news && "font-semibold"]}>Posts</span>
+              <span class={["ms-3", @active_page == :news && "font-semibold"]}>
+                Posts
+              </span>
             </.link>
           </li>
 
@@ -1373,7 +1486,9 @@ defmodule YscWeb.CoreComponents do
                 name="hero-calendar"
                 class="w-5 h-5 transition duration-75 text-blue-500"
               />
-              <span class={["ms-3", @active_page == :events && "font-semibold"]}>Events</span>
+              <span class={["ms-3", @active_page == :events && "font-semibold"]}>
+                Events
+              </span>
             </.link>
           </li>
 
@@ -1400,7 +1515,9 @@ defmodule YscWeb.CoreComponents do
                 name="hero-home"
                 class="w-5 h-5 transition duration-75 text-blue-500"
               />
-              <span class={["ms-3", @active_page == :bookings && "font-semibold"]}>Bookings</span>
+              <span class={["ms-3", @active_page == :bookings && "font-semibold"]}>
+                Bookings
+              </span>
             </.link>
           </li>
 
@@ -1427,7 +1544,9 @@ defmodule YscWeb.CoreComponents do
                 name="hero-users"
                 class="w-5 h-5 transition duration-75 text-blue-500"
               />
-              <span class={["ms-3", @active_page == :members && "font-semibold"]}>Users</span>
+              <span class={["ms-3", @active_page == :members && "font-semibold"]}>
+                Users
+              </span>
             </.link>
           </li>
 
@@ -1454,7 +1573,9 @@ defmodule YscWeb.CoreComponents do
                 name="hero-wallet"
                 class="w-5 h-5 transition duration-75 text-blue-500"
               />
-              <span class={["ms-3", @active_page == :money && "font-semibold"]}>Money</span>
+              <span class={["ms-3", @active_page == :money && "font-semibold"]}>
+                Money
+              </span>
             </.link>
           </li>
 
@@ -1481,7 +1602,9 @@ defmodule YscWeb.CoreComponents do
                 name="hero-photo"
                 class="w-5 h-5 transition duration-75 text-blue-500"
               />
-              <span class={["ms-3", @active_page == :media && "font-semibold"]}>Media</span>
+              <span class={["ms-3", @active_page == :media && "font-semibold"]}>
+                Media
+              </span>
             </.link>
           </li>
 
@@ -1508,7 +1631,10 @@ defmodule YscWeb.CoreComponents do
                 name="hero-cog-6-tooth"
                 class="w-5 h-5 transition duration-75 text-blue-500"
               />
-              <span class={["ms-3", @active_page == :admin_settings && "font-semibold"]}>
+              <span class={[
+                "ms-3",
+                @active_page == :admin_settings && "font-semibold"
+              ]}>
                 Settings
               </span>
             </.link>
@@ -1532,7 +1658,11 @@ defmodule YscWeb.CoreComponents do
       <%= render_slot(@inner_block) %>
     </main>
 
-    <div id="drawer-backdrop" class="hidden bg-zinc-900/50 fixed inset-0 z-30" drawer-backdrop="">
+    <div
+      id="drawer-backdrop"
+      class="hidden bg-zinc-900/50 fixed inset-0 z-30"
+      drawer-backdrop=""
+    >
     </div>
     """
   end
@@ -1678,7 +1808,11 @@ defmodule YscWeb.CoreComponents do
     >
       <%!-- Menu header with logo and close button --%>
       <div class="flex items-center justify-between p-4 border-b border-zinc-200">
-        <.link navigate="/" class="flex items-center gap-3" phx-click={hide_mobile_menu(@toggle_id)}>
+        <.link
+          navigate="/"
+          class="flex items-center gap-3"
+          phx-click={hide_mobile_menu(@toggle_id)}
+        >
           <.ysc_logo no_circle={true} class="h-14 w-14" />
           <span class="text-lg font-bold text-zinc-900">YSC.org</span>
         </.link>
@@ -1758,8 +1892,13 @@ defmodule YscWeb.CoreComponents do
     default: "red",
     doc: "Color scheme for the badge (red, blue, green, yellow)"
 
-  attr :class, :string, default: nil, doc: "Additional CSS classes for the wrapper"
-  slot :inner_block, required: true, doc: "The content to wrap with the notification badge"
+  attr :class, :string,
+    default: nil,
+    doc: "Additional CSS classes for the wrapper"
+
+  slot :inner_block,
+    required: true,
+    doc: "The content to wrap with the notification badge"
 
   def notification_badge(assigns) do
     badge_classes = %{
@@ -1855,7 +1994,10 @@ defmodule YscWeb.CoreComponents do
     assigns =
       assigns
       |> assign(:event, assigns.event)
-      |> assign(:badges, get_event_badges(assigns.event, assigns.sold_out, assigns.selling_fast))
+      |> assign(
+        :badges,
+        get_event_badges(assigns.event, assigns.sold_out, assigns.selling_fast)
+      )
 
     ~H"""
     <div class="flex flex-wrap gap-2">
@@ -1915,7 +2057,8 @@ defmodule YscWeb.CoreComponents do
 
   defp get_event_badges_continue(event, sold_out, selling_fast) do
     # Check if published_at is nil (no badge for unpublished events)
-    published_at = Map.get(event, :published_at) || Map.get(event, "published_at")
+    published_at =
+      Map.get(event, :published_at) || Map.get(event, "published_at")
 
     if published_at == nil do
       []
@@ -1928,7 +2071,8 @@ defmodule YscWeb.CoreComponents do
     badges = []
 
     # Add "Just Added" badge first if applicable (within 48 hours of publishing)
-    published_at = Map.get(event, :published_at) || Map.get(event, "published_at")
+    published_at =
+      Map.get(event, :published_at) || Map.get(event, "published_at")
 
     just_added_badge =
       case published_at do
@@ -2039,7 +2183,10 @@ defmodule YscWeb.CoreComponents do
         if match?(%DateTime{}, date) do
           date
         else
-          DateTime.from_naive!(NaiveDateTime.new!(date, ~T[00:00:00]), "Etc/UTC")
+          DateTime.from_naive!(
+            NaiveDateTime.new!(date, ~T[00:00:00]),
+            "Etc/UTC"
+          )
         end
 
       _ ->
@@ -2076,7 +2223,10 @@ defmodule YscWeb.CoreComponents do
             />
           </button>
         </li>
-        <li :if={idx == @active_step} class="flex items-center leading-6 text-blue-800 text-sm">
+        <li
+          :if={idx == @active_step}
+          class="flex items-center leading-6 text-blue-800 text-sm"
+        >
           <span class="flex items-center text-zinc-100 justify-center w-6 h-6 text-xs font-bold bg-blue-600 border border-blue-600 rounded me-2 shrink-0">
             <%= idx + 1 %>
           </span>
@@ -2188,9 +2338,21 @@ defmodule YscWeb.CoreComponents do
       assign(assigns, form: Phoenix.Component.to_form(meta), meta: nil)
 
     ~H"""
-    <.form for={@form} id={@id} phx-target={@target} phx-change={@on_change} phx-submit={@on_change}>
+    <.form
+      for={@form}
+      id={@id}
+      phx-target={@target}
+      phx-change={@on_change}
+      phx-submit={@on_change}
+    >
       <.filter_fields :let={i} form={@form} fields={@fields}>
-        <.input field={i.field} label={i.label} type={i.type} phx-debounce={120} {i.rest} />
+        <.input
+          field={i.field}
+          label={i.label}
+          type={i.type}
+          phx-debounce={120}
+          {i.rest}
+        />
       </.filter_fields>
     </.form>
     """
@@ -2231,7 +2393,9 @@ defmodule YscWeb.CoreComponents do
     country = assigns[:country] || "SE"
 
     cleaned_email = String.downcase(email) |> String.trim()
-    email_hash = :crypto.hash(:sha256, cleaned_email) |> Base.encode16(case: :lower)
+
+    email_hash =
+      :crypto.hash(:sha256, cleaned_email) |> Base.encode16(case: :lower)
 
     image_id =
       user_id |> String.replace(~r/[^\d]/, "") |> String.to_integer() |> rem(2)
@@ -2282,10 +2446,14 @@ defmodule YscWeb.CoreComponents do
     <div class={"relative mx-auto border-zinc-800 bg-zinc-800 border-[14px] rounded-xl h-[600px] w-[300px] shadow-xl #{@class}"}>
       <div class="w-[148px] h-[18px] bg-zinc-800 top-0 rounded-b-[1rem] left-1/2 -translate-x-1/2 absolute">
       </div>
-      <div class="h-[32px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[72px] rounded-s-lg"></div>
-      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[124px] rounded-s-lg"></div>
-      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[178px] rounded-s-lg"></div>
-      <div class="h-[64px] w-[3px] bg-zinc-800 absolute -end-[17px] top-[142px] rounded-e-lg"></div>
+      <div class="h-[32px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[72px] rounded-s-lg">
+      </div>
+      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[124px] rounded-s-lg">
+      </div>
+      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[178px] rounded-s-lg">
+      </div>
+      <div class="h-[64px] w-[3px] bg-zinc-800 absolute -end-[17px] top-[142px] rounded-e-lg">
+      </div>
       <div class="rounded-xl overflow-y-auto w-[272px] h-[572px] bg-white">
         <%= render_slot(@inner_block) %>
       </div>
@@ -2299,10 +2467,14 @@ defmodule YscWeb.CoreComponents do
   def tablet_mockup(assigns) do
     ~H"""
     <div class={"relative mx-auto border-zinc-800 bg-zinc-800 border-[14px] rounded-[2.5rem] h-[454px] max-w-[341px] md:h-[682px] md:max-w-[512px] #{@class}"}>
-      <div class="h-[32px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[72px] rounded-s-lg"></div>
-      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[124px] rounded-s-lg"></div>
-      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[178px] rounded-s-lg"></div>
-      <div class="h-[64px] w-[3px] bg-zinc-800 absolute -end-[17px] top-[142px] rounded-e-lg"></div>
+      <div class="h-[32px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[72px] rounded-s-lg">
+      </div>
+      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[124px] rounded-s-lg">
+      </div>
+      <div class="h-[46px] w-[3px] bg-zinc-800 absolute -start-[17px] top-[178px] rounded-s-lg">
+      </div>
+      <div class="h-[64px] w-[3px] bg-zinc-800 absolute -end-[17px] top-[142px] rounded-e-lg">
+      </div>
       <div class="rounded-[2rem] overflow-y-auto h-[426px] md:h-[654px] bg-white">
         <%= render_slot(@inner_block) %>
       </div>
@@ -2344,7 +2516,9 @@ defmodule YscWeb.CoreComponents do
       ]}
       phx-mounted={
         @animate &&
-          JS.transition({"transition ease-in duration-500", "opacity-0 ping", "opacity-100"})
+          JS.transition(
+            {"transition ease-in duration-500", "opacity-0 ping", "opacity-100"}
+          )
       }
     >
       <footer class="flex justify-between items-center mb-4">
@@ -2356,7 +2530,9 @@ defmodule YscWeb.CoreComponents do
             class="w-8 h-8 rounded-full ring-2 ring-white shadow-sm"
           />
           <div>
-            <p class="text-sm font-black text-zinc-900 leading-none"><%= @author %></p>
+            <p class="text-sm font-black text-zinc-900 leading-none">
+              <%= @author %>
+            </p>
             <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-1">
               <time
                 pubdate
@@ -2378,7 +2554,10 @@ defmodule YscWeb.CoreComponents do
           type="button"
           class="flex items-center text-sm text-zinc-600 hover:text-zinc-800 hover:bg-zinc-100 rounded font-medium px-2 py-1"
         >
-          <.icon name="hero-chat-bubble-bottom-center-text" class="mr-1.5 w-4 h-4 mt-0.5" /> Reply
+          <.icon
+            name="hero-chat-bubble-bottom-center-text"
+            class="mr-1.5 w-4 h-4 mt-0.5"
+          /> Reply
         </button>
       </div>
 
@@ -2395,7 +2574,11 @@ defmodule YscWeb.CoreComponents do
           >
           </.input>
           <input type="hidden" name="comment[post_id]" value={@post_id} />
-          <input type="hidden" name="comment[comment_id]" value={@reply_to_comment_id} />
+          <input
+            type="hidden"
+            name="comment[comment_id]"
+            value={@reply_to_comment_id}
+          />
           <button
             type="submit"
             class="inline-flex items-center py-2.5 px-4 text-sm font-bold text-center text-zinc-100 bg-blue-700 rounded focus:ring-4 focus:ring-blue-200 hover:bg-blue-800 mt-4"
@@ -2473,7 +2656,9 @@ defmodule YscWeb.CoreComponents do
     |> JS.show(to: "##{id}")
     |> JS.show(
       to: "##{id}-bg",
-      transition: {"transition-all transform ease-out duration-100", "opacity-0", "opacity-100"}
+      transition:
+        {"transition-all transform ease-out duration-100", "opacity-0",
+         "opacity-100"}
     )
     |> show("##{id}-container")
     |> JS.add_class("overflow-hidden", to: "body")
@@ -2484,7 +2669,9 @@ defmodule YscWeb.CoreComponents do
     js
     |> JS.hide(
       to: "##{id}-bg",
-      transition: {"transition-all transform ease-in duration-50", "opacity-100", "opacity-0"}
+      transition:
+        {"transition-all transform ease-in duration-50", "opacity-100",
+         "opacity-0"}
     )
     |> hide("##{id}-container")
     |> JS.hide(to: "##{id}", transition: {"block", "block", "hidden"})
@@ -2497,7 +2684,8 @@ defmodule YscWeb.CoreComponents do
     |> JS.add_class("transform-none", to: to)
     |> JS.show(
       to: "#drawer-backdrop",
-      transition: {"transition-opacity ease-out duration-75", "opacity-0", "opacity-100"}
+      transition:
+        {"transition-opacity ease-out duration-75", "opacity-0", "opacity-100"}
     )
     |> JS.set_attribute({"aria-expanded", "true"}, to: to)
   end
@@ -2507,7 +2695,8 @@ defmodule YscWeb.CoreComponents do
     |> JS.add_class("-translate-x-full", to: to)
     |> JS.hide(
       to: "#drawer-backdrop",
-      transition: {"transition-opacity ease-in duration-75", "opacity-100", "opacity-0"}
+      transition:
+        {"transition-opacity ease-in duration-75", "opacity-100", "opacity-0"}
     )
     |> JS.set_attribute({"aria-expanded", "false"}, to: to)
   end
@@ -2598,7 +2787,8 @@ defmodule YscWeb.CoreComponents do
   end
 
   def random_id(prefix) do
-    prefix <> "_" <> (:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false))
+    prefix <>
+      "_" <> (:crypto.strong_rand_bytes(8) |> Base.url_encode64(padding: false))
   end
 
   @doc """
@@ -2624,11 +2814,16 @@ defmodule YscWeb.CoreComponents do
       <div :if={membership_cancelled?(@current_membership)}>
         <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
           <p class="text-sm text-yellow-800 font-semibold">
-            <.icon name="hero-clock" class="w-5 h-5 text-yellow-600 inline-block -mt-0.5 me-2" />
+            <.icon
+              name="hero-clock"
+              class="w-5 h-5 text-yellow-600 inline-block -mt-0.5 me-2"
+            />
             <%= if @is_sub_account do %>
               <%= if @primary_user do %>
                 The membership from
-                <strong><%= @primary_user.first_name %> <%= @primary_user.last_name %></strong>
+                <strong>
+                  <%= @primary_user.first_name %> <%= @primary_user.last_name %>
+                </strong>
                 has been canceled.
               <% else %>
                 The primary account membership has been canceled.
@@ -2661,16 +2856,23 @@ defmodule YscWeb.CoreComponents do
       }>
         <div class="bg-green-50 border border-green-200 rounded-md p-4">
           <p class="text-sm text-green-800 font-semibold">
-            <.icon name="hero-check-circle" class="w-5 h-5 text-green-600 inline-block -mt-0.5 me-2" />
+            <.icon
+              name="hero-check-circle"
+              class="w-5 h-5 text-green-600 inline-block -mt-0.5 me-2"
+            />
             <%= if @is_sub_account do %>
               You have access to an active
               <strong><%= get_membership_type(@current_membership) %></strong>
               membership
               <%= if @primary_user do %>
-                from <strong><%= @primary_user.first_name %> <%= @primary_user.last_name %></strong>
+                from
+                <strong>
+                  <%= @primary_user.first_name %> <%= @primary_user.last_name %>
+                </strong>
               <% end %>.
             <% else %>
-              You have an active <strong><%= get_membership_type(@current_membership) %></strong>
+              You have an active
+              <strong><%= get_membership_type(@current_membership) %></strong>
               membership.
             <% end %>
           </p>
@@ -2682,7 +2884,10 @@ defmodule YscWeb.CoreComponents do
           <% end %>
 
           <p
-            :if={get_membership_renewal_date(@current_membership) != nil && !@is_sub_account}
+            :if={
+              get_membership_renewal_date(@current_membership) != nil &&
+                !@is_sub_account
+            }
             class="text-sm text-green-900 mt-2"
           >
             Your membership will renew on <strong class="text-green-900">
@@ -2709,11 +2914,16 @@ defmodule YscWeb.CoreComponents do
       }>
         <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4">
           <p class="text-sm text-yellow-800 font-semibold">
-            <.icon name="hero-clock" class="w-5 h-5 text-yellow-600 inline-block -mt-0.5 me-2" />
+            <.icon
+              name="hero-clock"
+              class="w-5 h-5 text-yellow-600 inline-block -mt-0.5 me-2"
+            />
             <%= if @is_sub_account do %>
               <%= if @primary_user do %>
                 The membership from
-                <strong><%= @primary_user.first_name %> <%= @primary_user.last_name %></strong>
+                <strong>
+                  <%= @primary_user.first_name %> <%= @primary_user.last_name %>
+                </strong>
                 is scheduled for cancellation.
               <% else %>
                 The primary account membership is scheduled for cancellation.
@@ -2781,7 +2991,8 @@ defmodule YscWeb.CoreComponents do
   # Helper functions to handle different membership data structures
   defp membership_active?(%{type: :lifetime}), do: true
 
-  defp membership_active?(%{subscription: subscription}) when is_map(subscription) do
+  defp membership_active?(%{subscription: subscription})
+       when is_map(subscription) do
     Ysc.Subscriptions.active?(subscription)
   end
 
@@ -2793,7 +3004,8 @@ defmodule YscWeb.CoreComponents do
 
   defp membership_cancelled?(%{type: :lifetime}), do: false
 
-  defp membership_cancelled?(%{subscription: subscription}) when is_map(subscription) do
+  defp membership_cancelled?(%{subscription: subscription})
+       when is_map(subscription) do
     Ysc.Subscriptions.cancelled?(subscription)
   end
 
@@ -2810,7 +3022,8 @@ defmodule YscWeb.CoreComponents do
     Ysc.Subscriptions.scheduled_for_cancellation?(subscription)
   end
 
-  defp membership_scheduled_for_cancellation?(subscription) when is_struct(subscription) do
+  defp membership_scheduled_for_cancellation?(subscription)
+       when is_struct(subscription) do
     Ysc.Subscriptions.scheduled_for_cancellation?(subscription)
   end
 
@@ -2818,7 +3031,8 @@ defmodule YscWeb.CoreComponents do
 
   defp get_membership_ends_at(%{type: :lifetime}), do: nil
 
-  defp get_membership_ends_at(%{subscription: subscription}) when is_map(subscription) do
+  defp get_membership_ends_at(%{subscription: subscription})
+       when is_map(subscription) do
     subscription.ends_at
   end
 
@@ -2830,11 +3044,13 @@ defmodule YscWeb.CoreComponents do
 
   defp get_membership_renewal_date(%{type: :lifetime}), do: nil
 
-  defp get_membership_renewal_date(%{renewal_date: renewal_date}) when not is_nil(renewal_date) do
+  defp get_membership_renewal_date(%{renewal_date: renewal_date})
+       when not is_nil(renewal_date) do
     renewal_date
   end
 
-  defp get_membership_renewal_date(%{subscription: subscription}) when is_map(subscription) do
+  defp get_membership_renewal_date(%{subscription: subscription})
+       when is_map(subscription) do
     subscription.current_period_end
   end
 
@@ -2888,7 +3104,9 @@ defmodule YscWeb.CoreComponents do
     default: "bg-black/40",
     doc: "Tailwind class for overlay opacity"
 
-  attr :class, :string, default: nil, doc: "Additional classes for the hero container"
+  attr :class, :string,
+    default: nil,
+    doc: "Additional classes for the hero container"
 
   slot :title, doc: "The main hero title"
   slot :subtitle, doc: "Secondary text below the title"
@@ -2922,7 +3140,11 @@ defmodule YscWeb.CoreComponents do
         <source src={@video} type="video/mp4" />
       </video>
 
-      <div :if={@overlay} class={["absolute inset-0 z-[1]", @overlay_opacity]} aria-hidden="true" />
+      <div
+        :if={@overlay}
+        class={["absolute inset-0 z-[1]", @overlay_opacity]}
+        aria-hidden="true"
+      />
 
       <div class="relative z-10 max-w-screen-lg mx-auto px-4 py-16 text-center text-white">
         <h1

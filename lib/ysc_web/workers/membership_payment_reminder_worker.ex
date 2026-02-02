@@ -8,10 +8,17 @@ defmodule YscWeb.Workers.MembershipPaymentReminderWorker do
   use Oban.Worker, queue: :mailers, max_attempts: 3
 
   alias Ysc.Accounts
-  alias YscWeb.Emails.{Notifier, MembershipPaymentReminder7Day, MembershipPaymentReminder30Day}
+
+  alias YscWeb.Emails.{
+    Notifier,
+    MembershipPaymentReminder7Day,
+    MembershipPaymentReminder30Day
+  }
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"user_id" => user_id, "reminder_type" => reminder_type}}) do
+  def perform(%Oban.Job{
+        args: %{"user_id" => user_id, "reminder_type" => reminder_type}
+      }) do
     Logger.info("Processing membership payment reminder",
       user_id: user_id,
       reminder_type: reminder_type
@@ -81,7 +88,8 @@ defmodule YscWeb.Workers.MembershipPaymentReminderWorker do
         )
 
         # Report to Sentry
-        Sentry.capture_message("Failed to schedule 7-day membership payment reminder",
+        Sentry.capture_message(
+          "Failed to schedule 7-day membership payment reminder",
           level: :error,
           extra: %{
             user_id: user.id,
@@ -137,7 +145,8 @@ defmodule YscWeb.Workers.MembershipPaymentReminderWorker do
         )
 
         # Report to Sentry
-        Sentry.capture_message("Failed to schedule 30-day membership payment reminder",
+        Sentry.capture_message(
+          "Failed to schedule 30-day membership payment reminder",
           level: :error,
           extra: %{
             user_id: user.id,

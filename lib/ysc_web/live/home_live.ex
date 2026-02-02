@@ -33,12 +33,14 @@ defmodule YscWeb.HomeLive do
 
         # Check if user just logged in (from session) and should show passkey prompt
         just_logged_in =
-          Map.get(session, "just_logged_in", false) || Map.get(session, :just_logged_in, false)
+          Map.get(session, "just_logged_in", false) ||
+            Map.get(session, :just_logged_in, false)
 
         user_with_passkeys = Accounts.get_user!(user.id, [:passkeys])
 
         show_passkey_prompt =
-          just_logged_in && Accounts.should_show_passkey_prompt?(user_with_passkeys)
+          just_logged_in &&
+            Accounts.should_show_passkey_prompt?(user_with_passkeys)
 
         socket =
           assign(socket,
@@ -90,7 +92,8 @@ defmodule YscWeb.HomeLive do
     {hero_video, hero_poster} =
       case Season.for_date(:tahoe, Date.utc_today()) do
         %{name: "Summer"} ->
-          {~p"/video/clear_lake_hero.mp4", ~p"/images/clear_lake_hero_poster.jpg"}
+          {~p"/video/clear_lake_hero.mp4",
+           ~p"/images/clear_lake_hero_poster.jpg"}
 
         _ ->
           {~p"/video/tahoe_hero.mp4", ~p"/images/tahoe_hero_poster.jpg"}
@@ -140,13 +143,20 @@ defmodule YscWeb.HomeLive do
       {:tickets, fn -> get_upcoming_tickets(user_id) end},
       {:bookings, fn -> get_future_active_bookings(user_id) end},
       {:events,
-       fn -> Events.list_upcoming_events(3) |> Enum.reject(&(&1.state == :cancelled)) end},
+       fn ->
+         Events.list_upcoming_events(3)
+         |> Enum.reject(&(&1.state == :cancelled))
+       end},
       {:news, fn -> Posts.list_posts(3) end}
     ]
 
     tasks
-    |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
-    |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
+    |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end,
+      timeout: :infinity
+    )
+    |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc ->
+      Map.put(acc, key, value)
+    end)
   end
 
   # Load user with subscriptions and virtual fields
@@ -157,7 +167,11 @@ defmodule YscWeb.HomeLive do
       |> Accounts.User.populate_virtual_fields()
 
     is_sub_account = Accounts.sub_account?(user_with_subs)
-    primary_user = if is_sub_account, do: Accounts.get_primary_user(user_with_subs), else: nil
+
+    primary_user =
+      if is_sub_account,
+        do: Accounts.get_primary_user(user_with_subs),
+        else: nil
 
     {is_sub_account, primary_user}
   end
@@ -176,7 +190,8 @@ defmodule YscWeb.HomeLive do
     user_with_passkeys = Accounts.get_user!(user.id, [:passkeys])
 
     show_passkey_prompt =
-      socket.assigns[:just_logged_in] && Accounts.should_show_passkey_prompt?(user_with_passkeys)
+      socket.assigns[:just_logged_in] &&
+        Accounts.should_show_passkey_prompt?(user_with_passkeys)
 
     socket =
       assign(socket,
@@ -204,7 +219,12 @@ defmodule YscWeb.HomeLive do
   def render(assigns) do
     ~H"""
     <div :if={@current_user == nil}>
-      <.hero video={@hero_video} poster={@hero_poster} height="90vh" overlay_opacity="bg-black/40">
+      <.hero
+        video={@hero_video}
+        poster={@hero_poster}
+        height="90vh"
+        overlay_opacity="bg-black/40"
+      >
         <div class="mb-6 pt-6">
           <span class="inline-block px-4 py-1.5 text-sm font-semibold tracking-widest uppercase bg-white/10 backdrop-blur-sm rounded-full border border-white/20 text-white/90">
             Est. 1950 · San Francisco
@@ -261,7 +281,10 @@ defmodule YscWeb.HomeLive do
     </div>
 
     <%!-- Community Narrative Section --%>
-    <section :if={@current_user == nil} class="py-16 lg:py-32 bg-white overflow-hidden">
+    <section
+      :if={@current_user == nil}
+      class="py-16 lg:py-32 bg-white overflow-hidden"
+    >
       <div class="max-w-screen-xl mx-auto px-4">
         <div class="grid lg:grid-cols-12 gap-12 lg:gap-20 items-center">
           <div class="lg:col-span-5">
@@ -287,7 +310,10 @@ defmodule YscWeb.HomeLive do
               heritage may qualify for membership, with rates starting at just
               <strong class="text-blue-600">
                 <%= Ysc.MoneyHelper.format_money!(
-                  Money.new(:USD, Enum.at(Application.get_env(:ysc, :membership_plans), 0).amount)
+                  Money.new(
+                    :USD,
+                    Enum.at(Application.get_env(:ysc, :membership_plans), 0).amount
+                  )
                 ) %>
               </strong>
               per year.
@@ -297,7 +323,8 @@ defmodule YscWeb.HomeLive do
                 navigate={~p"/users/register"}
                 class="inline-flex items-center px-6 py-3 text-base font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition duration-300 shadow-lg hover:shadow-xl"
               >
-                Apply for Membership <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
+                Apply for Membership
+                <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
               </.link>
             </div>
           </div>
@@ -383,7 +410,9 @@ defmodule YscWeb.HomeLive do
                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
               <div class="absolute inset-0 bg-gradient-to-t from-zinc-900/80 via-zinc-900/40 to-transparent flex flex-col justify-end p-4">
-                <h3 class="text-lg font-bold text-white mb-1">Cultural Connection</h3>
+                <h3 class="text-lg font-bold text-white mb-1">
+                  Cultural Connection
+                </h3>
                 <p class="text-xs text-zinc-200">
                   Stay connected to your roots through traditions like Midsummer, Nordic film screenings, and our annual heritage banquets.
                 </p>
@@ -401,7 +430,9 @@ defmodule YscWeb.HomeLive do
               <div class="text-2xl font-black text-white mb-1">
                 <%= Date.utc_today().year - 1950 %>+
               </div>
-              <div class="text-xs text-blue-100 uppercase tracking-widest">Years of Community</div>
+              <div class="text-xs text-blue-100 uppercase tracking-widest">
+                Years of Community
+              </div>
             </div>
           </div>
         </div>
@@ -442,11 +473,17 @@ defmodule YscWeb.HomeLive do
               </p>
               <ul class="space-y-4 mb-8">
                 <li class="flex items-start gap-3 text-zinc-700 text-sm">
-                  <.icon name="hero-check-circle" class="w-5 h-5 text-teal-500 flex-shrink-0" />
+                  <.icon
+                    name="hero-check-circle"
+                    class="w-5 h-5 text-teal-500 flex-shrink-0"
+                  />
                   <span>Minutes from world-class ski resorts & hiking trails</span>
                 </li>
                 <li class="flex items-start gap-3 text-zinc-700 text-sm">
-                  <.icon name="hero-check-circle" class="w-5 h-5 text-teal-500 flex-shrink-0" />
+                  <.icon
+                    name="hero-check-circle"
+                    class="w-5 h-5 text-teal-500 flex-shrink-0"
+                  />
                   <span>
                     Member-only rates: <strong>$45.00 / night</strong>
                   </span>
@@ -466,7 +503,8 @@ defmodule YscWeb.HomeLive do
                   alt="Lake Tahoe Cabin"
                   class="w-full aspect-[4/3] object-cover group-hover:scale-105 transition-transform duration-700"
                 />
-                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent">
+                </div>
               </div>
             </div>
           </div>
@@ -480,7 +518,8 @@ defmodule YscWeb.HomeLive do
                   alt="Clear Lake Cabin"
                   class="w-full aspect-[4/3] object-cover group-hover:scale-105 transition-transform duration-700"
                 />
-                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent">
+                </div>
               </div>
             </div>
             <div class="lg:col-span-5">
@@ -495,11 +534,17 @@ defmodule YscWeb.HomeLive do
               </p>
               <ul class="space-y-4 mb-8">
                 <li class="flex items-start gap-3 text-zinc-700 text-sm">
-                  <.icon name="hero-check-circle" class="w-5 h-5 text-teal-500 flex-shrink-0" />
+                  <.icon
+                    name="hero-check-circle"
+                    class="w-5 h-5 text-teal-500 flex-shrink-0"
+                  />
                   <span>Private dock access for swimming & boating</span>
                 </li>
                 <li class="flex items-start gap-3 text-zinc-700 text-sm">
-                  <.icon name="hero-check-circle" class="w-5 h-5 text-teal-500 flex-shrink-0" />
+                  <.icon
+                    name="hero-check-circle"
+                    class="w-5 h-5 text-teal-500 flex-shrink-0"
+                  />
                   <span>
                     Member-only rates: <strong>$50.00 / night</strong>
                   </span>
@@ -530,7 +575,9 @@ defmodule YscWeb.HomeLive do
           <div class="flex items-center gap-3 flex-wrap">
             <div class="flex items-center gap-2">
               <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span class="text-sm font-black uppercase tracking-widest">Happening Now</span>
+              <span class="text-sm font-black uppercase tracking-widest">
+                Happening Now
+              </span>
             </div>
             <%= if length(@upcoming_events) > 0 do %>
               <span class="h-4 w-px bg-white/30"></span>
@@ -576,7 +623,10 @@ defmodule YscWeb.HomeLive do
 
     <%!-- Upcoming Events Section --%>
     <section
-      :if={@current_user == nil && (@async_data_loaded == false || length(@upcoming_events) > 0)}
+      :if={
+        @current_user == nil &&
+          (@async_data_loaded == false || length(@upcoming_events) > 0)
+      }
       class="py-20 lg:py-32 bg-zinc-900 relative overflow-hidden"
     >
       <div class="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none">
@@ -605,7 +655,10 @@ defmodule YscWeb.HomeLive do
         </div>
 
         <%!-- Loading skeleton for guest events --%>
-        <div :if={!@async_data_loaded} class="flex flex-wrap justify-center gap-8 lg:gap-10">
+        <div
+          :if={!@async_data_loaded}
+          class="flex flex-wrap justify-center gap-8 lg:gap-10"
+        >
           <%= for _i <- 1..3 do %>
             <div class="flex flex-col bg-white/5 backdrop-blur-sm rounded-[2.5rem] border border-white/10 overflow-hidden shadow-2xl w-full md:max-w-md lg:max-w-[calc(33.333%-2rem)] animate-pulse">
               <div class="aspect-[16/11] bg-zinc-700"></div>
@@ -619,7 +672,10 @@ defmodule YscWeb.HomeLive do
           <% end %>
         </div>
 
-        <div :if={@async_data_loaded} class="flex flex-wrap justify-center gap-8 lg:gap-10">
+        <div
+          :if={@async_data_loaded}
+          class="flex flex-wrap justify-center gap-8 lg:gap-10"
+        >
           <%= for event <- @upcoming_events do %>
             <div class="group flex flex-col bg-white/5 backdrop-blur-sm rounded-[2.5rem] border border-white/10 hover:border-blue-500/50 transition-all duration-500 overflow-hidden shadow-2xl w-full md:max-w-md lg:max-w-[calc(33.333%-2rem)]">
               <.link
@@ -641,7 +697,9 @@ defmodule YscWeb.HomeLive do
                   loading="lazy"
                   alt={
                     if event.image,
-                      do: event.image.alt_text || event.image.title || event.title || "Event image",
+                      do:
+                        event.image.alt_text || event.image.title || event.title ||
+                          "Event image",
                       else: "Event image"
                   }
                 />
@@ -712,7 +770,10 @@ defmodule YscWeb.HomeLive do
 
     <%!-- Latest News Section --%>
     <section
-      :if={@current_user == nil && (@async_data_loaded == false || length(@latest_news) > 0)}
+      :if={
+        @current_user == nil &&
+          (@async_data_loaded == false || length(@latest_news) > 0)
+      }
       class="py-24 lg:py-32 bg-zinc-50"
     >
       <div class="max-w-screen-xl mx-auto px-4">
@@ -731,9 +792,15 @@ defmodule YscWeb.HomeLive do
         </div>
 
         <%!-- Loading skeleton for guest news --%>
-        <div :if={!@async_data_loaded} class="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
+        <div
+          :if={!@async_data_loaded}
+          class="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16"
+        >
           <%= for i <- 0..2 do %>
-            <div class={["animate-pulse", if(rem(i, 2) == 1, do: "md:mt-20", else: "")]}>
+            <div class={[
+              "animate-pulse",
+              if(rem(i, 2) == 1, do: "md:mt-20", else: "")
+            ]}>
               <div class="rounded-[2.5rem] mb-8 aspect-square bg-zinc-200"></div>
               <div class="h-3 bg-zinc-200 rounded w-1/4 mb-4"></div>
               <div class="h-6 bg-zinc-200 rounded w-3/4 mb-2"></div>
@@ -742,7 +809,10 @@ defmodule YscWeb.HomeLive do
           <% end %>
         </div>
 
-        <div :if={@async_data_loaded} class="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
+        <div
+          :if={@async_data_loaded}
+          class="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16"
+        >
           <%= for {post, index} <- Enum.with_index(@latest_news) do %>
             <.link
               navigate={~p"/posts/#{post.url_name}"}
@@ -768,14 +838,17 @@ defmodule YscWeb.HomeLive do
                   alt={
                     if post.featured_image,
                       do:
-                        post.featured_image.alt_text || post.featured_image.title || post.title ||
+                        post.featured_image.alt_text || post.featured_image.title ||
+                          post.title ||
                           "News article image",
                       else: "News article image"
                   }
                 />
               </div>
               <time class="text-[10px] font-black text-blue-600 uppercase tracking-widest">
-                <%= format_post_date(post.published_on) %> · <%= reading_time_for_news(post) %> min read
+                <%= format_post_date(post.published_on) %> · <%= reading_time_for_news(
+                  post
+                ) %> min read
               </time>
               <h3 class="text-2xl font-black text-zinc-900 tracking-tighter mt-3 group-hover:text-blue-600 transition-colors leading-none">
                 <%= post.title %>
@@ -813,7 +886,10 @@ defmodule YscWeb.HomeLive do
             <div class="mt-4">
               <span class="text-4xl font-bold text-zinc-900">
                 <%= Ysc.MoneyHelper.format_money!(
-                  Money.new(:USD, Enum.at(Application.get_env(:ysc, :membership_plans), 0).amount)
+                  Money.new(
+                    :USD,
+                    Enum.at(Application.get_env(:ysc, :membership_plans), 0).amount
+                  )
                 ) %>
               </span>
               <span class="text-zinc-500">/year</span>
@@ -823,13 +899,16 @@ defmodule YscWeb.HomeLive do
             </p>
             <ul class="mt-6 space-y-3">
               <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" /> Access to both cabins
+                <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" />
+                Access to both cabins
               </li>
               <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" /> Member events
+                <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" />
+                Member events
               </li>
               <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" /> Community access
+                <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" />
+                Community access
               </li>
             </ul>
           </div>
@@ -840,7 +919,10 @@ defmodule YscWeb.HomeLive do
             <div class="mt-4">
               <span class="text-4xl font-bold text-zinc-900">
                 <%= Ysc.MoneyHelper.format_money!(
-                  Money.new(:USD, Enum.at(Application.get_env(:ysc, :membership_plans), 1).amount)
+                  Money.new(
+                    :USD,
+                    Enum.at(Application.get_env(:ysc, :membership_plans), 1).amount
+                  )
                 ) %>
               </span>
               <span class="text-zinc-500">/year</span>
@@ -850,10 +932,12 @@ defmodule YscWeb.HomeLive do
             </p>
             <ul class="mt-6 space-y-3">
               <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" /> Everything in Single
+                <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" />
+                Everything in Single
               </li>
               <li class="flex items-center text-zinc-700">
-                <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" /> Spouse included
+                <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" />
+                Spouse included
               </li>
               <li class="flex items-center text-zinc-700">
                 <.icon name="hero-check" class="w-5 h-5 text-blue-600 mr-3" />
@@ -868,7 +952,8 @@ defmodule YscWeb.HomeLive do
             navigate={~p"/users/register"}
             class="inline-flex items-center px-8 py-4 text-lg font-bold text-blue-600 bg-white rounded-lg hover:bg-blue-50 transition duration-300 shadow-lg hover:shadow-xl"
           >
-            Check Eligibility & Apply <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
+            Check Eligibility & Apply
+            <.icon name="hero-arrow-right" class="ml-2 w-5 h-5" />
           </.link>
         </div>
       </div>
@@ -934,7 +1019,10 @@ defmodule YscWeb.HomeLive do
             </div>
             <p class="mt-4 text-sm text-zinc-500">
               We don't spam! Read our
-              <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
+              <.link
+                navigate={~p"/privacy-policy"}
+                class="text-blue-600 hover:underline"
+              >
                 privacy policy
               </.link>
               for more info.
@@ -945,7 +1033,10 @@ defmodule YscWeb.HomeLive do
     </section>
 
     <%!-- Logged-in User Dashboard --%>
-    <main :if={@current_user != nil} class="flex-1 w-full bg-zinc-50/50 min-h-screen">
+    <main
+      :if={@current_user != nil}
+      class="flex-1 w-full bg-zinc-50/50 min-h-screen"
+    >
       <%!-- Passkey Setup Prompt Banner --%>
       <div
         :if={@show_passkey_prompt}
@@ -957,7 +1048,11 @@ defmodule YscWeb.HomeLive do
              "opacity-100 translate-y-0"}
           )
         }
-        phx-remove={JS.transition({"transition ease-in duration-200", "opacity-100", "opacity-0"})}
+        phx-remove={
+          JS.transition(
+            {"transition ease-in duration-200", "opacity-100", "opacity-0"}
+          )
+        }
       >
         <div class="max-w-screen-xl mx-auto px-4 py-3 sm:py-3.5">
           <div class="flex items-start sm:items-center justify-between gap-x-4">
@@ -977,7 +1072,10 @@ defmodule YscWeb.HomeLive do
             </div>
 
             <div class="flex items-center gap-2 sm:gap-4">
-              <.button phx-click="setup_passkey" class="!py-1.5 !px-4 whitespace-nowrap shadow-sm">
+              <.button
+                phx-click="setup_passkey"
+                class="!py-1.5 !px-4 whitespace-nowrap shadow-sm"
+              >
                 Setup
               </.button>
 
@@ -1018,10 +1116,15 @@ defmodule YscWeb.HomeLive do
             <div class="hidden md:flex items-center gap-4">
               <div class="text-right hidden md:block">
                 <p class="text-sm font-bold text-zinc-900">
-                  <%= YscWeb.UserAuth.get_membership_plan_display_name(@current_membership) %>
+                  <%= YscWeb.UserAuth.get_membership_plan_display_name(
+                    @current_membership
+                  ) %>
                 </p>
                 <p class="text-xs text-zinc-500">
-                  Member since <%= Calendar.strftime(@current_user.inserted_at, "%Y") %>
+                  Member since <%= Calendar.strftime(
+                    @current_user.inserted_at,
+                    "%Y"
+                  ) %>
                 </p>
               </div>
               <div class="w-16 h-16 rounded-full ring-4 ring-zinc-50 shadow-inner overflow-hidden">
@@ -1132,8 +1235,12 @@ defmodule YscWeb.HomeLive do
                 <div class="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <.icon name="hero-home" class="w-8 h-8 text-zinc-400" />
                 </div>
-                <h3 class="text-lg font-black text-zinc-900 mb-2">No upcoming bookings</h3>
-                <p class="text-zinc-500 text-sm mb-6">Plan your next cabin getaway</p>
+                <h3 class="text-lg font-black text-zinc-900 mb-2">
+                  No upcoming bookings
+                </h3>
+                <p class="text-zinc-500 text-sm mb-6">
+                  Plan your next cabin getaway
+                </p>
                 <div class="flex flex-col sm:flex-row gap-3 justify-center">
                   <.link
                     navigate={~p"/bookings/tahoe"}
@@ -1150,10 +1257,14 @@ defmodule YscWeb.HomeLive do
                 </div>
               </div>
 
-              <div :if={@async_data_loaded && !Enum.empty?(@future_bookings)} class="space-y-4">
+              <div
+                :if={@async_data_loaded && !Enum.empty?(@future_bookings)}
+                class="space-y-4"
+              >
                 <%= for booking <- @future_bookings do %>
                   <% is_active =
-                    days_until_booking(booking) == :started || days_until_booking(booking) == 0 %>
+                    days_until_booking(booking) == :started ||
+                      days_until_booking(booking) == 0 %>
                   <.link
                     navigate={~p"/bookings/#{booking.id}/receipt"}
                     class={[
@@ -1186,7 +1297,9 @@ defmodule YscWeb.HomeLive do
                         <p class="font-black text-2xl text-zinc-900 tracking-tighter">
                           <%= format_property_name(booking.property) %>
                         </p>
-                        <p class="text-[10px] font-mono text-zinc-400"><%= booking.reference_id %></p>
+                        <p class="text-[10px] font-mono text-zinc-400">
+                          <%= booking.reference_id %>
+                        </p>
                       </div>
                       <div class="space-y-2">
                         <p class="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
@@ -1243,11 +1356,15 @@ defmodule YscWeb.HomeLive do
             <%!-- Event Tickets Section --%>
             <section>
               <h3 class="text-lg font-bold text-zinc-900 mb-6 flex items-center gap-2">
-                <.icon name="hero-ticket" class="w-5 h-5 text-purple-600" /> Event Tickets
+                <.icon name="hero-ticket" class="w-5 h-5 text-purple-600" />
+                Event Tickets
               </h3>
 
               <%!-- Loading skeleton for tickets --%>
-              <div :if={!@async_data_loaded} class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div
+                :if={!@async_data_loaded}
+                class="grid grid-cols-1 md:grid-cols-2 gap-6"
+              >
                 <div class="bg-white/50 border-2 border-dashed border-zinc-200 rounded-lg p-8 animate-pulse">
                   <div class="flex justify-between items-start mb-4">
                     <div class="w-16 h-5 bg-zinc-200 rounded"></div>
@@ -1266,8 +1383,12 @@ defmodule YscWeb.HomeLive do
                 <div class="w-16 h-16 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <.icon name="hero-calendar-days" class="w-8 h-8 text-zinc-400" />
                 </div>
-                <h3 class="text-lg font-black text-zinc-900 mb-2">No upcoming event tickets</h3>
-                <p class="text-zinc-500 text-sm mb-6">Discover what's happening in our community</p>
+                <h3 class="text-lg font-black text-zinc-900 mb-2">
+                  No upcoming event tickets
+                </h3>
+                <p class="text-zinc-500 text-sm mb-6">
+                  Discover what's happening in our community
+                </p>
                 <.link
                   navigate={~p"/events"}
                   class="inline-flex items-center px-6 py-3 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-bold rounded transition-colors"
@@ -1333,7 +1454,9 @@ defmodule YscWeb.HomeLive do
                       >
                         View Order
                       </.link>
-                      <span :if={!order_id} class="text-xs font-bold text-zinc-400">No order</span>
+                      <span :if={!order_id} class="text-xs font-bold text-zinc-400">
+                        No order
+                      </span>
                       <div class="flex flex-wrap gap-1">
                         <%= for {tier_name, tickets} <- grouped_tiers do %>
                           <span class="text-[10px] font-bold text-zinc-400">
@@ -1400,7 +1523,9 @@ defmodule YscWeb.HomeLive do
                 </div>
 
                 <h3 class="text-2xl font-black tracking-tight mb-2">
-                  <%= YscWeb.UserAuth.get_membership_plan_display_name(@current_membership) %>
+                  <%= YscWeb.UserAuth.get_membership_plan_display_name(
+                    @current_membership
+                  ) %>
                 </h3>
                 <p class={[
                   "text-sm leading-relaxed mb-8",
@@ -1463,7 +1588,10 @@ defmodule YscWeb.HomeLive do
               </h3>
               <div class="space-y-6">
                 <%= for post <- Enum.take(@latest_news, 3) do %>
-                  <.link navigate={~p"/posts/#{post.url_name}"} class="flex gap-4 group">
+                  <.link
+                    navigate={~p"/posts/#{post.url_name}"}
+                    class="flex gap-4 group"
+                  >
                     <div class="w-16 h-16 rounded-lg bg-zinc-200 overflow-hidden flex-shrink-0">
                       <div class="relative w-full h-full">
                         <canvas
@@ -1482,7 +1610,8 @@ defmodule YscWeb.HomeLive do
                           alt={
                             if post.featured_image,
                               do:
-                                post.featured_image.alt_text || post.featured_image.title ||
+                                post.featured_image.alt_text ||
+                                  post.featured_image.title ||
                                   post.title ||
                                   "News article image",
                               else: "News article image"
@@ -1551,8 +1680,12 @@ defmodule YscWeb.HomeLive do
               <div class="w-12 h-12 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <.icon name="hero-calendar" class="w-6 h-6 text-zinc-400" />
               </div>
-              <h3 class="text-sm font-black text-zinc-900 mb-1">No upcoming events</h3>
-              <p class="text-xs text-zinc-500">Check back later for new community events</p>
+              <h3 class="text-sm font-black text-zinc-900 mb-1">
+                No upcoming events
+              </h3>
+              <p class="text-xs text-zinc-500">
+                Check back later for new community events
+              </p>
             </div>
 
             <div
@@ -1586,7 +1719,9 @@ defmodule YscWeb.HomeLive do
   defp get_membership_description(membership, is_sub_account, primary_user) do
     plan_type = YscWeb.UserAuth.get_membership_plan_type(membership)
     renewal_date = YscWeb.UserAuth.get_membership_renewal_date(membership)
-    scheduled_for_cancellation? = membership_scheduled_for_cancellation?(membership)
+
+    scheduled_for_cancellation? =
+      membership_scheduled_for_cancellation?(membership)
 
     case plan_type do
       :lifetime ->
@@ -1632,7 +1767,8 @@ defmodule YscWeb.HomeLive do
     Ysc.Subscriptions.scheduled_for_cancellation?(subscription)
   end
 
-  defp membership_scheduled_for_cancellation?(subscription) when is_struct(subscription) do
+  defp membership_scheduled_for_cancellation?(subscription)
+       when is_struct(subscription) do
     Ysc.Subscriptions.scheduled_for_cancellation?(subscription)
   end
 
@@ -1688,7 +1824,10 @@ defmodule YscWeb.HomeLive do
       event_datetime = get_event_datetime_for_sorting(event)
       {event_datetime, event_tickets}
     end)
-    |> Enum.sort_by(fn {event_datetime, _tickets} -> event_datetime end, {:asc, DateTime})
+    |> Enum.sort_by(
+      fn {event_datetime, _tickets} -> event_datetime end,
+      {:asc, DateTime}
+    )
     |> Enum.take(event_limit)
     |> Enum.flat_map(fn {_event_datetime, event_tickets} -> event_tickets end)
   end
@@ -1799,7 +1938,10 @@ defmodule YscWeb.HomeLive do
     |> Enum.filter(fn booking ->
       if Date.compare(booking.checkout_date, today_pst) == :eq do
         now_pst = DateTime.now!("America/Los_Angeles")
-        checkout_datetime_pst = DateTime.new!(today_pst, checkout_time, "America/Los_Angeles")
+
+        checkout_datetime_pst =
+          DateTime.new!(today_pst, checkout_time, "America/Los_Angeles")
+
         DateTime.compare(now_pst, checkout_datetime_pst) == :lt
       else
         true
@@ -2107,7 +2249,8 @@ defmodule YscWeb.HomeLive do
 
                 ticket_count ->
                   max_attendees =
-                    Map.get(event, :max_attendees) || Map.get(event, "max_attendees")
+                    Map.get(event, :max_attendees) ||
+                      Map.get(event, "max_attendees")
 
                   ticket_count >= max_attendees
               end
@@ -2122,8 +2265,11 @@ defmodule YscWeb.HomeLive do
     # Use PST timezone for comparison
     now_pst = DateTime.now!("America/Los_Angeles")
 
-    start_date = Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
-    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+    start_date =
+      Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
+
+    end_date =
+      Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
 
     # Check if sale has started (convert to PST if needed)
     sale_started =
@@ -2160,7 +2306,8 @@ defmodule YscWeb.HomeLive do
     # Use PST timezone for comparison
     now_pst = DateTime.now!("America/Los_Angeles")
 
-    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+    end_date =
+      Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
 
     case end_date do
       nil ->
@@ -2176,10 +2323,12 @@ defmodule YscWeb.HomeLive do
   end
 
   defp get_available_quantity(ticket_tier) do
-    quantity = Map.get(ticket_tier, :quantity) || Map.get(ticket_tier, "quantity")
+    quantity =
+      Map.get(ticket_tier, :quantity) || Map.get(ticket_tier, "quantity")
 
     sold_count =
-      Map.get(ticket_tier, :sold_tickets_count) || Map.get(ticket_tier, "sold_tickets_count") || 0
+      Map.get(ticket_tier, :sold_tickets_count) ||
+        Map.get(ticket_tier, "sold_tickets_count") || 0
 
     case quantity do
       # Unlimited
@@ -2232,7 +2381,8 @@ defmodule YscWeb.HomeLive do
     Timex.format!(datetime_pst, "{h12}:{m} {AM}")
   end
 
-  defp format_event_time(event_start_date, start_time) when is_binary(start_time) do
+  defp format_event_time(event_start_date, start_time)
+       when is_binary(start_time) do
     try do
       # Parse database time format (HH:MM:SS)
       [h, m, _s] = String.split(start_time, ":")
@@ -2304,7 +2454,9 @@ defmodule YscWeb.HomeLive do
   defp event_image_url(%Image{optimized_image_path: nil} = image),
     do: image.raw_image_path || "/images/ysc_logo.png"
 
-  defp event_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
+  defp event_image_url(%Image{optimized_image_path: optimized_path}),
+    do: optimized_path
+
   defp event_image_url(_), do: "/images/ysc_logo.png"
 
   defp featured_image_url_for_news(nil), do: "/images/ysc_logo.png"
@@ -2312,8 +2464,10 @@ defmodule YscWeb.HomeLive do
   defp featured_image_url_for_news(%Image{optimized_image_path: nil} = image),
     do: image.raw_image_path || "/images/ysc_logo.png"
 
-  defp featured_image_url_for_news(%Image{optimized_image_path: optimized_path}),
-    do: optimized_path
+  defp featured_image_url_for_news(%Image{
+         optimized_image_path: optimized_path
+       }),
+       do: optimized_path
 
   defp featured_image_url_for_news(_), do: "/images/ysc_logo.png"
 
@@ -2344,8 +2498,12 @@ defmodule YscWeb.HomeLive do
       |> Kernel.<>("...")
 
   defp thumbnail_image_url(nil), do: "/images/ysc_logo.png"
-  defp thumbnail_image_url(%Image{thumbnail_path: nil} = image), do: image.raw_image_path
-  defp thumbnail_image_url(%Image{thumbnail_path: thumbnail_path}), do: thumbnail_path
+
+  defp thumbnail_image_url(%Image{thumbnail_path: nil} = image),
+    do: image.raw_image_path
+
+  defp thumbnail_image_url(%Image{thumbnail_path: thumbnail_path}),
+    do: thumbnail_path
 
   defp greeting_for_country(nil), do: "Hej"
   defp greeting_for_country("Sweden"), do: "Hej"

@@ -154,7 +154,9 @@ defmodule Ysc.Events do
         where: e.start_date > ^DateTime.utc_now(),
         where: e.state in [:published, :cancelled],
         left_join: t in Ticket,
-        on: t.event_id == e.id and t.status == :confirmed and t.inserted_at >= ^three_days_ago,
+        on:
+          t.event_id == e.id and t.status == :confirmed and
+            t.inserted_at >= ^three_days_ago,
         left_join: tt in TicketTier,
         on: t.ticket_tier_id == tt.id and tt.type != :donation,
         group_by: e.id,
@@ -216,7 +218,9 @@ defmodule Ysc.Events do
         where: e.start_date <= ^DateTime.utc_now(),
         where: e.state in [:published, :cancelled],
         left_join: t in Ticket,
-        on: t.event_id == e.id and t.status == :confirmed and t.inserted_at >= ^three_days_ago,
+        on:
+          t.event_id == e.id and t.status == :confirmed and
+            t.inserted_at >= ^three_days_ago,
         left_join: tt in TicketTier,
         on: t.ticket_tier_id == tt.id and tt.type != :donation,
         group_by: e.id,
@@ -285,7 +289,8 @@ defmodule Ysc.Events do
       |> Repo.all()
 
     # Sort: upcoming events first (ascending), then past events (descending)
-    {upcoming, past} = Enum.split_with(events, &(DateTime.compare(&1.start_date, now) == :gt))
+    {upcoming, past} =
+      Enum.split_with(events, &(DateTime.compare(&1.start_date, now) == :gt))
 
     upcoming_sorted = Enum.sort_by(upcoming, & &1.start_date, {:asc, DateTime})
     past_sorted = Enum.sort_by(past, & &1.start_date, {:desc, DateTime})
@@ -322,11 +327,21 @@ defmodule Ysc.Events do
 
     # Add pricing info, ticket counts, and images to each event
     Enum.map(events, fn event ->
-      enrich_event_with_data(event, ticket_tiers_by_event, ticket_counts_by_event, images_by_id)
+      enrich_event_with_data(
+        event,
+        ticket_tiers_by_event,
+        ticket_counts_by_event,
+        images_by_id
+      )
     end)
   end
 
-  defp enrich_event_with_data(event, ticket_tiers_by_event, ticket_counts_by_event, images_by_id) do
+  defp enrich_event_with_data(
+         event,
+         ticket_tiers_by_event,
+         ticket_counts_by_event,
+         images_by_id
+       ) do
     ticket_tiers = Map.get(ticket_tiers_by_event, event.id, [])
     ticket_count = Map.get(ticket_counts_by_event, event.id, 0)
     pricing_info = calculate_event_pricing(ticket_tiers)
@@ -429,7 +444,8 @@ defmodule Ysc.Events do
 
   defp calculate_event_pricing(ticket_tiers) do
     # Check if there are any free tiers (handle both atom and string types)
-    has_free_tiers = Enum.any?(ticket_tiers, &(&1.type == :free or &1.type == "free"))
+    has_free_tiers =
+      Enum.any?(ticket_tiers, &(&1.type == :free or &1.type == "free"))
 
     # Get the lowest price from paid tiers only (exclude donation tiers)
     # Filter out donation, free, and tiers with nil prices
@@ -573,8 +589,10 @@ defmodule Ysc.Events do
     schedule_event(event, parsed_datetime)
   end
 
-  def schedule_event(%Event{} = event, publish_at) when is_struct(publish_at, DateTime) do
-    changeset = Event.changeset(event, %{state: "scheduled", publish_at: publish_at})
+  def schedule_event(%Event{} = event, publish_at)
+      when is_struct(publish_at, DateTime) do
+    changeset =
+      Event.changeset(event, %{state: "scheduled", publish_at: publish_at})
 
     case Repo.update(changeset) do
       {:ok, event} ->
@@ -616,10 +634,17 @@ defmodule Ysc.Events do
   # Helper function for applying filters dynamically.
   defp apply_filters(query, filters) do
     Enum.reduce(filters, query, fn
-      {:organizer_id, organizer_id}, query -> where(query, [e], e.organizer_id == ^organizer_id)
-      {:state, state}, query -> where(query, [e], e.state == ^state)
-      {:title, title}, query -> where(query, [e], ilike(e.title, ^"%#{title}%"))
-      _other, query -> query
+      {:organizer_id, organizer_id}, query ->
+        where(query, [e], e.organizer_id == ^organizer_id)
+
+      {:state, state}, query ->
+        where(query, [e], e.state == ^state)
+
+      {:title, title}, query ->
+        where(query, [e], ilike(e.title, ^"%#{title}%"))
+
+      _other, query ->
+        query
     end)
   end
 
@@ -765,7 +790,10 @@ defmodule Ysc.Events do
     |> Repo.insert()
     |> case do
       {:ok, ticket_tier} ->
-        broadcast(%Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier})
+        broadcast(%Ysc.MessagePassingEvents.TicketTierAdded{
+          ticket_tier: ticket_tier
+        })
+
         {:ok, ticket_tier}
 
       {:error, changeset} ->
@@ -782,7 +810,10 @@ defmodule Ysc.Events do
     |> Repo.update()
     |> case do
       {:ok, ticket_tier} ->
-        broadcast(%Ysc.MessagePassingEvents.TicketTierUpdated{ticket_tier: ticket_tier})
+        broadcast(%Ysc.MessagePassingEvents.TicketTierUpdated{
+          ticket_tier: ticket_tier
+        })
+
         {:ok, ticket_tier}
 
       {:error, changeset} ->
@@ -797,7 +828,10 @@ defmodule Ysc.Events do
     Repo.delete(ticket_tier)
     |> case do
       {:ok, ticket_tier} ->
-        broadcast(%Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier})
+        broadcast(%Ysc.MessagePassingEvents.TicketTierDeleted{
+          ticket_tier: ticket_tier
+        })
+
         {:ok, ticket_tier}
 
       {:error, changeset} ->
@@ -810,7 +844,10 @@ defmodule Ysc.Events do
   """
   def count_tickets_for_tier(ticket_tier_id) do
     Ticket
-    |> where([t], t.ticket_tier_id == ^ticket_tier_id and t.status == :confirmed)
+    |> where(
+      [t],
+      t.ticket_tier_id == ^ticket_tier_id and t.status == :confirmed
+    )
     |> Repo.aggregate(:count, :id)
   end
 
@@ -883,7 +920,9 @@ defmodule Ysc.Events do
     |> group_by([t], t.user_id)
     |> select([t], %{user_id: t.user_id, ticket_count: count(t.id)})
     |> Repo.all()
-    |> Enum.map(fn %{user_id: user_id, ticket_count: count} -> {user_id, count} end)
+    |> Enum.map(fn %{user_id: user_id, ticket_count: count} ->
+      {user_id, count}
+    end)
     |> Map.new()
   end
 
@@ -996,7 +1035,15 @@ defmodule Ysc.Events do
       where: t.event_id == ^event_id and t.status == :confirmed,
       join: tt in assoc(t, :ticket_tier),
       join: u in assoc(t, :user),
-      group_by: [tt.id, tt.name, u.id, u.first_name, u.last_name, u.email, tt.price],
+      group_by: [
+        tt.id,
+        tt.name,
+        u.id,
+        u.first_name,
+        u.last_name,
+        u.email,
+        tt.price
+      ],
       select: %{
         ticket_tier_id: tt.id,
         ticket_tier_name: tt.name,
@@ -1014,7 +1061,10 @@ defmodule Ysc.Events do
         try do
           case purchase.ticket_tier_price do
             %Money{amount: amount} ->
-              Money.new(Decimal.mult(amount, Decimal.new(purchase.ticket_count)), :USD)
+              Money.new(
+                Decimal.mult(amount, Decimal.new(purchase.ticket_count)),
+                :USD
+              )
 
             _ ->
               Money.new(0, :USD)
@@ -1093,7 +1143,8 @@ defmodule Ysc.Events do
   Create multiple ticket details for a list of tickets.
   Returns {:ok, list} on success, {:error, reason} on failure.
   """
-  def create_ticket_details(ticket_details_list) when is_list(ticket_details_list) do
+  def create_ticket_details(ticket_details_list)
+      when is_list(ticket_details_list) do
     Repo.transaction(fn ->
       ticket_details_list
       |> Enum.map(&insert_ticket_detail/1)
@@ -1265,8 +1316,16 @@ defmodule Ysc.Events do
   """
   def get_ticket_reservation(id) do
     case Repo.get(TicketReservation, id) do
-      nil -> nil
-      reservation -> Repo.preload(reservation, [:ticket_tier, :user, :created_by, :ticket_order])
+      nil ->
+        nil
+
+      reservation ->
+        Repo.preload(reservation, [
+          :ticket_tier,
+          :user,
+          :created_by,
+          :ticket_order
+        ])
     end
   end
 
@@ -1308,7 +1367,10 @@ defmodule Ysc.Events do
   @doc """
   Fulfill a ticket reservation by linking it to a ticket order.
   """
-  def fulfill_ticket_reservation(%TicketReservation{} = reservation, ticket_order_id) do
+  def fulfill_ticket_reservation(
+        %TicketReservation{} = reservation,
+        ticket_order_id
+      ) do
     reservation
     |> TicketReservation.changeset(%{
       status: "fulfilled",
@@ -1373,7 +1435,8 @@ defmodule Ysc.Events do
     TicketReservation
     |> where(
       [tr],
-      tr.ticket_tier_id == ^tier_id and tr.user_id == ^user_id and tr.status == "active"
+      tr.ticket_tier_id == ^tier_id and tr.user_id == ^user_id and
+        tr.status == "active"
     )
     |> select([tr], sum(tr.quantity))
     |> Repo.one()

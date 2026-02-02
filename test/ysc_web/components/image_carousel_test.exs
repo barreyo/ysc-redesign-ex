@@ -9,7 +9,10 @@ defmodule YscWeb.Components.ImageCarouselTest do
     assigns = Map.put_new(assigns, :overlay, [])
 
     # Render as a function component
-    Phoenix.LiveViewTest.render_component(&ImageCarousel.image_carousel/1, assigns)
+    Phoenix.LiveViewTest.render_component(
+      &ImageCarousel.image_carousel/1,
+      assigns
+    )
   end
 
   describe "image_carousel/1" do
@@ -219,7 +222,10 @@ defmodule YscWeb.Components.ImageCarouselTest do
 
       # Look for the actual div elements, not the class name which appears in CSS too
       slide_count =
-        html |> String.split(~r/<div class="carousel-slide">/) |> length() |> Kernel.-(1)
+        html
+        |> String.split(~r/<div class="carousel-slide">/)
+        |> length()
+        |> Kernel.-(1)
 
       assert slide_count == 2
     end

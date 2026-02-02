@@ -41,7 +41,10 @@ defmodule Ysc.Bookings.PricingRule do
       references: :id
 
     field :property, Ysc.Bookings.BookingProperty
-    belongs_to :season, Ysc.Bookings.Season, foreign_key: :season_id, references: :id
+
+    belongs_to :season, Ysc.Bookings.Season,
+      foreign_key: :season_id,
+      references: :id
 
     timestamps()
   end
@@ -71,7 +74,14 @@ defmodule Ysc.Bookings.PricingRule do
     |> validate_specificity()
     |> validate_room_and_category()
     |> unique_constraint(
-      [:room_id, :room_category_id, :property, :season_id, :booking_mode, :price_unit],
+      [
+        :room_id,
+        :room_category_id,
+        :property,
+        :season_id,
+        :booking_mode,
+        :price_unit
+      ],
       name: :uq_pricing_rules_specificity
     )
     |> foreign_key_constraint(:room_id)
@@ -153,7 +163,14 @@ defmodule Ysc.Bookings.PricingRule do
   - `%PricingRule{}` if found
   - `nil` if not found
   """
-  def find_most_specific(property, season_id, room_id, room_category_id, booking_mode, price_unit) do
+  def find_most_specific(
+        property,
+        season_id,
+        room_id,
+        room_category_id,
+        booking_mode,
+        price_unit
+      ) do
     alias Ysc.Bookings.PricingRuleCache
     require Logger
 
@@ -165,7 +182,14 @@ defmodule Ysc.Bookings.PricingRule do
     )
 
     # Use cache which will handle DB lookup on miss
-    PricingRuleCache.get(property, season_id, room_id, room_category_id, booking_mode, price_unit)
+    PricingRuleCache.get(
+      property,
+      season_id,
+      room_id,
+      room_category_id,
+      booking_mode,
+      price_unit
+    )
   end
 
   # Internal function that actually queries the database (called by cache on miss)
@@ -208,7 +232,10 @@ defmodule Ysc.Bookings.PricingRule do
           select: count(pr.id)
 
       total_count = Ysc.Repo.one(count_query)
-      Logger.debug("[PricingRule] Total pricing rules for property #{property}: #{total_count}")
+
+      Logger.debug(
+        "[PricingRule] Total pricing rules for property #{property}: #{total_count}"
+      )
 
       # Check rules matching booking_mode and price_unit
       matching_count_query =
@@ -281,8 +308,13 @@ defmodule Ysc.Bookings.PricingRule do
     from pr in query,
       order_by: [
         desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_id),
-        desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.room_category_id),
-        desc: fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.season_id)
+        desc:
+          fragment(
+            "CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END",
+            pr.room_category_id
+          ),
+        desc:
+          fragment("CASE WHEN ? IS NOT NULL THEN 1 ELSE 0 END", pr.season_id)
       ],
       limit: 1
   end
@@ -373,7 +405,9 @@ defmodule Ysc.Bookings.PricingRule do
           "Season ID=#{inspect(result.season_id)}"
       )
     else
-      Logger.debug("[PricingRule] No children pricing rule found matching criteria.")
+      Logger.debug(
+        "[PricingRule] No children pricing rule found matching criteria."
+      )
     end
 
     result

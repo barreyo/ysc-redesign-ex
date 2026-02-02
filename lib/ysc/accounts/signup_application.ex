@@ -23,13 +23,15 @@ defmodule Ysc.Accounts.SignupApplication do
       "I have lived in Scandinavia for at least six (6) months",
       "lived_in_scandinavia"
     },
-    {"I speak one of the Scandinavian languages", "speak_scandinavian_language"},
+    {"I speak one of the Scandinavian languages",
+     "speak_scandinavian_language"},
     {"I am the spouse of a member", "spouse_of_member"}
   ]
   @valid_eligibility_option Enum.map(@eligibility_options, fn {_text, val} ->
                               String.to_atom(val)
                             end)
-  @eligibility_lookup Enum.reduce(@eligibility_options, %{}, fn {text, val}, acc ->
+  @eligibility_lookup Enum.reduce(@eligibility_options, %{}, fn {text, val},
+                                                                acc ->
                         Map.put(acc, String.to_atom(val), text)
                       end)
 
@@ -71,7 +73,10 @@ defmodule Ysc.Accounts.SignupApplication do
 
     field :reviewed_at, :utc_datetime
     field :review_outcome, UserApplicationReviewOutcome
-    belongs_to :reviewed_by, Ysc.Accounts.User, foreign_key: :reviewed_by_user_id, references: :id
+
+    belongs_to :reviewed_by, Ysc.Accounts.User,
+      foreign_key: :reviewed_by_user_id,
+      references: :id
 
     timestamps()
   end
@@ -79,10 +84,15 @@ defmodule Ysc.Accounts.SignupApplication do
   @spec application_changeset(
           {map(), map()}
           | %{
-              :__struct__ => atom() | %{:__changeset__ => map(), optional(any()) => any()},
+              :__struct__ =>
+                atom() | %{:__changeset__ => map(), optional(any()) => any()},
               optional(atom()) => any()
             },
-          :invalid | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
+          :invalid
+          | %{
+              optional(:__struct__) => none(),
+              optional(atom() | binary()) => any()
+            }
         ) :: Ecto.Changeset.t()
   def application_changeset(application, attrs, _opts \\ []) do
     application
@@ -150,7 +160,10 @@ defmodule Ysc.Accounts.SignupApplication do
 
   defp validate_membership_eligibility(changeset) do
     changeset
-    |> clean_and_validate_array(:membership_eligibility, @valid_eligibility_option)
+    |> clean_and_validate_array(
+      :membership_eligibility,
+      @valid_eligibility_option
+    )
     |> validate_length(:membership_eligibility, min: 1)
   end
 

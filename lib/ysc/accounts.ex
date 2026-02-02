@@ -11,7 +11,15 @@ defmodule Ysc.Accounts do
   alias Ysc.Accounts.SignupApplication
   alias Ysc.Repo
 
-  alias Ysc.Accounts.{Address, User, UserToken, UserNotifier, AuthService, UserNote, UserPasskey}
+  alias Ysc.Accounts.{
+    Address,
+    User,
+    UserToken,
+    UserNotifier,
+    AuthService,
+    UserNote,
+    UserPasskey
+  }
 
   ## Database getters
 
@@ -185,7 +193,10 @@ defmodule Ysc.Accounts do
   Gets all passkeys for a user.
   """
   def get_user_passkeys(user) do
-    from(p in UserPasskey, where: p.user_id == ^user.id, order_by: [desc: p.last_used_at])
+    from(p in UserPasskey,
+      where: p.user_id == ^user.id,
+      order_by: [desc: p.last_used_at]
+    )
     |> Repo.all()
   end
 
@@ -253,7 +264,11 @@ defmodule Ysc.Accounts do
       else
         # Check if 30 days have passed since dismissal
         days_since_dismissal =
-          DateTime.diff(DateTime.utc_now(), user.passkey_prompt_dismissed_at, :day)
+          DateTime.diff(
+            DateTime.utc_now(),
+            user.passkey_prompt_dismissed_at,
+            :day
+          )
 
         days_since_dismissal >= 30
       end
@@ -268,7 +283,9 @@ defmodule Ysc.Accounts do
   """
   def dismiss_passkey_prompt(user) do
     user
-    |> User.update_user_changeset(%{passkey_prompt_dismissed_at: DateTime.utc_now()})
+    |> User.update_user_changeset(%{
+      passkey_prompt_dismissed_at: DateTime.utc_now()
+    })
     |> Repo.update()
   end
 
@@ -303,7 +320,10 @@ defmodule Ysc.Accounts do
         ilike(u.first_name, ^search_term) or
           ilike(u.last_name, ^search_term) or
           ilike(u.email, ^search_term) or
-          ilike(fragment("? || ' ' || ?", u.first_name, u.last_name), ^search_term),
+          ilike(
+            fragment("? || ' ' || ?", u.first_name, u.last_name),
+            ^search_term
+          ),
       order_by: [asc: u.last_name, asc: u.first_name],
       limit: ^limit
     )
@@ -362,7 +382,10 @@ defmodule Ysc.Accounts do
   end
 
   def get_signup_application_from_user_id!(id, current_user, preloads \\ []) do
-    with :ok <- Policy.authorize(:signup_application_read, current_user, %{user_id: id}) do
+    with :ok <-
+           Policy.authorize(:signup_application_read, current_user, %{
+             user_id: id
+           }) do
       Repo.get_by!(SignupApplication, user_id: id)
       |> Repo.preload(preloads)
     end
@@ -372,7 +395,10 @@ defmodule Ysc.Accounts do
 
   @spec register_user(
           :invalid
-          | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
+          | %{
+              optional(:__struct__) => none(),
+              optional(atom() | binary()) => any()
+            }
         ) :: any()
   @doc """
   Registers a user.
@@ -422,7 +448,8 @@ defmodule Ysc.Accounts do
               # Log the error but don't fail registration
               require Logger
 
-              Logger.warning("Failed to create billing address during registration",
+              Logger.warning(
+                "Failed to create billing address during registration",
                 user_id: user.id,
                 errors: inspect(changeset.errors)
               )
@@ -437,7 +464,8 @@ defmodule Ysc.Accounts do
     end)
     |> case do
       {:ok, user} ->
-        is_test = if Code.ensure_loaded?(Mix), do: Mix.env() == :test, else: false
+        is_test =
+          if Code.ensure_loaded?(Mix), do: Mix.env() == :test, else: false
 
         # In tests, avoid spawning background tasks that touch the DB inside the SQL sandbox,
         # as they can produce noisy DBConnection ownership/disconnect logs.
@@ -449,7 +477,8 @@ defmodule Ysc.Accounts do
               e ->
                 require Logger
 
-                Logger.warning("Failed to create Stripe customer in background task",
+                Logger.warning(
+                  "Failed to create Stripe customer in background task",
                   user_id: user.id,
                   error: Exception.format(:error, e, __STACKTRACE__)
                 )
@@ -457,7 +486,8 @@ defmodule Ysc.Accounts do
               kind, reason ->
                 require Logger
 
-                Logger.warning("Failed to create Stripe customer in background task",
+                Logger.warning(
+                  "Failed to create Stripe customer in background task",
                   user_id: user.id,
                   kind: kind,
                   reason: inspect(reason)
@@ -482,7 +512,8 @@ defmodule Ysc.Accounts do
     # Check if registration_form is loaded and available
     cond do
       # Association is loaded and has data
-      Ecto.assoc_loaded?(user.registration_form) && user.registration_form != nil ->
+      Ecto.assoc_loaded?(user.registration_form) &&
+          user.registration_form != nil ->
         signup_application = user.registration_form
 
         # Check if address already exists
@@ -515,7 +546,8 @@ defmodule Ysc.Accounts do
           else
             require Logger
 
-            Logger.warning("Skipping billing address creation - missing required fields",
+            Logger.warning(
+              "Skipping billing address creation - missing required fields",
               user_id: user.id,
               has_address: !is_nil(signup_application.address),
               has_city: !is_nil(signup_application.city),
@@ -537,7 +569,8 @@ defmodule Ysc.Accounts do
         else
           require Logger
 
-          Logger.warning("Skipping billing address creation - registration_form not found",
+          Logger.warning(
+            "Skipping billing address creation - registration_form not found",
             user_id: user.id
           )
 
@@ -548,7 +581,8 @@ defmodule Ysc.Accounts do
       true ->
         require Logger
 
-        Logger.warning("Skipping billing address creation - registration_form is nil",
+        Logger.warning(
+          "Skipping billing address creation - registration_form is nil",
           user_id: user.id
         )
 
@@ -622,7 +656,8 @@ defmodule Ysc.Accounts do
         )
 
       {:error, changeset} ->
-        Logger.warning("Failed to enqueue newsletter unsubscription for old email",
+        Logger.warning(
+          "Failed to enqueue newsletter unsubscription for old email",
           user_id: user.id,
           old_email: old_email,
           errors: inspect(changeset.errors)
@@ -658,7 +693,8 @@ defmodule Ysc.Accounts do
           :ok
 
         {:error, changeset} ->
-          Logger.warning("Failed to enqueue newsletter subscription for new email",
+          Logger.warning(
+            "Failed to enqueue newsletter subscription for new email",
             user_id: user.id,
             new_email: new_email,
             errors: inspect(changeset.errors)
@@ -667,7 +703,8 @@ defmodule Ysc.Accounts do
           :ok
       end
     else
-      Logger.debug("Skipping newsletter subscription for new email (notifications disabled)",
+      Logger.debug(
+        "Skipping newsletter subscription for new email (notifications disabled)",
         user_id: user.id,
         new_email: new_email
       )
@@ -686,7 +723,10 @@ defmodule Ysc.Accounts do
 
   """
   def change_user_registration(%User{} = user, attrs \\ %{}) do
-    User.registration_changeset(user, attrs, hash_password: false, validate_email: true)
+    User.registration_changeset(user, attrs,
+      hash_password: false,
+      validate_email: true
+    )
   end
 
   @doc """
@@ -695,7 +735,10 @@ defmodule Ysc.Accounts do
   def update_user_phone_and_sms(user, attrs) do
     with {:ok, updated_user} <-
            user
-           |> User.registration_changeset(attrs, hash_password: false, validate_email: false)
+           |> User.registration_changeset(attrs,
+             hash_password: false,
+             validate_email: false
+           )
            |> Repo.update() do
       # Update Stripe customer with new phone information
       Task.start(fn ->
@@ -727,14 +770,24 @@ defmodule Ysc.Accounts do
   Returns :ok on success
   """
   def store_email_verification_code(user, code, expires_in_seconds \\ 600) do
-    Ysc.VerificationCache.store_code(user.id, :email_verification, code, expires_in_seconds)
+    Ysc.VerificationCache.store_code(
+      user.id,
+      :email_verification,
+      code,
+      expires_in_seconds
+    )
   end
 
   @doc """
   Stores a phone verification code for a user.
   """
   def store_phone_verification_code(user, code, expires_in_seconds \\ 600) do
-    Ysc.VerificationCache.store_code(user.id, :phone_verification, code, expires_in_seconds)
+    Ysc.VerificationCache.store_code(
+      user.id,
+      :phone_verification,
+      code,
+      expires_in_seconds
+    )
   end
 
   @doc """
@@ -750,7 +803,11 @@ defmodule Ysc.Accounts do
     if dev_or_sandbox?() and provided_code == "000000" do
       {:ok, :verified}
     else
-      Ysc.VerificationCache.verify_code(user.id, :email_verification, provided_code)
+      Ysc.VerificationCache.verify_code(
+        user.id,
+        :email_verification,
+        provided_code
+      )
     end
   end
 
@@ -780,7 +837,10 @@ defmodule Ysc.Accounts do
 
   Returns the generated code.
   """
-  def generate_and_store_email_verification_code(user, expires_in_seconds \\ 600) do
+  def generate_and_store_email_verification_code(
+        user,
+        expires_in_seconds \\ 600
+      ) do
     code = generate_email_verification_code()
     :ok = store_email_verification_code(user, code, expires_in_seconds)
     code
@@ -789,7 +849,12 @@ defmodule Ysc.Accounts do
   @doc """
   Sends an email verification code to the user.
   """
-  def send_email_verification_code(user, code, resend_key_suffix \\ nil, target_email \\ nil) do
+  def send_email_verification_code(
+        user,
+        code,
+        resend_key_suffix \\ nil,
+        target_email \\ nil
+      ) do
     # Use target_email if provided, otherwise use user's email
     email_address = target_email || user.email
 
@@ -843,7 +908,10 @@ defmodule Ysc.Accounts do
 
   Returns the generated code.
   """
-  def generate_and_store_phone_verification_code(user, expires_in_seconds \\ 600) do
+  def generate_and_store_phone_verification_code(
+        user,
+        expires_in_seconds \\ 600
+      ) do
     # Reuse the same code generation
     code = generate_email_verification_code()
     :ok = store_phone_verification_code(user, code, expires_in_seconds)
@@ -880,7 +948,11 @@ defmodule Ysc.Accounts do
     if dev_or_sandbox?() and provided_code == "000000" do
       {:ok, :verified}
     else
-      Ysc.VerificationCache.verify_code(user.id, :phone_verification, provided_code)
+      Ysc.VerificationCache.verify_code(
+        user.id,
+        :phone_verification,
+        provided_code
+      )
     end
   end
 
@@ -976,7 +1048,9 @@ defmodule Ysc.Accounts do
         # Preload active subscriptions after the main query
         users_with_subscriptions = preload_active_subscriptions(filtered_users)
         # Apply membership sorting if needed
-        sorted_users = apply_membership_sorting(users_with_subscriptions, membership_sort)
+        sorted_users =
+          apply_membership_sorting(users_with_subscriptions, membership_sort)
+
         {:ok, {sorted_users, meta}}
 
       error ->
@@ -1003,7 +1077,10 @@ defmodule Ysc.Accounts do
     do: list_paginated_users(params)
 
   @spec list_paginated_users(
-          %{optional(:__struct__) => Flop, optional(atom() | binary()) => any()},
+          %{
+            optional(:__struct__) => Flop,
+            optional(atom() | binary()) => any()
+          },
           any()
         ) :: {:error, Flop.Meta.t()} | {:ok, {list(), Flop.Meta.t()}}
   def list_paginated_users(params, search_term) do
@@ -1012,14 +1089,18 @@ defmodule Ysc.Accounts do
     # Check if sorting by membership_type
     {membership_sort, other_params} = extract_membership_sort(other_params)
 
-    case Flop.validate_and_run(fuzzy_search_user(search_term), other_params, for: User) do
+    case Flop.validate_and_run(fuzzy_search_user(search_term), other_params,
+           for: User
+         ) do
       {:ok, {users, meta}} ->
         # Apply membership filters if any
         filtered_users = apply_membership_filters(users, membership_filters)
         # Preload active subscriptions after the main query
         users_with_subscriptions = preload_active_subscriptions(filtered_users)
         # Apply membership sorting if needed
-        sorted_users = apply_membership_sorting(users_with_subscriptions, membership_sort)
+        sorted_users =
+          apply_membership_sorting(users_with_subscriptions, membership_sort)
+
         {:ok, {sorted_users, meta}}
 
       error ->
@@ -1029,7 +1110,8 @@ defmodule Ysc.Accounts do
 
   def update_user(user, params, %User{} = current_user) do
     with :ok <- Policy.authorize(:user_update, current_user, user),
-         {:ok, updated_user} <- user |> User.update_user_changeset(params) |> Repo.update() do
+         {:ok, updated_user} <-
+           user |> User.update_user_changeset(params) |> Repo.update() do
       # Update Stripe customer with new information
       Task.start(fn ->
         Ysc.Customers.update_stripe_customer(updated_user)
@@ -1045,7 +1127,9 @@ defmodule Ysc.Accounts do
   def update_user_with_address(user, params, %User{} = current_user) do
     with :ok <- Policy.authorize(:user_update, current_user, user),
          {:ok, updated_user} <-
-           user |> User.update_user_with_address_changeset(params) |> Repo.update() do
+           user
+           |> User.update_user_with_address_changeset(params)
+           |> Repo.update() do
       # Update Stripe customer with new information
       Task.start(fn ->
         Ysc.Customers.update_stripe_customer(updated_user)
@@ -1066,7 +1150,8 @@ defmodule Ysc.Accounts do
   Updates the user profile information.
   """
   def update_user_profile(user, attrs) do
-    with {:ok, updated_user} <- user |> User.profile_changeset(attrs) |> Repo.update() do
+    with {:ok, updated_user} <-
+           user |> User.profile_changeset(attrs) |> Repo.update() do
       # Update Stripe customer with new information
       Task.start(fn ->
         Ysc.Customers.update_stripe_customer(updated_user)
@@ -1111,7 +1196,9 @@ defmodule Ysc.Accounts do
     attrs_with_user_id = Map.merge(attrs, %{"user_id" => user.id})
 
     with {:ok, _address} <-
-           address |> Address.changeset(attrs_with_user_id) |> Repo.insert_or_update() do
+           address
+           |> Address.changeset(attrs_with_user_id)
+           |> Repo.insert_or_update() do
       # Reload user with updated billing address and update Stripe customer
       updated_user = get_user!(user.id, [:billing_address])
 
@@ -1146,9 +1233,11 @@ defmodule Ysc.Accounts do
   def update_user_email(user, token) do
     context = "change:#{user.email}"
 
-    with {:ok, query} <- UserToken.verify_change_email_token_query(token, context),
+    with {:ok, query} <-
+           UserToken.verify_change_email_token_query(token, context),
          %UserToken{sent_to: email} <- Repo.one(query),
-         {:ok, %{user: updated_user}} <- Repo.transaction(user_email_multi(user, email, context)),
+         {:ok, %{user: updated_user}} <-
+           Repo.transaction(user_email_multi(user, email, context)),
          reloaded_user <- Repo.get!(User, updated_user.id) do
       # Update Stripe customer with new email
       Task.start(fn ->
@@ -1169,7 +1258,10 @@ defmodule Ysc.Accounts do
 
     Ecto.Multi.new()
     |> Ecto.Multi.update(:user, changeset)
-    |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, [context]))
+    |> Ecto.Multi.delete_all(
+      :tokens,
+      UserToken.by_user_and_contexts_query(user, [context])
+    )
   end
 
   @doc ~S"""
@@ -1181,12 +1273,21 @@ defmodule Ysc.Accounts do
       {:ok, %{to: ..., body: ...}}
 
   """
-  def deliver_user_update_email_instructions(%User{} = user, current_email, update_email_url_fun)
+  def deliver_user_update_email_instructions(
+        %User{} = user,
+        current_email,
+        update_email_url_fun
+      )
       when is_function(update_email_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
+    {encoded_token, user_token} =
+      UserToken.build_email_token(user, "change:#{current_email}")
 
     Repo.insert!(user_token)
-    UserNotifier.deliver_update_email_instructions(user, update_email_url_fun.(encoded_token))
+
+    UserNotifier.deliver_update_email_instructions(
+      user,
+      update_email_url_fun.(encoded_token)
+    )
 
     {:ok, %{to: user.email, text_body: encoded_token}}
   end
@@ -1239,7 +1340,10 @@ defmodule Ysc.Accounts do
 
     Ecto.Multi.new()
     |> Ecto.Multi.update(:user, changeset)
-    |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, :all))
+    |> Ecto.Multi.delete_all(
+      :tokens,
+      UserToken.by_user_and_contexts_query(user, :all)
+    )
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}
@@ -1330,14 +1434,21 @@ defmodule Ysc.Accounts do
       {:error, :already_confirmed}
 
   """
-  def deliver_user_confirmation_instructions(%User{} = user, confirmation_url_fun)
+  def deliver_user_confirmation_instructions(
+        %User{} = user,
+        confirmation_url_fun
+      )
       when is_function(confirmation_url_fun, 1) do
     if user.confirmed_at do
       {:error, :already_confirmed}
     else
       {encoded_token, user_token} = UserToken.build_email_token(user, "confirm")
       Repo.insert!(user_token)
-      UserNotifier.deliver_confirmation_instructions(user, confirmation_url_fun.(encoded_token))
+
+      UserNotifier.deliver_confirmation_instructions(
+        user,
+        confirmation_url_fun.(encoded_token)
+      )
 
       {:ok, %{to: user.email, text_body: encoded_token}}
     end
@@ -1386,7 +1497,10 @@ defmodule Ysc.Accounts do
   defp confirm_user_multi(user) do
     Ecto.Multi.new()
     |> Ecto.Multi.update(:user, User.confirm_changeset(user))
-    |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, ["confirm"]))
+    |> Ecto.Multi.delete_all(
+      :tokens,
+      UserToken.by_user_and_contexts_query(user, ["confirm"])
+    )
   end
 
   ## Reset password
@@ -1400,11 +1514,20 @@ defmodule Ysc.Accounts do
       {:ok, %{to: ..., body: ...}}
 
   """
-  def deliver_user_reset_password_instructions(%User{} = user, reset_password_url_fun)
+  def deliver_user_reset_password_instructions(
+        %User{} = user,
+        reset_password_url_fun
+      )
       when is_function(reset_password_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
+    {encoded_token, user_token} =
+      UserToken.build_email_token(user, "reset_password")
+
     Repo.insert!(user_token)
-    UserNotifier.deliver_reset_password_instructions(user, reset_password_url_fun.(encoded_token))
+
+    UserNotifier.deliver_reset_password_instructions(
+      user,
+      reset_password_url_fun.(encoded_token)
+    )
 
     {:ok, %{to: user.email, text_body: encoded_token}}
   end
@@ -1422,7 +1545,8 @@ defmodule Ysc.Accounts do
 
   """
   def get_user_by_reset_password_token(token) do
-    with {:ok, query} <- UserToken.verify_email_token_query(token, "reset_password"),
+    with {:ok, query} <-
+           UserToken.verify_email_token_query(token, "reset_password"),
          %User{} = user <- Repo.one(query) do
       user
     else
@@ -1445,7 +1569,10 @@ defmodule Ysc.Accounts do
   def reset_user_password(user, attrs) do
     Ecto.Multi.new()
     |> Ecto.Multi.update(:user, User.password_changeset(user, attrs))
-    |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, :all))
+    |> Ecto.Multi.delete_all(
+      :tokens,
+      UserToken.by_user_and_contexts_query(user, :all)
+    )
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}
@@ -1462,8 +1589,12 @@ defmodule Ysc.Accounts do
   end
 
   def record_application_outcome(:approved, user, application, current_user) do
-    with :ok <- Policy.authorize(:signup_application_update, current_user, %{user_id: user.id}) do
-      with :ok <- Policy.authorize(:user_update, current_user, %{user_id: user.id}) do
+    with :ok <-
+           Policy.authorize(:signup_application_update, current_user, %{
+             user_id: user.id
+           }) do
+      with :ok <-
+             Policy.authorize(:user_update, current_user, %{user_id: user.id}) do
         Ecto.Multi.new()
         |> Ecto.Multi.update(
           :user,
@@ -1516,10 +1647,17 @@ defmodule Ysc.Accounts do
   end
 
   def record_application_outcome(:rejected, user, application, current_user) do
-    with :ok <- Policy.authorize(:signup_application_update, current_user, %{user_id: user.id}) do
-      with :ok <- Policy.authorize(:user_update, current_user, %{user_id: user.id}) do
+    with :ok <-
+           Policy.authorize(:signup_application_update, current_user, %{
+             user_id: user.id
+           }) do
+      with :ok <-
+             Policy.authorize(:user_update, current_user, %{user_id: user.id}) do
         Ecto.Multi.new()
-        |> Ecto.Multi.update(:user, User.update_user_state_changeset(user, %{state: :rejected}))
+        |> Ecto.Multi.update(
+          :user,
+          User.update_user_state_changeset(user, %{state: :rejected})
+        )
         |> Ecto.Multi.update(
           :application,
           SignupApplication.review_outcome_changeset(application, %{
@@ -1643,7 +1781,8 @@ defmodule Ysc.Accounts do
     primary_users_by_id =
       if primary_user_ids != [] do
         # Get primary users with their active subscriptions
-        primary_users = from(u in User, where: u.id in ^primary_user_ids) |> Repo.all()
+        primary_users =
+          from(u in User, where: u.id in ^primary_user_ids) |> Repo.all()
 
         # Get subscriptions for primary users
         primary_user_subscriptions =
@@ -1662,8 +1801,11 @@ defmodule Ysc.Accounts do
         # Add subscriptions to primary users
         primary_users
         |> Enum.map(fn primary_user ->
-          primary_user_subscriptions = Map.get(primary_subscriptions_by_user, primary_user.id, [])
-          {primary_user.id, %{primary_user | subscriptions: primary_user_subscriptions}}
+          primary_user_subscriptions =
+            Map.get(primary_subscriptions_by_user, primary_user.id, [])
+
+          {primary_user.id,
+           %{primary_user | subscriptions: primary_user_subscriptions}}
         end)
         |> Map.new()
       else
@@ -1675,7 +1817,9 @@ defmodule Ysc.Accounts do
       user_subscriptions = Map.get(subscriptions_by_user, user.id, [])
 
       primary_user =
-        if user.primary_user_id, do: Map.get(primary_users_by_id, user.primary_user_id), else: nil
+        if user.primary_user_id,
+          do: Map.get(primary_users_by_id, user.primary_user_id),
+          else: nil
 
       user
       |> Map.put(:subscriptions, user_subscriptions)
@@ -1700,7 +1844,9 @@ defmodule Ysc.Accounts do
                     other -> other
                   end
 
-                if cleaned_value != [] and cleaned_value != "", do: cleaned_value, else: nil
+                if cleaned_value != [] and cleaned_value != "",
+                  do: cleaned_value,
+                  else: nil
 
               _ ->
                 nil
@@ -1735,10 +1881,14 @@ defmodule Ysc.Accounts do
   defp apply_membership_filters(users, membership_filters) do
     # Get membership plans for price ID lookup
     membership_plans = Application.get_env(:ysc, :membership_plans)
-    price_to_type = Map.new(membership_plans, fn plan -> {plan.stripe_price_id, plan.id} end)
+
+    price_to_type =
+      Map.new(membership_plans, fn plan -> {plan.stripe_price_id, plan.id} end)
 
     Enum.filter(users, fn user ->
-      user_membership_type = get_active_membership_type_for_filter(user, price_to_type)
+      user_membership_type =
+        get_active_membership_type_for_filter(user, price_to_type)
+
       user_membership_type in membership_filters
     end)
   end
@@ -1774,17 +1924,28 @@ defmodule Ysc.Accounts do
           :none
 
         [single_subscription] ->
-          get_membership_type_from_subscription_for_filter(single_subscription, price_to_type)
+          get_membership_type_from_subscription_for_filter(
+            single_subscription,
+            price_to_type
+          )
 
         multiple_subscriptions ->
           # If multiple active subscriptions, pick the most expensive one
-          most_expensive = get_most_expensive_subscription_for_filter(multiple_subscriptions)
-          get_membership_type_from_subscription_for_filter(most_expensive, price_to_type)
+          most_expensive =
+            get_most_expensive_subscription_for_filter(multiple_subscriptions)
+
+          get_membership_type_from_subscription_for_filter(
+            most_expensive,
+            price_to_type
+          )
       end
     end
   end
 
-  defp get_membership_type_from_subscription_for_filter(subscription, price_to_type) do
+  defp get_membership_type_from_subscription_for_filter(
+         subscription,
+         price_to_type
+       ) do
     subscription_items =
       case subscription.subscription_items do
         %Ecto.Association.NotLoaded{} ->
@@ -1849,14 +2010,17 @@ defmodule Ysc.Accounts do
     case params do
       %{"order_by" => order_by, "order_directions" => order_directions} ->
         # Check if membership_type is in the order_by list
-        membership_sort_index = Enum.find_index(order_by, &(&1 == "membership_type"))
+        membership_sort_index =
+          Enum.find_index(order_by, &(&1 == "membership_type"))
 
         if membership_sort_index do
           direction = Enum.at(order_directions, membership_sort_index, :asc)
 
           # Remove membership_type from order_by and order_directions
           new_order_by = List.delete_at(order_by, membership_sort_index)
-          new_order_directions = List.delete_at(order_directions, membership_sort_index)
+
+          new_order_directions =
+            List.delete_at(order_directions, membership_sort_index)
 
           new_params =
             params
@@ -1879,7 +2043,9 @@ defmodule Ysc.Accounts do
   defp apply_membership_sorting(users, {:membership_type, direction}) do
     # Get membership plans for sorting
     membership_plans = Application.get_env(:ysc, :membership_plans)
-    price_to_type = Map.new(membership_plans, fn plan -> {plan.stripe_price_id, plan.id} end)
+
+    price_to_type =
+      Map.new(membership_plans, fn plan -> {plan.stripe_price_id, plan.id} end)
 
     # Define sort order for membership types
     membership_sort_order = %{
@@ -1891,7 +2057,9 @@ defmodule Ysc.Accounts do
     Enum.sort_by(
       users,
       fn user ->
-        membership_type = get_active_membership_type_for_filter(user, price_to_type)
+        membership_type =
+          get_active_membership_type_for_filter(user, price_to_type)
+
         Map.get(membership_sort_order, membership_type, 4)
       end,
       direction
@@ -1903,7 +2071,9 @@ defmodule Ysc.Accounts do
   """
   def mark_email_verified(user) do
     user
-    |> User.email_verification_changeset(%{email_verified_at: DateTime.utc_now()})
+    |> User.email_verification_changeset(%{
+      email_verified_at: DateTime.utc_now()
+    })
     |> Repo.update()
   end
 
@@ -1912,7 +2082,9 @@ defmodule Ysc.Accounts do
   """
   def mark_phone_verified(user) do
     user
-    |> User.phone_verification_changeset(%{phone_verified_at: DateTime.utc_now()})
+    |> User.phone_verification_changeset(%{
+      phone_verified_at: DateTime.utc_now()
+    })
     |> Repo.update()
   end
 

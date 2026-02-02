@@ -32,7 +32,9 @@ defmodule Ysc.Ledgers.Refund do
     field :quickbooks_last_sync_attempt_at, :utc_datetime
 
     # Reference to the original payment being refunded
-    belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
+    belongs_to :payment, Ysc.Ledgers.Payment,
+      foreign_key: :payment_id,
+      references: :id
 
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
 

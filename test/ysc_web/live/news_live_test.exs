@@ -64,7 +64,9 @@ defmodule YscWeb.NewsLiveTest do
       :timer.sleep(200)
 
       html = render(view)
-      assert html =~ "Test Post 1" or html =~ "Test Post 2" or html =~ "Club News"
+
+      assert html =~ "Test Post 1" or html =~ "Test Post 2" or
+               html =~ "Club News"
     end
   end
 
@@ -94,7 +96,9 @@ defmodule YscWeb.NewsLiveTest do
       assert html =~ "Featured News" or html =~ "Club News"
     end
 
-    test "does not show featured section when no featured post exists", %{conn: conn} do
+    test "does not show featured section when no featured post exists", %{
+      conn: conn
+    } do
       {:ok, view, _html} = live(conn, ~p"/news")
 
       # Wait for async load

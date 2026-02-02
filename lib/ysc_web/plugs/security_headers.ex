@@ -30,7 +30,8 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     s3_connect_sources = get_s3_connect_sources()
 
     # Build CSP policy with nonce
-    csp_policy = build_csp_policy(nonce, is_dev, s3_image_sources, s3_connect_sources)
+    csp_policy =
+      build_csp_policy(nonce, is_dev, s3_image_sources, s3_connect_sources)
 
     conn
     |> put_resp_header("content-security-policy", csp_policy)
@@ -240,7 +241,8 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     end
   end
 
-  defp build_source_from_uri(scheme, host, nil) when scheme in ["http", "https"] do
+  defp build_source_from_uri(scheme, host, nil)
+       when scheme in ["http", "https"] do
     "#{scheme}://#{host}"
   end
 

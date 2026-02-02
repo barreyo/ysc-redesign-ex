@@ -39,7 +39,10 @@ defmodule YscWeb.UserSettingsLive do
           >
             <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p class="text-sm text-blue-800">
-                <.icon name="hero-information-circle" class="w-5 h-5 inline-block -mt-0.5 me-1" />
+                <.icon
+                  name="hero-information-circle"
+                  class="w-5 h-5 inline-block -mt-0.5 me-1"
+                />
                 <strong>Keep this window open</strong>
                 while you check your text messages for the verification code.
               </p>
@@ -82,7 +85,8 @@ defmodule YscWeb.UserSettingsLive do
                   click here to resend
                 </.link>
               <% else %>
-                <% sms_countdown = max(0, sms_resend_seconds_remaining(assigns) || 0) %>
+                <% sms_countdown =
+                  max(0, sms_resend_seconds_remaining(assigns) || 0) %>
                 <span
                   class="text-zinc-500 cursor-not-allowed font-bold"
                   data-countdown={sms_countdown}
@@ -98,7 +102,11 @@ defmodule YscWeb.UserSettingsLive do
                 <.button
                   phx-disable-with="Verifying..."
                   disabled={!@phone_code_valid}
-                  class={if !@phone_code_valid, do: "opacity-50 cursor-not-allowed", else: ""}
+                  class={
+                    if !@phone_code_valid,
+                      do: "opacity-50 cursor-not-allowed",
+                      else: ""
+                  }
                 >
                   <.icon name="hero-check-circle" class="w-5 h-5 me-1 -mt-0.5" />Verify Phone Number
                 </.button>
@@ -126,7 +134,10 @@ defmodule YscWeb.UserSettingsLive do
           >
             <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
               <p class="text-sm text-blue-800">
-                <.icon name="hero-information-circle" class="w-5 h-5 inline-block -mt-0.5 me-1" />
+                <.icon
+                  name="hero-information-circle"
+                  class="w-5 h-5 inline-block -mt-0.5 me-1"
+                />
                 <strong>Keep this window open</strong>
                 while you check your email for the verification code.
               </p>
@@ -160,7 +171,8 @@ defmodule YscWeb.UserSettingsLive do
                   click here to resend
                 </.link>
               <% else %>
-                <% email_countdown = max(0, email_resend_seconds_remaining(assigns) || 0) %>
+                <% email_countdown =
+                  max(0, email_resend_seconds_remaining(assigns) || 0) %>
                 <span
                   class="text-zinc-500 cursor-not-allowed font-bold"
                   data-countdown={email_countdown}
@@ -177,7 +189,11 @@ defmodule YscWeb.UserSettingsLive do
                   phx-disable-with="Verifying..."
                   type="submit"
                   disabled={!@email_code_valid}
-                  class={if !@email_code_valid, do: "opacity-50 cursor-not-allowed", else: ""}
+                  class={
+                    if !@email_code_valid,
+                      do: "opacity-50 cursor-not-allowed",
+                      else: ""
+                  }
                 >
                   <.icon name="hero-check-circle" class="w-5 h-5 me-1 -mt-0.5" />Verify Email Address
                 </.button>
@@ -186,7 +202,12 @@ defmodule YscWeb.UserSettingsLive do
           </.simple_form>
         </.modal>
 
-        <.modal :if={@show_reauth_modal} id="reauth-modal" on_cancel={JS.push("cancel_reauth")} show>
+        <.modal
+          :if={@show_reauth_modal}
+          id="reauth-modal"
+          on_cancel={JS.push("cancel_reauth")}
+          show
+        >
           <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-6">
             Verify Your Identity
           </h2>
@@ -248,7 +269,8 @@ defmodule YscWeb.UserSettingsLive do
                 phx-disable-with="Verifying..."
                 class="w-full"
               >
-                <.icon name="hero-finger-print" class="w-5 h-5 me-2" /> Continue with Passkey
+                <.icon name="hero-finger-print" class="w-5 h-5 me-2" />
+                Continue with Passkey
               </.button>
             </div>
           </div>
@@ -266,13 +288,23 @@ defmodule YscWeb.UserSettingsLive do
 
           <div class="space-y-6">
             <!-- Loading state for payment methods -->
-            <div :if={assigns[:loading_payment_methods]} class="flex items-center justify-center py-8">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <span class="ml-3 text-zinc-600 text-sm">Loading payment methods...</span>
+            <div
+              :if={assigns[:loading_payment_methods]}
+              class="flex items-center justify-center py-8"
+            >
+              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600">
+              </div>
+              <span class="ml-3 text-zinc-600 text-sm">
+                Loading payment methods...
+              </span>
             </div>
             <!-- Existing Payment Methods -->
-            <div :if={!assigns[:loading_payment_methods] && length(@all_payment_methods) > 0}>
-              <h3 class="text-lg font-medium text-zinc-900 mb-4">Select Existing Payment Method</h3>
+            <div :if={
+              !assigns[:loading_payment_methods] && length(@all_payment_methods) > 0
+            }>
+              <h3 class="text-lg font-medium text-zinc-900 mb-4">
+                Select Existing Payment Method
+              </h3>
               <div class="space-y-3">
                 <div
                   :for={payment_method <- @all_payment_methods}
@@ -280,12 +312,19 @@ defmodule YscWeb.UserSettingsLive do
                     "border rounded-lg p-4 transition-all duration-200",
                     @selecting_payment_method && "cursor-not-allowed opacity-50",
                     !@selecting_payment_method && "cursor-pointer",
-                    @default_payment_method && payment_method.id == @default_payment_method.id &&
+                    @default_payment_method &&
+                      payment_method.id == @default_payment_method.id &&
                       "border-blue-500 bg-blue-50",
-                    (!@default_payment_method || payment_method.id != @default_payment_method.id) &&
-                      !@selecting_payment_method && "border-zinc-200 hover:border-zinc-300"
+                    (!@default_payment_method ||
+                       payment_method.id != @default_payment_method.id) &&
+                      !@selecting_payment_method &&
+                      "border-zinc-200 hover:border-zinc-300"
                   ]}
-                  phx-click={if @selecting_payment_method, do: nil, else: "select-payment-method"}
+                  phx-click={
+                    if @selecting_payment_method,
+                      do: nil,
+                      else: "select-payment-method"
+                  }
                   phx-value-payment_method_id={payment_method.id}
                 >
                   <div class="flex items-center space-x-3">
@@ -329,10 +368,17 @@ defmodule YscWeb.UserSettingsLive do
                         }
                         class="text-zinc-600 text-xs"
                       >
-                        Expires <%= String.pad_leading(to_string(payment_method.exp_month), 2, "0") %> / <%= payment_method.exp_year %>
+                        Expires <%= String.pad_leading(
+                          to_string(payment_method.exp_month),
+                          2,
+                          "0"
+                        ) %> / <%= payment_method.exp_year %>
                       </p>
                       <p
-                        :if={payment_method.type == :bank_account && payment_method.account_type}
+                        :if={
+                          payment_method.type == :bank_account &&
+                            payment_method.account_type
+                        }
                         class="text-zinc-600 text-xs"
                       >
                         <%= payment_method.account_type %>
@@ -341,11 +387,16 @@ defmodule YscWeb.UserSettingsLive do
                     <div class="flex-shrink-0">
                       <div
                         :if={
-                          @default_payment_method && payment_method.id == @default_payment_method.id
+                          @default_payment_method &&
+                            payment_method.id == @default_payment_method.id
                         }
                         class="flex items-center text-blue-600"
                       >
-                        <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <svg
+                          class="w-5 h-5 mr-1"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
                           <path
                             fill-rule="evenodd"
                             d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -357,11 +408,14 @@ defmodule YscWeb.UserSettingsLive do
                       </div>
                       <div
                         :if={
-                          !@default_payment_method || payment_method.id != @default_payment_method.id
+                          !@default_payment_method ||
+                            payment_method.id != @default_payment_method.id
                         }
                         class="text-sm text-zinc-400"
                       >
-                        <span :if={!@selecting_payment_method}>Click to set as default</span>
+                        <span :if={!@selecting_payment_method}>
+                          Click to set as default
+                        </span>
                         <span :if={@selecting_payment_method}>Updating...</span>
                       </div>
                     </div>
@@ -379,7 +433,12 @@ defmodule YscWeb.UserSettingsLive do
                 phx-disable-with="Loading..."
                 class="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg
+                  class="-ml-1 mr-2 h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
                   <path
                     stroke-linecap="round"
                     stroke-linejoin="round"
@@ -394,7 +453,9 @@ defmodule YscWeb.UserSettingsLive do
           </div>
           <!-- New Payment Method Form (Hidden by default) -->
           <div :if={@show_new_payment_form && @payment_intent_secret} class="pt-4">
-            <h3 class="text-lg font-medium text-zinc-900">Add New Payment Method</h3>
+            <h3 class="text-lg font-medium text-zinc-900">
+              Add New Payment Method
+            </h3>
             <form
               id="payment-form"
               class="flex space-y-6 flex-col"
@@ -434,7 +495,9 @@ defmodule YscWeb.UserSettingsLive do
 
         <ul class="flex-column space-y space-y-4 md:pr-10 text-sm font-medium text-zinc-600 md:me-4 mb-4 md:mb-0">
           <li>
-            <h2 class="text-zinc-800 text-2xl font-semibold leading-8 mb-10">Account</h2>
+            <h2 class="text-zinc-800 text-2xl font-semibold leading-8 mb-10">
+              Account
+            </h2>
           </li>
           <li>
             <.link
@@ -506,7 +569,8 @@ defmodule YscWeb.UserSettingsLive do
               class={[
                 "inline-flex items-center px-4 py-3 rounded w-full",
                 @live_action == :notifications && "bg-blue-600 active text-zinc-100",
-                @live_action != :notifications && "hover:bg-zinc-100 hover:text-zinc-900"
+                @live_action != :notifications &&
+                  "hover:bg-zinc-100 hover:text-zinc-900"
               ]}
             >
               <.icon name="hero-bell-alert" class="w-5 h-5 me-2" /> Notifications
@@ -550,8 +614,18 @@ defmodule YscWeb.UserSettingsLive do
                 phx-change="validate_profile"
               >
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <.input field={@profile_form[:first_name]} type="text" label="First Name" required />
-                  <.input field={@profile_form[:last_name]} type="text" label="Last Name" required />
+                  <.input
+                    field={@profile_form[:first_name]}
+                    type="text"
+                    label="First Name"
+                    required
+                  />
+                  <.input
+                    field={@profile_form[:last_name]}
+                    type="text"
+                    label="Last Name"
+                    required
+                  />
                 </div>
 
                 <.input
@@ -562,7 +636,10 @@ defmodule YscWeb.UserSettingsLive do
                 />
                 <p class="text-xs text-zinc-600 mt-1">
                   <strong>Young Scandinavians Club (YSC)</strong>: By voluntarily providing your phone number and explicitly opting in to text messaging, you agree to receive account security codes and booking reminders from Young Scandinavians Club(YSC). Message frequency may vary. Message & data rates may apply. Reply HELP for support or STOP to unsubscribe. Your phone number will not be shared with third parties for marketing or promotional purposes. You can also opt out at any time in your notification settings. See our
-                  <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
+                  <.link
+                    navigate={~p"/privacy-policy"}
+                    class="text-blue-600 hover:underline"
+                  >
                     Privacy Policy
                   </.link>
                   for more information.
@@ -596,10 +673,20 @@ defmodule YscWeb.UserSettingsLive do
                 phx-submit="update_address"
                 phx-change="validate_address"
               >
-                <.input field={@address_form[:address]} type="text" label="Street Address" required />
+                <.input
+                  field={@address_form[:address]}
+                  type="text"
+                  label="Street Address"
+                  required
+                />
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <.input field={@address_form[:city]} type="text" label="City" required />
+                  <.input
+                    field={@address_form[:city]}
+                    type="text"
+                    label="City"
+                    required
+                  />
                   <.input
                     field={@address_form[:postal_code]}
                     type="text"
@@ -609,8 +696,17 @@ defmodule YscWeb.UserSettingsLive do
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <.input field={@address_form[:region]} type="text" label="State/Province/Region" />
-                  <.input field={@address_form[:country]} type="text" label="Country" required />
+                  <.input
+                    field={@address_form[:region]}
+                    type="text"
+                    label="State/Province/Region"
+                  />
+                  <.input
+                    field={@address_form[:country]}
+                    type="text"
+                    label="Country"
+                    required
+                  />
                 </div>
 
                 <:actions>
@@ -638,7 +734,9 @@ defmodule YscWeb.UserSettingsLive do
                         Please verify your new email address to complete the change.
                       </p>
                       <.link
-                        patch={~p"/users/settings/email-verification?email=#{@pending_email}"}
+                        patch={
+                          ~p"/users/settings/email-verification?email=#{@pending_email}"
+                        }
                         class="inline-block mt-2 text-sm font-medium text-amber-800 hover:text-amber-900 underline"
                       >
                         Resume verification
@@ -654,7 +752,12 @@ defmodule YscWeb.UserSettingsLive do
                 phx-submit="request_email_change"
                 phx-change="validate_email"
               >
-                <.input field={@email_form[:email]} type="email" label="Email" required />
+                <.input
+                  field={@email_form[:email]}
+                  type="email"
+                  label="Email"
+                  required
+                />
                 <p class="text-sm text-zinc-600 -mt-2">
                   You will be asked to verify your identity before changing your email address.
                 </p>
@@ -697,9 +800,14 @@ defmodule YscWeb.UserSettingsLive do
                 </div>
               <% end %>
 
-              <p :if={@current_membership == nil && !@is_sub_account} class="text-sm text-zinc-600">
-                <.icon name="hero-x-circle" class="me-1 w-5 h-5 text-red-600 -mt-0.5" />You are currently
-                <strong>not</strong>
+              <p
+                :if={@current_membership == nil && !@is_sub_account}
+                class="text-sm text-zinc-600"
+              >
+                <.icon
+                  name="hero-x-circle"
+                  class="me-1 w-5 h-5 text-red-600 -mt-0.5"
+                />You are currently <strong>not</strong>
                 an active and paying member of the YSC.
               </p>
 
@@ -714,14 +822,17 @@ defmodule YscWeb.UserSettingsLive do
                   :if={
                     !@is_sub_account &&
                       @current_membership != nil &&
-                      !Subscriptions.scheduled_for_cancellation?(@current_membership) &&
+                      !Subscriptions.scheduled_for_cancellation?(
+                        @current_membership
+                      ) &&
                       @active_plan_type != :lifetime
                   }
                   phx-click="cancel-membership"
                   phx-disable-with="Cancelling..."
                   color="red"
                   disabled={
-                    !@user_is_active || Subscriptions.scheduled_for_cancellation?(@current_membership)
+                    !@user_is_active ||
+                      Subscriptions.scheduled_for_cancellation?(@current_membership)
                   }
                   data-confirm="Are you sure you want to cancel your membership?"
                 >
@@ -730,7 +841,8 @@ defmodule YscWeb.UserSettingsLive do
 
                 <.button
                   :if={
-                    !@is_sub_account && Subscriptions.scheduled_for_cancellation?(@current_membership)
+                    !@is_sub_account &&
+                      Subscriptions.scheduled_for_cancellation?(@current_membership)
                   }
                   phx-click="reactivate-membership"
                   phx-disable-with="Reactivating..."
@@ -751,7 +863,10 @@ defmodule YscWeb.UserSettingsLive do
                 <div class="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
                   <div class="flex">
                     <div class="flex-shrink-0">
-                      <.icon name="hero-information-circle" class="h-5 w-5 text-blue-400" />
+                      <.icon
+                        name="hero-information-circle"
+                        class="h-5 w-5 text-blue-400"
+                      />
                     </div>
                     <div class="ml-3">
                       <h3 class="text-sm font-medium text-blue-800">
@@ -803,7 +918,10 @@ defmodule YscWeb.UserSettingsLive do
               >
                 <div class="flex">
                   <div class="flex-shrink-0">
-                    <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-yellow-400" />
+                    <.icon
+                      name="hero-exclamation-triangle"
+                      class="h-5 w-5 text-yellow-400"
+                    />
                   </div>
                   <div class="ml-3">
                     <h3 class="text-sm font-medium text-yellow-800">
@@ -832,7 +950,9 @@ defmodule YscWeb.UserSettingsLive do
                 >
                   <div class="space-y-2">
                     <div class="flex flex-row items-center">
-                      <h3 class="text-lg font-semibold text-zinc-900">Membership Type</h3>
+                      <h3 class="text-lg font-semibold text-zinc-900">
+                        Membership Type
+                      </h3>
                       <.dropdown
                         :if={@live_action != :payment_method}
                         id="membership-help"
@@ -847,7 +967,8 @@ defmodule YscWeb.UserSettingsLive do
 
                         <div class="space-y-2 prose prose-zinc py-3 px-4">
                           <p class="text-sm">
-                            The YSC offers two types of memberships: a <strong>Single</strong>
+                            The YSC offers two types of memberships: a
+                            <strong>Single</strong>
                             membership for individuals and a <strong>Family</strong>
                             membership that covers you, your spouse, and your children under 18. Both memberships are billed annually.
                           </p>
@@ -945,7 +1066,10 @@ defmodule YscWeb.UserSettingsLive do
                                 The prorated charge will be calculated based on the remaining time in your current billing period. The maximum charge will be
                                 <strong>
                                   <%= Ysc.MoneyHelper.format_money!(
-                                    Money.new(:USD, @membership_change_info.price_difference)
+                                    Money.new(
+                                      :USD,
+                                      @membership_change_info.price_difference
+                                    )
                                   ) %>
                                 </strong>
                                 (the full annual difference), but will be less based on how much time remains in your current period.
@@ -969,11 +1093,18 @@ defmodule YscWeb.UserSettingsLive do
                       </div>
                     </div>
 
-                    <div :if={@change_membership_button} class="flex w-full flex-row justify-end pt-4">
+                    <div
+                      :if={@change_membership_button}
+                      class="flex w-full flex-row justify-end pt-4"
+                    >
                       <.button
-                        disabled={@default_payment_method == nil || !@user_is_active}
+                        disabled={
+                          @default_payment_method == nil || !@user_is_active
+                        }
                         phx-click="change-membership"
-                        phx-value-membership_type={@membership_form.params["membership_type"]}
+                        phx-value-membership_type={
+                          @membership_form.params["membership_type"]
+                        }
                         phx-disable-with="Changing..."
                         type="button"
                       >
@@ -983,12 +1114,17 @@ defmodule YscWeb.UserSettingsLive do
                   </div>
 
                   <div class="space-y-2">
-                    <h3 class="text-lg font-semibold text-zinc-900">Payment Method</h3>
+                    <h3 class="text-lg font-semibold text-zinc-900">
+                      Payment Method
+                    </h3>
 
                     <div class="w-full py-2 px-3 rounded border border-zinc-200">
                       <div class="w-full flex flex-row justify-between items-center">
                         <div class="items-center space-x-2 flex flex-row">
-                          <div :if={@default_payment_method != nil} class="flex-shrink-0">
+                          <div
+                            :if={@default_payment_method != nil}
+                            class="flex-shrink-0"
+                          >
                             <svg
                               :if={@default_payment_method.type == :card}
                               stroke="currentColor"
@@ -998,7 +1134,8 @@ defmodule YscWeb.UserSettingsLive do
                               xmlns="http://www.w3.org/2000/svg"
                               class="w-6 h-6 fill-zinc-800 text-zinc-800"
                             >
-                              <path d={payment_method_icon(@default_payment_method)}></path>
+                              <path d={payment_method_icon(@default_payment_method)}>
+                              </path>
                             </svg>
                             <svg
                               :if={@default_payment_method.type == :bank_account}
@@ -1023,7 +1160,9 @@ defmodule YscWeb.UserSettingsLive do
                               :if={@default_payment_method != nil}
                               class="text-zinc-600 text-sm font-semibold"
                             >
-                              <%= payment_method_display_text(@default_payment_method) %>
+                              <%= payment_method_display_text(
+                                @default_payment_method
+                              ) %>
                             </p>
                             <p
                               :if={
@@ -1058,7 +1197,9 @@ defmodule YscWeb.UserSettingsLive do
 
                         <.button
                           disabled={!@user_is_active}
-                          phx-click={JS.navigate(~p"/users/membership/payment-method")}
+                          phx-click={
+                            JS.navigate(~p"/users/membership/payment-method")
+                          }
                         >
                           Update Payment Method
                         </.button>
@@ -1070,7 +1211,9 @@ defmodule YscWeb.UserSettingsLive do
                     :if={@active_plan_type == nil}
                     class="flex w-full flex-col items-end gap-1 pt-4"
                   >
-                    <.button disabled={@default_payment_method == nil || !@user_is_active}>
+                    <.button disabled={
+                      @default_payment_method == nil || !@user_is_active
+                    }>
                       <.icon name="hero-credit-card" class="me-2 -mt-0.5" />Pay Membership
                     </.button>
                     <p
@@ -1121,7 +1264,9 @@ defmodule YscWeb.UserSettingsLive do
 
           <div :if={@live_action == :notifications} class="space-y-6">
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
-              <h2 class="text-zinc-900 font-bold text-xl">Notification Preferences</h2>
+              <h2 class="text-zinc-900 font-bold text-xl">
+                Notification Preferences
+              </h2>
               <p class="text-sm text-zinc-600">
                 Manage how you receive notifications from the YSC. You can control which types of notifications you receive via email or SMS.
               </p>
@@ -1174,7 +1319,9 @@ defmodule YscWeb.UserSettingsLive do
                       <tr>
                         <td class="px-6 py-4">
                           <div>
-                            <div class="text-sm font-medium text-zinc-900">Newsletters</div>
+                            <div class="text-sm font-medium text-zinc-900">
+                              Newsletters
+                            </div>
                             <div class="text-sm text-zinc-500 mt-1">
                               Receive our newsletter with updates about YSC events, news, and community highlights.
                             </div>
@@ -1183,7 +1330,9 @@ defmodule YscWeb.UserSettingsLive do
                         <td class="px-6 py-4">
                           <input
                             type="hidden"
-                            name={@notification_form[:newsletter_notifications].name}
+                            name={
+                              @notification_form[:newsletter_notifications].name
+                            }
                             value="false"
                           />
                           <.input
@@ -1200,7 +1349,9 @@ defmodule YscWeb.UserSettingsLive do
                       <tr>
                         <td class="px-6 py-4">
                           <div>
-                            <div class="text-sm font-medium text-zinc-900">Event Updates</div>
+                            <div class="text-sm font-medium text-zinc-900">
+                              Event Updates
+                            </div>
                             <div class="text-sm text-zinc-500 mt-1">
                               Receive notifications when new events are published and reminders before events you're attending.
                             </div>
@@ -1235,7 +1386,9 @@ defmodule YscWeb.UserSettingsLive do
                       <tr>
                         <td class="px-6 py-4">
                           <div>
-                            <div class="text-sm font-medium text-zinc-900">Account Updates</div>
+                            <div class="text-sm font-medium text-zinc-900">
+                              Account Updates
+                            </div>
                             <div class="text-sm text-zinc-500 mt-1">
                               Important account-related notifications such as password changes, email confirmations, and security alerts.
                             </div>
@@ -1260,7 +1413,9 @@ defmodule YscWeb.UserSettingsLive do
                         <td class="px-6 py-4">
                           <input
                             type="hidden"
-                            name={@notification_form[:account_notifications_sms].name}
+                            name={
+                              @notification_form[:account_notifications_sms].name
+                            }
                             value="false"
                           />
                           <.input
@@ -1291,16 +1446,18 @@ defmodule YscWeb.UserSettingsLive do
                       In <%= Date.utc_today().year %>, you've enjoyed
                       <%= if @yearly_stats.nights > 0 do %>
                         <strong><%= @yearly_stats.nights %></strong>
-                        <%= if @yearly_stats.nights == 1, do: "night", else: "nights" %> at the cabins <%= if @yearly_stats.events >
-                                                                                                                0,
-                                                                                                              do:
-                                                                                                                "and",
-                                                                                                              else:
-                                                                                                                "" %>
+                        <%= if @yearly_stats.nights == 1,
+                          do: "night",
+                          else: "nights" %> at the cabins <%= if @yearly_stats.events >
+                                                                   0,
+                                                                 do: "and",
+                                                                 else: "" %>
                       <% end %>
                       <%= if @yearly_stats.events > 0 do %>
                         attended <strong><%= @yearly_stats.events %></strong>
-                        <%= if @yearly_stats.events == 1, do: "club event", else: "club events" %>!
+                        <%= if @yearly_stats.events == 1,
+                          do: "club event",
+                          else: "club events" %>!
                       <% else %>
                         !
                       <% end %>
@@ -1309,8 +1466,12 @@ defmodule YscWeb.UserSettingsLive do
                 <% end %>
               </div>
               <!-- Loading state for payments -->
-              <div :if={assigns[:loading_payments]} class="flex items-center justify-center py-12">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div
+                :if={assigns[:loading_payments]}
+                class="flex items-center justify-center py-12"
+              >
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600">
+                </div>
                 <span class="ml-3 text-zinc-600">Loading payment history...</span>
               </div>
               <!-- Filter Chips (hidden while loading) -->
@@ -1344,7 +1505,10 @@ defmodule YscWeb.UserSettingsLive do
                       name="hero-home"
                       class={[
                         "w-4 h-4",
-                        if(@payment_filter == :tahoe, do: "text-white", else: "text-blue-600")
+                        if(@payment_filter == :tahoe,
+                          do: "text-white",
+                          else: "text-blue-600"
+                        )
                       ]}
                     />Tahoe
                   </button>
@@ -1363,7 +1527,10 @@ defmodule YscWeb.UserSettingsLive do
                       name="hero-home"
                       class={[
                         "w-4 h-4",
-                        if(@payment_filter == :clear_lake, do: "text-white", else: "text-emerald-600")
+                        if(@payment_filter == :clear_lake,
+                          do: "text-white",
+                          else: "text-emerald-600"
+                        )
                       ]}
                     />Clear Lake
                   </button>
@@ -1382,7 +1549,10 @@ defmodule YscWeb.UserSettingsLive do
                       name="hero-ticket"
                       class={[
                         "w-4 h-4",
-                        if(@payment_filter == :events, do: "text-white", else: "text-purple-600")
+                        if(@payment_filter == :events,
+                          do: "text-white",
+                          else: "text-purple-600"
+                        )
                       ]}
                     />Events
                   </button>
@@ -1401,7 +1571,10 @@ defmodule YscWeb.UserSettingsLive do
                       name="hero-gift"
                       class={[
                         "w-4 h-4",
-                        if(@payment_filter == :donations, do: "text-white", else: "text-yellow-600")
+                        if(@payment_filter == :donations,
+                          do: "text-white",
+                          else: "text-yellow-600"
+                        )
                       ]}
                     />Donations
                   </button>
@@ -1420,7 +1593,10 @@ defmodule YscWeb.UserSettingsLive do
                       name="hero-heart"
                       class={[
                         "w-4 h-4",
-                        if(@payment_filter == :membership, do: "text-white", else: "text-teal-600")
+                        if(@payment_filter == :membership,
+                          do: "text-white",
+                          else: "text-teal-600"
+                        )
                       ]}
                     />Membership
                   </button>
@@ -1506,7 +1682,8 @@ defmodule YscWeb.UserSettingsLive do
                 >
                   <div class="flex items-center space-x-2">
                     <.button :if={@payments_page > 1} phx-click="prev-payments-page">
-                      <.icon name="hero-chevron-left" class="w-4 h-4 me-1" /> Previous
+                      <.icon name="hero-chevron-left" class="w-4 h-4 me-1" />
+                      Previous
                     </.button>
                   </div>
 
@@ -1564,11 +1741,21 @@ defmodule YscWeb.UserSettingsLive do
         {:ok, updated_user, new_email} ->
           # Send notification to old email address for security
           old_email = socket.assigns.current_user.email
-          UserNotifier.deliver_email_changed_notification(updated_user, old_email, new_email)
+
+          UserNotifier.deliver_email_changed_notification(
+            updated_user,
+            old_email,
+            new_email
+          )
+
           put_flash(socket, :info, "Email changed successfully.")
 
         :error ->
-          put_flash(socket, :error, "Email change link is invalid or it has expired.")
+          put_flash(
+            socket,
+            :error,
+            "Email change link is invalid or it has expired."
+          )
       end
 
     {:ok, push_navigate(socket, to: ~p"/users/settings")}
@@ -1717,7 +1904,10 @@ defmodule YscWeb.UserSettingsLive do
      |> assign(:all_payment_methods, all_payment_methods)
      |> assign(:loading_payment_methods, false)
      |> assign(:address_form, to_form(address_changeset))
-     |> assign(:membership_form, to_form(%{"membership_type" => membership_type_to_select}))}
+     |> assign(
+       :membership_form,
+       to_form(%{"membership_type" => membership_type_to_select})
+     )}
   end
 
   # Handle async data loading for payments tab
@@ -1725,7 +1915,9 @@ defmodule YscWeb.UserSettingsLive do
     user = socket.assigns.user
     per_page = socket.assigns.payments_per_page
 
-    {all_payments, total_count} = Ledgers.list_user_payments_paginated(user.id, 1, per_page)
+    {all_payments, total_count} =
+      Ledgers.list_user_payments_paginated(user.id, 1, per_page)
+
     total_pages = div(total_count + per_page - 1, per_page)
 
     # Calculate yearly impact stats
@@ -1752,7 +1944,9 @@ defmodule YscWeb.UserSettingsLive do
       user = socket.assigns.user
 
       # Use the new sync function to ensure we're in sync with Stripe
-      {:ok, updated_payment_methods} = Ysc.Payments.sync_payment_methods_with_stripe(user)
+      {:ok, updated_payment_methods} =
+        Ysc.Payments.sync_payment_methods_with_stripe(user)
+
       updated_default = Ysc.Payments.get_default_payment_method(user)
 
       require Logger
@@ -1820,7 +2014,8 @@ defmodule YscWeb.UserSettingsLive do
 
     case Accounts.get_user_by_email_and_password(user.email, password) do
       nil ->
-        {:noreply, assign(socket, :reauth_error, "Invalid password. Please try again.")}
+        {:noreply,
+         assign(socket, :reauth_error, "Invalid password. Please try again.")}
 
       _valid_user ->
         # Password verified, proceed with email change
@@ -1833,7 +2028,8 @@ defmodule YscWeb.UserSettingsLive do
     Logger.info("[UserSettingsLive] reauth_with_passkey event received")
 
     # Generate authentication challenge for passkey
-    challenge = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
+    challenge =
+      :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
 
     challenge_json = %{
       challenge: challenge,
@@ -1849,7 +2045,11 @@ defmodule YscWeb.UserSettingsLive do
 
   def handle_event("verify_authentication", params, socket) do
     require Logger
-    Logger.info("[UserSettingsLive] verify_authentication event received for re-auth")
+
+    Logger.info(
+      "[UserSettingsLive] verify_authentication event received for re-auth"
+    )
+
     Logger.debug("Params: #{inspect(params)}")
 
     # In a full production implementation, you should verify the passkey signature here
@@ -1868,14 +2068,26 @@ defmodule YscWeb.UserSettingsLive do
 
   def handle_event("passkey_auth_error", %{"error" => error}, socket) do
     require Logger
-    Logger.debug("[UserSettingsLive] Passkey authentication error: #{inspect(error)}")
 
-    {:noreply, assign(socket, :reauth_error, "Passkey authentication failed. Please try again.")}
+    Logger.debug(
+      "[UserSettingsLive] Passkey authentication error: #{inspect(error)}"
+    )
+
+    {:noreply,
+     assign(
+       socket,
+       :reauth_error,
+       "Passkey authentication failed. Please try again."
+     )}
   end
 
   # PasskeyAuth hook sends these events - we don't need to handle them in user settings
-  def handle_event("passkey_support_detected", _params, socket), do: {:noreply, socket}
-  def handle_event("user_agent_received", _params, socket), do: {:noreply, socket}
+  def handle_event("passkey_support_detected", _params, socket),
+    do: {:noreply, socket}
+
+  def handle_event("user_agent_received", _params, socket),
+    do: {:noreply, socket}
+
   def handle_event("device_detected", _params, socket), do: {:noreply, socket}
 
   def handle_event("validate_profile", params, socket) do
@@ -1907,13 +2119,19 @@ defmodule YscWeb.UserSettingsLive do
       case Accounts.update_user_profile(user, other_params) do
         {:ok, updated_user} ->
           # Send verification code to new phone number
-          phone_code = Accounts.generate_and_store_phone_verification_code(updated_user)
+          phone_code =
+            Accounts.generate_and_store_phone_verification_code(updated_user)
 
           _job =
-            Accounts.send_phone_verification_code(updated_user, phone_code, "settings_change")
+            Accounts.send_phone_verification_code(
+              updated_user,
+              phone_code,
+              "settings_change"
+            )
 
           # Update form and store pending phone number
-          profile_form = Accounts.change_user_profile(updated_user, user_params) |> to_form()
+          profile_form =
+            Accounts.change_user_profile(updated_user, user_params) |> to_form()
 
           {:noreply,
            socket
@@ -1933,7 +2151,8 @@ defmodule YscWeb.UserSettingsLive do
       # No phone change or phone is being cleared - normal update
       case Accounts.update_user_profile(user, user_params) do
         {:ok, updated_user} ->
-          profile_form = Accounts.change_user_profile(updated_user, user_params) |> to_form()
+          profile_form =
+            Accounts.change_user_profile(updated_user, user_params) |> to_form()
 
           {:noreply,
            socket
@@ -1947,7 +2166,11 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  def handle_event("validate_phone_code", %{"verification_code" => code}, socket) do
+  def handle_event(
+        "validate_phone_code",
+        %{"verification_code" => code},
+        socket
+      ) do
     # Only allow phone code validation if user has pending phone verification
     pending_phone = socket.assigns.pending_phone_number
 
@@ -1956,9 +2179,11 @@ defmodule YscWeb.UserSettingsLive do
       normalized_code = normalize_verification_code(code)
       # Basic validation - ensure it's 6 digits
       is_valid =
-        String.length(normalized_code) == 6 && String.match?(normalized_code, ~r/^\d{6}$/)
+        String.length(normalized_code) == 6 &&
+          String.match?(normalized_code, ~r/^\d{6}$/)
 
-      {:noreply, assign(socket, phone_code_valid: is_valid, phone_verification_error: nil)}
+      {:noreply,
+       assign(socket, phone_code_valid: is_valid, phone_verification_error: nil)}
     else
       {:noreply, socket}
     end
@@ -1997,7 +2222,10 @@ defmodule YscWeb.UserSettingsLive do
                    |> assign(:user, updated_user)
                    |> assign(:pending_phone_number, nil)
                    |> push_patch(to: ~p"/users/settings")
-                   |> put_flash(:info, "Phone number updated and verified successfully.")}
+                   |> put_flash(
+                     :info,
+                     "Phone number updated and verified successfully."
+                   )}
 
                 {:error, _} ->
                   {:noreply,
@@ -2036,10 +2264,18 @@ defmodule YscWeb.UserSettingsLive do
         _ ->
           {:noreply,
            socket
-           |> assign(:phone_verification_error, "Please enter a verification code.")}
+           |> assign(
+             :phone_verification_error,
+             "Please enter a verification code."
+           )}
       end
     else
-      {:noreply, assign(socket, :phone_verification_error, "No phone verification in progress.")}
+      {:noreply,
+       assign(
+         socket,
+         :phone_verification_error,
+         "No phone verification in progress."
+       )}
     end
   end
 
@@ -2061,7 +2297,9 @@ defmodule YscWeb.UserSettingsLive do
 
               {:error, _} ->
                 # Generate new code if none exists
-                new_code = Accounts.generate_and_store_phone_verification_code(user)
+                new_code =
+                  Accounts.generate_and_store_phone_verification_code(user)
+
                 {new_code, false}
             end
 
@@ -2069,27 +2307,39 @@ defmodule YscWeb.UserSettingsLive do
           timestamp = DateTime.utc_now() |> DateTime.to_unix()
 
           suffix =
-            if is_existing, do: "resend_existing_#{timestamp}", else: "resend_new_#{timestamp}"
+            if is_existing,
+              do: "resend_existing_#{timestamp}",
+              else: "resend_new_#{timestamp}"
 
           _job = Accounts.send_phone_verification_code(user, code, suffix)
 
           {:noreply,
            socket
-           |> assign(:sms_resend_disabled_until, Ysc.ResendRateLimiter.disabled_until(60))
+           |> assign(
+             :sms_resend_disabled_until,
+             Ysc.ResendRateLimiter.disabled_until(60)
+           )
            |> put_flash(:info, "Verification code sent to your phone.")}
 
         {:error, :rate_limited, _remaining} ->
           # Rate limited
           {:noreply,
            socket
-           |> put_flash(:error, "Please wait before requesting another verification code.")}
+           |> put_flash(
+             :error,
+             "Please wait before requesting another verification code."
+           )}
       end
     else
       {:noreply, socket}
     end
   end
 
-  def handle_event("validate_email_code", %{"verification_code" => code}, socket) do
+  def handle_event(
+        "validate_email_code",
+        %{"verification_code" => code},
+        socket
+      ) do
     require Logger
     Logger.debug("=== EMAIL VALIDATION EVENT ===")
     Logger.debug("Validation code: #{inspect(code)}")
@@ -2102,11 +2352,15 @@ defmodule YscWeb.UserSettingsLive do
       normalized_code = normalize_verification_code(code)
       # Basic validation - ensure it's 6 digits
       is_valid =
-        String.length(normalized_code) == 6 && String.match?(normalized_code, ~r/^\d{6}$/)
+        String.length(normalized_code) == 6 &&
+          String.match?(normalized_code, ~r/^\d{6}$/)
 
-      Logger.debug("Normalized validation code: #{normalized_code}, is_valid: #{is_valid}")
+      Logger.debug(
+        "Normalized validation code: #{normalized_code}, is_valid: #{is_valid}"
+      )
 
-      {:noreply, assign(socket, email_code_valid: is_valid, email_verification_error: nil)}
+      {:noreply,
+       assign(socket, email_code_valid: is_valid, email_verification_error: nil)}
     else
       Logger.debug("No pending email for validation")
       {:noreply, socket}
@@ -2133,13 +2387,18 @@ defmodule YscWeb.UserSettingsLive do
 
       case params do
         %{"verification_code" => entered_code} ->
-          Logger.debug("Found verification_code in params: #{inspect(entered_code)}")
+          Logger.debug(
+            "Found verification_code in params: #{inspect(entered_code)}"
+          )
+
           # Handle both OTP array format and single string format
           code = normalize_verification_code(entered_code)
 
           Logger.debug("Normalized code: #{code}")
 
-          verification_result = Accounts.verify_email_verification_code(user, code)
+          verification_result =
+            Accounts.verify_email_verification_code(user, code)
+
           Logger.debug("Verification result: #{inspect(verification_result)}")
 
           case verification_result do
@@ -2219,12 +2478,21 @@ defmodule YscWeb.UserSettingsLive do
           Logger.debug("No verification_code in params")
 
           {:noreply,
-           assign(socket, :email_verification_error, "Please enter a verification code.")}
+           assign(
+             socket,
+             :email_verification_error,
+             "Please enter a verification code."
+           )}
       end
     else
       Logger.debug("No pending email verification")
 
-      {:noreply, assign(socket, :email_verification_error, "No email verification in progress.")}
+      {:noreply,
+       assign(
+         socket,
+         :email_verification_error,
+         "No email verification in progress."
+       )}
     end
   end
 
@@ -2246,7 +2514,9 @@ defmodule YscWeb.UserSettingsLive do
 
               {:error, _} ->
                 # Generate new code if none exists
-                new_code = Accounts.generate_and_store_email_verification_code(user)
+                new_code =
+                  Accounts.generate_and_store_email_verification_code(user)
+
                 {new_code, false}
             end
 
@@ -2254,20 +2524,34 @@ defmodule YscWeb.UserSettingsLive do
           timestamp = DateTime.utc_now() |> DateTime.to_unix()
 
           suffix =
-            if is_existing, do: "resend_existing_#{timestamp}", else: "resend_new_#{timestamp}"
+            if is_existing,
+              do: "resend_existing_#{timestamp}",
+              else: "resend_new_#{timestamp}"
 
-          _job = Accounts.send_email_verification_code(user, code, suffix, pending_email)
+          _job =
+            Accounts.send_email_verification_code(
+              user,
+              code,
+              suffix,
+              pending_email
+            )
 
           {:noreply,
            socket
-           |> assign(:email_resend_disabled_until, Ysc.ResendRateLimiter.disabled_until(60))
+           |> assign(
+             :email_resend_disabled_until,
+             Ysc.ResendRateLimiter.disabled_until(60)
+           )
            |> put_flash(:info, "Verification code sent to your email.")}
 
         {:error, :rate_limited, _remaining} ->
           # Rate limited
           {:noreply,
            socket
-           |> put_flash(:error, "Please wait before requesting another verification code.")}
+           |> put_flash(
+             :error,
+             "Please wait before requesting another verification code."
+           )}
       end
     else
       {:noreply, socket}
@@ -2362,7 +2646,8 @@ defmodule YscWeb.UserSettingsLive do
         end
 
         notification_form =
-          Accounts.change_notification_preferences(updated_user, user_params) |> to_form()
+          Accounts.change_notification_preferences(updated_user, user_params)
+          |> to_form()
 
         {:noreply,
          socket
@@ -2396,7 +2681,9 @@ defmodule YscWeb.UserSettingsLive do
       {:ok, _address} ->
         # Reload user with updated address
         updated_user = Accounts.get_user!(user.id, [:billing_address])
-        address_form = Accounts.change_billing_address(updated_user) |> to_form()
+
+        address_form =
+          Accounts.change_billing_address(updated_user) |> to_form()
 
         {:noreply,
          socket
@@ -2409,7 +2696,11 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  def handle_event("select_membership", %{"membership_type" => membership_type} = _params, socket) do
+  def handle_event(
+        "select_membership",
+        %{"membership_type" => membership_type} = _params,
+        socket
+      ) do
     user = socket.assigns.user
 
     user =
@@ -2446,10 +2737,14 @@ defmodule YscWeb.UserSettingsLive do
              ) do
           {:ok, stripe_subscription} ->
             # Also save the subscription locally as a backup in case webhook fails
-            case Ysc.Subscriptions.create_subscription_from_stripe(user, stripe_subscription) do
+            case Ysc.Subscriptions.create_subscription_from_stripe(
+                   user,
+                   stripe_subscription
+                 ) do
               {:ok, _local_subscription} ->
                 # Invalidate membership cache when new subscription is created
                 MembershipCache.invalidate_user(user.id)
+
                 # Also invalidate for sub-accounts since they inherit from primary user
                 sub_accounts = Accounts.get_sub_accounts(user)
 
@@ -2465,7 +2760,8 @@ defmodule YscWeb.UserSettingsLive do
               {:error, reason} ->
                 require Logger
 
-                Logger.warning("Failed to save subscription locally, webhook should handle it",
+                Logger.warning(
+                  "Failed to save subscription locally, webhook should handle it",
                   user_id: user.id,
                   stripe_subscription_id: stripe_subscription.id,
                   error: reason
@@ -2502,7 +2798,11 @@ defmodule YscWeb.UserSettingsLive do
             )
 
             {:noreply,
-             socket |> put_flash(:error, "Failed to activate membership. Please try again.")}
+             socket
+             |> put_flash(
+               :error,
+               "Failed to activate membership. Please try again."
+             )}
         end
       end
     end
@@ -2534,7 +2834,11 @@ defmodule YscWeb.UserSettingsLive do
           new_plan = Enum.find(plans, &(&1.id == membership_atom))
 
           if current_plan && new_plan do
-            direction = if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
+            direction =
+              if new_plan.amount > current_plan.amount,
+                do: :upgrade,
+                else: :downgrade
+
             price_difference = abs(new_plan.amount - current_plan.amount)
 
             %{
@@ -2554,7 +2858,10 @@ defmodule YscWeb.UserSettingsLive do
        socket
        |> assign(change_membership_button: change_membership_button)
        |> assign(:membership_change_info, change_info)
-       |> assign(:membership_form, to_form(%{"membership_type" => membership_type}))}
+       |> assign(
+         :membership_form,
+         to_form(%{"membership_type" => membership_type})
+       )}
     end
   end
 
@@ -2584,13 +2891,19 @@ defmodule YscWeb.UserSettingsLive do
             {:ok, _} ->
               # Update Stripe customer to use this payment method as default
               case Stripe.Customer.update(user.stripe_id, %{
-                     invoice_settings: %{default_payment_method: payment_method_id}
+                     invoice_settings: %{
+                       default_payment_method: payment_method_id
+                     }
                    }) do
                 {:ok, _stripe_customer} ->
                   # Reload user and payment methods to get updated info
                   updated_user = Ysc.Accounts.get_user!(user.id)
-                  updated_payment_methods = Ysc.Payments.list_payment_methods(updated_user)
-                  updated_default = Ysc.Payments.get_default_payment_method(updated_user)
+
+                  updated_payment_methods =
+                    Ysc.Payments.list_payment_methods(updated_user)
+
+                  updated_default =
+                    Ysc.Payments.get_default_payment_method(updated_user)
 
                   {:noreply,
                    socket
@@ -2598,7 +2911,10 @@ defmodule YscWeb.UserSettingsLive do
                    |> assign(:all_payment_methods, updated_payment_methods)
                    |> assign(:default_payment_method, updated_default)
                    |> assign(:show_new_payment_form, false)
-                   |> put_flash(:info, "Payment method updated and set as default")
+                   |> put_flash(
+                     :info,
+                     "Payment method updated and set as default"
+                   )
                    |> redirect(to: ~p"/users/membership")}
 
                 {:error, stripe_error} ->
@@ -2630,15 +2946,25 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  def handle_event("select-payment-method", %{"payment_method_id" => payment_method_id}, socket) do
+  def handle_event(
+        "select-payment-method",
+        %{"payment_method_id" => payment_method_id},
+        socket
+      ) do
     user = socket.assigns.user
 
     result =
       with :ok <- validate_user_active(user),
            :ok <- validate_not_selecting(socket),
-           selected_payment_method <- find_payment_method(socket, payment_method_id),
+           selected_payment_method <-
+             find_payment_method(socket, payment_method_id),
            :ok <- validate_payment_method_exists(selected_payment_method) do
-        process_payment_method_selection(socket, user, selected_payment_method, payment_method_id)
+        process_payment_method_selection(
+          socket,
+          user,
+          selected_payment_method,
+          payment_method_id
+        )
       end
 
     case result do
@@ -2670,13 +2996,17 @@ defmodule YscWeb.UserSettingsLive do
     require Logger
     user = socket.assigns.user
 
-    Logger.info("Creating setup intent for user", user_id: user.id, stripe_id: user.stripe_id)
+    Logger.info("Creating setup intent for user",
+      user_id: user.id,
+      stripe_id: user.stripe_id
+    )
 
     # Ensure user has a Stripe customer ID (reload user if it was just created)
     user = ensure_stripe_customer_exists(user)
 
     if user.stripe_id == nil do
-      Logger.error("User still has no stripe_id after ensure_stripe_customer_exists",
+      Logger.error(
+        "User still has no stripe_id after ensure_stripe_customer_exists",
         user_id: user.id
       )
 
@@ -2728,7 +3058,10 @@ defmodule YscWeb.UserSettingsLive do
 
           {:noreply,
            socket
-           |> put_flash(:error, "Failed to initialize payment form: #{error_message}")
+           |> put_flash(
+             :error,
+             "Failed to initialize payment form: #{error_message}"
+           )
            |> assign(:show_new_payment_form, false)}
       end
     end
@@ -2742,7 +3075,9 @@ defmodule YscWeb.UserSettingsLive do
     user = socket.assigns.user
 
     # Use the new sync function to ensure we're in sync with Stripe
-    {:ok, updated_payment_methods} = Ysc.Payments.sync_payment_methods_with_stripe(user)
+    {:ok, updated_payment_methods} =
+      Ysc.Payments.sync_payment_methods_with_stripe(user)
+
     updated_default = Ysc.Payments.get_default_payment_method(user)
 
     {:noreply,
@@ -2751,7 +3086,11 @@ defmodule YscWeb.UserSettingsLive do
      |> assign(:default_payment_method, updated_default)}
   end
 
-  def handle_event("retry-invoice-payment", %{"invoice_id" => invoice_id}, socket) do
+  def handle_event(
+        "retry-invoice-payment",
+        %{"invoice_id" => invoice_id},
+        socket
+      ) do
     handle_retry_invoice_payment(socket, invoice_id)
   end
 
@@ -2760,7 +3099,11 @@ defmodule YscWeb.UserSettingsLive do
 
     if user.state != :active do
       {:noreply,
-       put_flash(socket, :error, "You must have an approved account to cancel your membership.")}
+       put_flash(
+         socket,
+         :error,
+         "You must have an approved account to cancel your membership."
+       )}
     else
       # Schedule cancellation at end of current period in Stripe and persist locally
       case Subscriptions.cancel(socket.assigns.current_membership) do
@@ -2781,7 +3124,12 @@ defmodule YscWeb.UserSettingsLive do
           {:noreply, put_flash(socket, :error, reason)}
 
         {:error, _changeset} ->
-          {:noreply, put_flash(socket, :error, "Failed to cancel membership. Please try again.")}
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Failed to cancel membership. Please try again."
+           )}
       end
     end
   end
@@ -2791,7 +3139,11 @@ defmodule YscWeb.UserSettingsLive do
 
     if user.state != :active do
       {:noreply,
-       put_flash(socket, :error, "You must have an approved account to cancel your membership.")}
+       put_flash(
+         socket,
+         :error,
+         "You must have an approved account to cancel your membership."
+       )}
     else
       case Subscriptions.resume(socket.assigns.current_membership) do
         {:error, reason} ->
@@ -2849,14 +3201,19 @@ defmodule YscWeb.UserSettingsLive do
 
   def handle_event("filter-payments", %{"filter" => filter}, socket) do
     filter_atom = String.to_existing_atom(filter)
-    filtered_payments = apply_payment_filter(socket.assigns.all_payments, filter_atom)
+
+    filtered_payments =
+      apply_payment_filter(socket.assigns.all_payments, filter_atom)
 
     {:noreply,
      socket
      |> assign(:payment_filter, filter_atom)
      |> assign(:filtered_payments_count, length(filtered_payments))
      |> assign(:filtered_payments_list, filtered_payments)
-     |> stream(:payments, filtered_payments, reset: true, dom_id: &payment_dom_id/1)}
+     |> stream(:payments, filtered_payments,
+       reset: true,
+       dom_id: &payment_dom_id/1
+     )}
   end
 
   def handle_event("change-membership", params, socket) do
@@ -2872,7 +3229,13 @@ defmodule YscWeb.UserSettingsLive do
            new_atom <- String.to_existing_atom(new_type),
            :ok <- validate_membership_change_allowed(current_type, new_atom),
            :ok <- validate_not_same_plan(current_type, new_atom) do
-        handle_membership_change(socket, user, current_membership, current_type, new_atom)
+        handle_membership_change(
+          socket,
+          user,
+          current_membership,
+          current_type,
+          new_atom
+        )
       end
 
     case result do
@@ -2938,10 +3301,12 @@ defmodule YscWeb.UserSettingsLive do
     timestamp = DateTime.utc_now() |> DateTime.to_unix()
     suffix = "email_change_#{timestamp}"
 
-    _job = Accounts.send_email_verification_code(user, email_code, suffix, new_email)
+    _job =
+      Accounts.send_email_verification_code(user, email_code, suffix, new_email)
 
     # Update form and store pending email
-    email_form = Accounts.change_user_email(user, %{"email" => new_email}) |> to_form()
+    email_form =
+      Accounts.change_user_email(user, %{"email" => new_email}) |> to_form()
 
     socket
     |> assign(:email_form, email_form)
@@ -2965,25 +3330,40 @@ defmodule YscWeb.UserSettingsLive do
     if user.state == :active do
       :ok
     else
-      {:error, "You must have an approved account to change your membership plan."}
+      {:error,
+       "You must have an approved account to change your membership plan."}
     end
   end
 
   defp validate_not_selecting(socket) do
-    if socket.assigns.selecting_payment_method, do: {:error, :already_selecting}, else: :ok
+    if socket.assigns.selecting_payment_method,
+      do: {:error, :already_selecting},
+      else: :ok
   end
 
   defp find_payment_method(socket, payment_method_id) do
     Enum.find(socket.assigns.all_payment_methods, &(&1.id == payment_method_id))
   end
 
-  defp validate_payment_method_exists(nil), do: {:error, :payment_method_not_found}
+  defp validate_payment_method_exists(nil),
+    do: {:error, :payment_method_not_found}
+
   defp validate_payment_method_exists(_payment_method), do: :ok
 
-  defp process_payment_method_selection(socket, user, selected_payment_method, payment_method_id) do
+  defp process_payment_method_selection(
+         socket,
+         user,
+         selected_payment_method,
+         payment_method_id
+       ) do
     require Logger
 
-    socket = apply_optimistic_update(socket, selected_payment_method, payment_method_id)
+    socket =
+      apply_optimistic_update(
+        socket,
+        selected_payment_method,
+        payment_method_id
+      )
 
     Logger.info("Setting payment method as default",
       user_id: user.id,
@@ -3012,7 +3392,11 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  defp apply_optimistic_update(socket, selected_payment_method, payment_method_id) do
+  defp apply_optimistic_update(
+         socket,
+         selected_payment_method,
+         payment_method_id
+       ) do
     updated_payment_methods =
       Enum.map(socket.assigns.all_payment_methods, fn pm ->
         if pm.id == payment_method_id do
@@ -3070,7 +3454,8 @@ defmodule YscWeb.UserSettingsLive do
            }
          }) do
       {:ok, _stripe_customer} ->
-        Logger.info("Successfully updated Stripe customer default payment method",
+        Logger.info(
+          "Successfully updated Stripe customer default payment method",
           user_id: user.id,
           stripe_customer_id: user.stripe_id
         )
@@ -3118,7 +3503,8 @@ defmodule YscWeb.UserSettingsLive do
 
   defp validate_membership_type(params, socket) do
     new_type =
-      params["membership_type"] || socket.assigns.membership_form.params["membership_type"]
+      params["membership_type"] ||
+        socket.assigns.membership_form.params["membership_type"]
 
     if is_nil(new_type) or new_type == "" do
       {:error, "Please select a membership type first."}
@@ -3134,7 +3520,8 @@ defmodule YscWeb.UserSettingsLive do
   defp validate_current_membership_exists(_), do: :ok
 
   defp get_new_membership_type(params, socket) do
-    params["membership_type"] || socket.assigns.membership_form.params["membership_type"]
+    params["membership_type"] ||
+      socket.assigns.membership_form.params["membership_type"]
   end
 
   defp validate_membership_change_allowed(:lifetime, _new_atom) do
@@ -3147,18 +3534,27 @@ defmodule YscWeb.UserSettingsLive do
 
   defp validate_membership_change_allowed(_current_type, _new_atom), do: :ok
 
-  defp validate_not_same_plan(current_type, new_atom) when current_type == new_atom do
+  defp validate_not_same_plan(current_type, new_atom)
+       when current_type == new_atom do
     {:error, "You are already on that plan."}
   end
 
   defp validate_not_same_plan(_current_type, _new_atom), do: :ok
 
-  defp handle_membership_change(socket, user, current_membership, current_type, new_atom) do
+  defp handle_membership_change(
+         socket,
+         user,
+         current_membership,
+         current_type,
+         new_atom
+       ) do
     plans = Application.get_env(:ysc, :membership_plans)
     current_plan = Enum.find(plans, &(&1.id == current_type))
     new_plan = Enum.find(plans, &(&1.id == new_atom))
     new_price_id = new_plan[:stripe_price_id]
-    direction = if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
+
+    direction =
+      if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
 
     with :ok <- validate_downgrade_with_sub_accounts(user, direction) do
       process_membership_change(
@@ -3193,9 +3589,19 @@ defmodule YscWeb.UserSettingsLive do
          direction,
          new_atom
        ) do
-    case Subscriptions.change_membership_plan(current_membership, new_price_id, direction) do
+    case Subscriptions.change_membership_plan(
+           current_membership,
+           new_price_id,
+           direction
+         ) do
       {:ok, updated_subscription} ->
-        handle_membership_change_success(socket, user, updated_subscription, direction, new_atom)
+        handle_membership_change_success(
+          socket,
+          user,
+          updated_subscription,
+          direction,
+          new_atom
+        )
 
       {:scheduled, _schedule} ->
         handle_membership_change_scheduled(socket, user, direction)
@@ -3205,8 +3611,16 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  defp handle_membership_change_success(socket, user, updated_subscription, direction, new_atom) do
-    updated_membership = updated_subscription |> Repo.preload(:subscription_items)
+  defp handle_membership_change_success(
+         socket,
+         user,
+         updated_subscription,
+         direction,
+         new_atom
+       ) do
+    updated_membership =
+      updated_subscription |> Repo.preload(:subscription_items)
+
     invalidate_membership_cache(user)
     success_message = get_success_message(direction)
 
@@ -3216,7 +3630,10 @@ defmodule YscWeb.UserSettingsLive do
      |> assign(:active_plan_type, new_atom)
      |> assign(:change_membership_button, false)
      |> assign(:membership_change_info, nil)
-     |> assign(:membership_form, to_form(%{"membership_type" => Atom.to_string(new_atom)}))
+     |> assign(
+       :membership_form,
+       to_form(%{"membership_type" => Atom.to_string(new_atom)})
+     )
      |> put_flash(:info, success_message)
      |> redirect(to: ~p"/users/membership")}
   end
@@ -3225,12 +3642,21 @@ defmodule YscWeb.UserSettingsLive do
     invalidate_membership_cache(user)
 
     {:noreply,
-     put_flash(socket, :info, "Your membership plan will switch at your next renewal.")
+     put_flash(
+       socket,
+       :info,
+       "Your membership plan will switch at your next renewal."
+     )
      |> redirect(to: ~p"/users/membership")}
   end
 
   defp handle_membership_change_error(socket, reason) do
-    {:noreply, put_flash(socket, :error, "Failed to change membership: #{inspect(reason)}")}
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       "Failed to change membership: #{inspect(reason)}"
+     )}
   end
 
   defp invalidate_membership_cache(user) do
@@ -3251,7 +3677,8 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   # Helper functions for resend rate limiting - delegate to ResendRateLimiter
-  defp sms_resend_available?(assigns), do: Ysc.ResendRateLimiter.resend_available?(assigns, :sms)
+  defp sms_resend_available?(assigns),
+    do: Ysc.ResendRateLimiter.resend_available?(assigns, :sms)
 
   defp sms_resend_seconds_remaining(assigns),
     do: Ysc.ResendRateLimiter.resend_seconds_remaining(assigns, :sms)
@@ -3293,7 +3720,8 @@ defmodule YscWeb.UserSettingsLive do
   defp normalize_verification_code(_), do: ""
 
   defp paginate_payments(socket, new_page) when new_page >= 1 do
-    %{payments_per_page: per_page, payments_total: total_count, user: user} = socket.assigns
+    %{payments_per_page: per_page, payments_total: total_count, user: user} =
+      socket.assigns
 
     {all_payments, _total_count} =
       Ledgers.list_user_payments_paginated(user.id, new_page, per_page)
@@ -3310,7 +3738,10 @@ defmodule YscWeb.UserSettingsLive do
     |> assign(:all_payments, all_payments)
     |> assign(:filtered_payments_count, length(filtered_payments))
     |> assign(:filtered_payments_list, filtered_payments)
-    |> stream(:payments, filtered_payments, reset: true, dom_id: &payment_dom_id/1)
+    |> stream(:payments, filtered_payments,
+      reset: true,
+      dom_id: &payment_dom_id/1
+    )
   end
 
   defp apply_payment_filter(payments, :all), do: payments
@@ -3340,7 +3771,9 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   defp apply_payment_filter(payments, :membership) do
-    Enum.filter(payments, fn payment_info -> payment_info.type == :membership end)
+    Enum.filter(payments, fn payment_info ->
+      payment_info.type == :membership
+    end)
   end
 
   defp apply_payment_filter(payments, _), do: payments
@@ -3383,7 +3816,8 @@ defmodule YscWeb.UserSettingsLive do
     stats
   end
 
-  defp add_booking_nights(acc, %{type: :booking, booking: booking}) when not is_nil(booking) do
+  defp add_booking_nights(acc, %{type: :booking, booking: booking})
+       when not is_nil(booking) do
     nights = Date.diff(booking.checkout_date, booking.checkin_date)
     Map.update(acc, :nights, nights, &(&1 + nights))
   end
@@ -3467,7 +3901,8 @@ defmodule YscWeb.UserSettingsLive do
     Enum.find(plans, &(&1.id == memberhip_type))[:stripe_price_id]
   end
 
-  defp get_membership_plan(membership), do: YscWeb.UserAuth.get_membership_plan_type(membership)
+  defp get_membership_plan(membership),
+    do: YscWeb.UserAuth.get_membership_plan_type(membership)
 
   # defp payment_to_badge_style("paid"), do: "green"
   # defp payment_to_badge_style("open"), do: "blue"
@@ -3581,7 +4016,9 @@ defmodule YscWeb.UserSettingsLive do
 
   defp card_icon(_), do: "hero-credit-card"
 
-  defp payment_method_icon(%{type: :card, display_brand: brand}), do: card_icon(brand)
+  defp payment_method_icon(%{type: :card, display_brand: brand}),
+    do: card_icon(brand)
+
   defp payment_method_icon(%{type: :bank_account}), do: bank_account_icon()
   defp payment_method_icon(_), do: "hero-credit-card"
 
@@ -3935,7 +4372,8 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   # Helper functions for payment rendering
-  defp get_payment_icon(%{type: :booking, booking: booking}) when not is_nil(booking) do
+  defp get_payment_icon(%{type: :booking, booking: booking})
+       when not is_nil(booking) do
     "hero-home"
   end
 
@@ -3944,7 +4382,8 @@ defmodule YscWeb.UserSettingsLive do
   defp get_payment_icon(%{type: :donation}), do: "hero-gift"
   defp get_payment_icon(_), do: "hero-credit-card"
 
-  defp get_payment_icon_bg(%{type: :booking, booking: booking}) when not is_nil(booking) do
+  defp get_payment_icon_bg(%{type: :booking, booking: booking})
+       when not is_nil(booking) do
     case booking.property do
       :tahoe -> "bg-blue-50 group-hover:bg-blue-600"
       :clear_lake -> "bg-emerald-50 group-hover:bg-emerald-600"
@@ -3952,12 +4391,19 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  defp get_payment_icon_bg(%{type: :ticket}), do: "bg-purple-50 group-hover:bg-purple-600"
-  defp get_payment_icon_bg(%{type: :membership}), do: "bg-teal-50 group-hover:bg-teal-600"
-  defp get_payment_icon_bg(%{type: :donation}), do: "bg-yellow-50 group-hover:bg-yellow-600"
+  defp get_payment_icon_bg(%{type: :ticket}),
+    do: "bg-purple-50 group-hover:bg-purple-600"
+
+  defp get_payment_icon_bg(%{type: :membership}),
+    do: "bg-teal-50 group-hover:bg-teal-600"
+
+  defp get_payment_icon_bg(%{type: :donation}),
+    do: "bg-yellow-50 group-hover:bg-yellow-600"
+
   defp get_payment_icon_bg(_), do: "bg-zinc-50 group-hover:bg-zinc-600"
 
-  defp get_payment_icon_color(%{type: :booking, booking: booking}) when not is_nil(booking) do
+  defp get_payment_icon_color(%{type: :booking, booking: booking})
+       when not is_nil(booking) do
     case booking.property do
       :tahoe -> "text-blue-600 group-hover:text-white"
       :clear_lake -> "text-emerald-600 group-hover:text-white"
@@ -3965,12 +4411,19 @@ defmodule YscWeb.UserSettingsLive do
     end
   end
 
-  defp get_payment_icon_color(%{type: :ticket}), do: "text-purple-600 group-hover:text-white"
-  defp get_payment_icon_color(%{type: :membership}), do: "text-teal-600 group-hover:text-white"
-  defp get_payment_icon_color(%{type: :donation}), do: "text-yellow-600 group-hover:text-white"
+  defp get_payment_icon_color(%{type: :ticket}),
+    do: "text-purple-600 group-hover:text-white"
+
+  defp get_payment_icon_color(%{type: :membership}),
+    do: "text-teal-600 group-hover:text-white"
+
+  defp get_payment_icon_color(%{type: :donation}),
+    do: "text-yellow-600 group-hover:text-white"
+
   defp get_payment_icon_color(_), do: "text-zinc-600 group-hover:text-white"
 
-  defp get_payment_title(%{type: :booking, booking: booking}) when not is_nil(booking) do
+  defp get_payment_title(%{type: :booking, booking: booking})
+       when not is_nil(booking) do
     property_name =
       case booking.property do
         :tahoe -> "Tahoe"
@@ -3981,7 +4434,8 @@ defmodule YscWeb.UserSettingsLive do
     "#{property_name} Booking"
   end
 
-  defp get_payment_title(%{type: :ticket, event: event}) when not is_nil(event) do
+  defp get_payment_title(%{type: :ticket, event: event})
+       when not is_nil(event) do
     event.title
   end
 
@@ -3995,7 +4449,8 @@ defmodule YscWeb.UserSettingsLive do
     booking.reference_id || "—"
   end
 
-  defp get_payment_reference(%{ticket_order: ticket_order}) when not is_nil(ticket_order) do
+  defp get_payment_reference(%{ticket_order: ticket_order})
+       when not is_nil(ticket_order) do
     ticket_order.reference_id || "—"
   end
 
@@ -4274,7 +4729,8 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   # Helper function to handle retry invoice payment
-  defp handle_retry_invoice_payment(socket, invoice_id) when is_binary(invoice_id) do
+  defp handle_retry_invoice_payment(socket, invoice_id)
+       when is_binary(invoice_id) do
     require Logger
     user = socket.assigns.user
 
@@ -4301,6 +4757,7 @@ defmodule YscWeb.UserSettingsLive do
           # Invalidate membership cache after successful payment
           # The subscription will be updated via webhook, but invalidate cache now for immediate effect
           MembershipCache.invalidate_user(user.id)
+
           # Also invalidate for sub-accounts since they inherit from primary user
           sub_accounts = Accounts.get_sub_accounts(user)
 
@@ -4397,7 +4854,8 @@ defmodule YscWeb.UserSettingsLive do
   end
 
   # Generate unique DOM ID for payment stream items
-  defp payment_dom_id(%{type: :booking, booking: booking}) when not is_nil(booking) do
+  defp payment_dom_id(%{type: :booking, booking: booking})
+       when not is_nil(booking) do
     "payment-booking-#{booking.id}"
   end
 
@@ -4411,7 +4869,8 @@ defmodule YscWeb.UserSettingsLive do
     "payment-membership-#{subscription.id}"
   end
 
-  defp payment_dom_id(%{type: :donation, payment: payment}) when not is_nil(payment) do
+  defp payment_dom_id(%{type: :donation, payment: payment})
+       when not is_nil(payment) do
     "payment-donation-#{payment.id}"
   end
 

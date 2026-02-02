@@ -30,7 +30,9 @@ defmodule Ysc.Payments do
   Gets the default payment method for a user.
   """
   def get_default_payment_method(user) do
-    from(pm in PaymentMethod, where: pm.user_id == ^user.id and pm.is_default == true)
+    from(pm in PaymentMethod,
+      where: pm.user_id == ^user.id and pm.is_default == true
+    )
     |> Repo.one()
   end
 
@@ -69,7 +71,9 @@ defmodule Ysc.Payments do
 
           if remaining_payment_methods != [] do
             # Set the oldest remaining payment method as default
-            new_default = Enum.min_by(remaining_payment_methods, & &1.inserted_at)
+            new_default =
+              Enum.min_by(remaining_payment_methods, & &1.inserted_at)
+
             set_default_payment_method(user, new_default)
           end
         end
@@ -105,7 +109,9 @@ defmodule Ysc.Payments do
       |> Enum.reduce({[], []}, fn {_key, methods}, {keep, delete} ->
         if length(methods) > 1 do
           # Sort by inserted_at desc and keep the first (most recent)
-          sorted_methods = Enum.sort_by(methods, & &1.inserted_at, {:desc, DateTime})
+          sorted_methods =
+            Enum.sort_by(methods, & &1.inserted_at, {:desc, DateTime})
+
           [most_recent | duplicates] = sorted_methods
           {[most_recent | keep], duplicates ++ delete}
         else
@@ -125,7 +131,9 @@ defmodule Ysc.Payments do
   def set_default_payment_method_if_none(user, payment_method) do
     # Check if user already has a default payment method
     existing_default =
-      from(pm in PaymentMethod, where: pm.user_id == ^user.id and pm.is_default == true)
+      from(pm in PaymentMethod,
+        where: pm.user_id == ^user.id and pm.is_default == true
+      )
       |> Repo.one()
 
     if is_nil(existing_default) do
@@ -139,7 +147,10 @@ defmodule Ysc.Payments do
   Creates or updates a payment method from Stripe data and sets it as the default.
   This is useful when a user is updating their payment method.
   """
-  def upsert_and_set_default_payment_method_from_stripe(user, stripe_payment_method) do
+  def upsert_and_set_default_payment_method_from_stripe(
+        user,
+        stripe_payment_method
+      ) do
     case upsert_payment_method_from_stripe(user, stripe_payment_method) do
       {:ok, payment_method} ->
         # Always set this payment method as default (replacing any existing default)
@@ -166,7 +177,9 @@ defmodule Ysc.Payments do
     case Repo.transaction(fn ->
            # First, unset any existing default payment methods for this user
            unset_result =
-             from(pm in PaymentMethod, where: pm.user_id == ^user.id and pm.is_default == true)
+             from(pm in PaymentMethod,
+               where: pm.user_id == ^user.id and pm.is_default == true
+             )
              |> Repo.update_all(set: [is_default: false])
 
            Logger.info("Unset existing default payment methods",
@@ -189,7 +202,8 @@ defmodule Ysc.Payments do
            updated_payment_method
          end) do
       {:ok, updated_payment_method} ->
-        Logger.info("Successfully completed set_default_payment_method transaction",
+        Logger.info(
+          "Successfully completed set_default_payment_method transaction",
           user_id: user.id,
           payment_method_id: updated_payment_method.id
         )
@@ -241,7 +255,8 @@ defmodule Ysc.Payments do
     stripe_default_pm =
       case Stripe.Customer.retrieve(user.stripe_id) do
         {:ok, customer} ->
-          if customer.invoice_settings && customer.invoice_settings.default_payment_method do
+          if customer.invoice_settings &&
+               customer.invoice_settings.default_payment_method do
             customer.invoice_settings.default_payment_method
           else
             nil
@@ -255,7 +270,8 @@ defmodule Ysc.Payments do
     if stripe_default_pm do
       case get_payment_method_by_provider(:stripe, stripe_default_pm) do
         nil ->
-          Logger.warning("Stripe default payment method not found in local database",
+          Logger.warning(
+            "Stripe default payment method not found in local database",
             user_id: user.id,
             stripe_payment_method_id: stripe_default_pm
           )
@@ -324,8 +340,10 @@ defmodule Ysc.Payments do
       provider_type: stripe_payment_method.type,
       last_four: get_last_four(stripe_payment_method),
       display_brand: get_display_brand(stripe_payment_method),
-      exp_month: stripe_payment_method.card && stripe_payment_method.card.exp_month,
-      exp_year: stripe_payment_method.card && stripe_payment_method.card.exp_year,
+      exp_month:
+        stripe_payment_method.card && stripe_payment_method.card.exp_month,
+      exp_year:
+        stripe_payment_method.card && stripe_payment_method.card.exp_year,
       account_type:
         stripe_payment_method.us_bank_account &&
           stripe_payment_method.us_bank_account.account_type,
@@ -333,7 +351,8 @@ defmodule Ysc.Payments do
         stripe_payment_method.us_bank_account &&
           stripe_payment_method.us_bank_account.routing_number,
       bank_name:
-        stripe_payment_method.us_bank_account && stripe_payment_method.us_bank_account.bank_name,
+        stripe_payment_method.us_bank_account &&
+          stripe_payment_method.us_bank_account.bank_name,
       user_id: user.id,
       payload: stripe_payment_method_to_map(stripe_payment_method)
     }
@@ -352,7 +371,9 @@ defmodule Ysc.Payments do
 
       existing_payment_method ->
         # For existing payment methods, preserve the is_default field
-        attrs_with_default = Map.put(attrs, :is_default, existing_payment_method.is_default)
+        attrs_with_default =
+          Map.put(attrs, :is_default, existing_payment_method.is_default)
+
         update_payment_method(existing_payment_method, attrs_with_default)
     end
   end
@@ -369,8 +390,10 @@ defmodule Ysc.Payments do
       provider_type: stripe_payment_method.type,
       last_four: get_last_four(stripe_payment_method),
       display_brand: get_display_brand(stripe_payment_method),
-      exp_month: stripe_payment_method.card && stripe_payment_method.card.exp_month,
-      exp_year: stripe_payment_method.card && stripe_payment_method.card.exp_year,
+      exp_month:
+        stripe_payment_method.card && stripe_payment_method.card.exp_month,
+      exp_year:
+        stripe_payment_method.card && stripe_payment_method.card.exp_year,
       account_type:
         stripe_payment_method.us_bank_account &&
           stripe_payment_method.us_bank_account.account_type,
@@ -378,7 +401,8 @@ defmodule Ysc.Payments do
         stripe_payment_method.us_bank_account &&
           stripe_payment_method.us_bank_account.routing_number,
       bank_name:
-        stripe_payment_method.us_bank_account && stripe_payment_method.us_bank_account.bank_name,
+        stripe_payment_method.us_bank_account &&
+          stripe_payment_method.us_bank_account.bank_name,
       user_id: user.id,
       payload: stripe_payment_method_to_map(stripe_payment_method)
     }
@@ -390,7 +414,9 @@ defmodule Ysc.Payments do
 
         existing_payment_method ->
           # Preserve the is_default field when updating
-          attrs_with_default = Map.put(attrs, :is_default, existing_payment_method.is_default)
+          attrs_with_default =
+            Map.put(attrs, :is_default, existing_payment_method.is_default)
+
           update_payment_method(existing_payment_method, attrs_with_default)
       end
 
@@ -409,7 +435,8 @@ defmodule Ysc.Payments do
   # Private functions
 
   defp handle_duplicate_payment_method(
-         {:error, %Ecto.Changeset{errors: [provider_id: {"has already been taken", _}]}}
+         {:error,
+          %Ecto.Changeset{errors: [provider_id: {"has already been taken", _}]}}
        ) do
     {:error, :duplicate_payment_method}
   end
@@ -417,7 +444,10 @@ defmodule Ysc.Payments do
   defp handle_duplicate_payment_method(result), do: result
 
   defp map_stripe_type_to_payment_method_type("card"), do: :card
-  defp map_stripe_type_to_payment_method_type("us_bank_account"), do: :bank_account
+
+  defp map_stripe_type_to_payment_method_type("us_bank_account"),
+    do: :bank_account
+
   defp map_stripe_type_to_payment_method_type(type), do: String.to_atom(type)
 
   defp get_last_four(%{card: %{last4: last4}}), do: last4
@@ -425,7 +455,10 @@ defmodule Ysc.Payments do
   defp get_last_four(_), do: nil
 
   defp get_display_brand(%{card: %{brand: brand}}), do: brand
-  defp get_display_brand(%{us_bank_account: %{bank_name: bank_name}}), do: bank_name
+
+  defp get_display_brand(%{us_bank_account: %{bank_name: bank_name}}),
+    do: bank_name
+
   defp get_display_brand(_), do: nil
 
   defp stripe_payment_method_to_map(stripe_payment_method) do

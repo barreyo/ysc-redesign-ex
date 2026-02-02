@@ -25,7 +25,8 @@ defmodule Ysc.Application do
       # Start the PubSub system
       {Phoenix.PubSub, name: Ysc.PubSub},
       # Start DNS cluster to cluster the app
-      {DNSCluster, query: Application.get_env(:ysc, :dns_cluster_query) || :ignore},
+      {DNSCluster,
+       query: Application.get_env(:ysc, :dns_cluster_query) || :ignore},
       # Start Finch
       {Finch, name: Ysc.Finch},
       # Start cache
@@ -85,7 +86,8 @@ defmodule Ysc.Application do
 
   # Check if we're running in the sandbox environment
   defp sandbox_environment? do
-    System.get_env("ENVIRONMENT", "development") |> String.downcase() == "sandbox"
+    System.get_env("ENVIRONMENT", "development") |> String.downcase() ==
+      "sandbox"
   end
 
   # Shuts down the application if no active HTTP connections are found.

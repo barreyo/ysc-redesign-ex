@@ -140,7 +140,8 @@ defmodule YscWeb.Workers.BookingCheckoutReminderWorker do
       |> DateTime.new!(~T[18:00:00], "America/Los_Angeles")
 
     # Convert to UTC for Oban scheduling
-    reminder_datetime_utc = DateTime.shift_zone!(reminder_datetime_pst, "Etc/UTC")
+    reminder_datetime_utc =
+      DateTime.shift_zone!(reminder_datetime_pst, "Etc/UTC")
 
     now = DateTime.utc_now()
 
@@ -162,7 +163,8 @@ defmodule YscWeb.Workers.BookingCheckoutReminderWorker do
       )
     else
       # If checkout is less than 1 day away, send immediately
-      Logger.info("Checkout is less than 1 day away, sending reminder immediately",
+      Logger.info(
+        "Checkout is less than 1 day away, sending reminder immediately",
         booking_id: booking_id,
         checkout_date: checkout_date
       )
@@ -181,7 +183,8 @@ defmodule YscWeb.Workers.BookingCheckoutReminderWorker do
           if booking.status == :complete do
             send_checkout_reminder_email(booking)
           else
-            Logger.info("Booking is not active, skipping immediate checkout reminder",
+            Logger.info(
+              "Booking is not active, skipping immediate checkout reminder",
               booking_id: booking_id,
               status: booking.status
             )

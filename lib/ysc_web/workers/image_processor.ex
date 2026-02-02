@@ -42,7 +42,10 @@ defmodule YscWeb.Workers.ImageProcessor do
 
         # Download from the internet and cache locally
         {:ok, :saved_to_file} =
-          :httpc.request(:get, {to_charlist(URI.encode(image.raw_image_path)), []}, [],
+          :httpc.request(
+            :get,
+            {to_charlist(URI.encode(image.raw_image_path)), []},
+            [],
             stream: to_charlist(tmp_output_file)
           )
 

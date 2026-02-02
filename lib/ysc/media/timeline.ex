@@ -28,7 +28,8 @@ defmodule Ysc.Media.Timeline do
 
       header = %Header{
         # Deterministic ID is crucial for Streams!
-        id: "header-#{first_image.inserted_at.year}-#{first_image.inserted_at.month}",
+        id:
+          "header-#{first_image.inserted_at.year}-#{first_image.inserted_at.month}",
         date: first_image.inserted_at,
         formatted_date: format_date(first_image.inserted_at)
       }

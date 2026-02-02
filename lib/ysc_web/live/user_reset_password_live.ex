@@ -24,7 +24,12 @@ defmodule YscWeb.UserResetPasswordLive do
         phx-submit="reset_password"
         phx-change="validate"
       >
-        <.input field={@form[:password]} type="password-toggle" label="New password" required />
+        <.input
+          field={@form[:password]}
+          type="password-toggle"
+          label="New password"
+          required
+        />
         <.input
           field={@form[:password_confirmation]}
           type="password-toggle"
@@ -32,7 +37,9 @@ defmodule YscWeb.UserResetPasswordLive do
           required
         />
         <:actions>
-          <.button phx-disable-with="Resetting..." class="w-full">Reset Password</.button>
+          <.button phx-disable-with="Resetting..." class="w-full">
+            Reset Password
+          </.button>
         </:actions>
       </.simple_form>
 
@@ -44,8 +51,11 @@ defmodule YscWeb.UserResetPasswordLive do
   end
 
   def mount(params, _session, socket) do
-    remote_ip = get_connect_info(socket, :peer_data) |> Map.get(:address, {0, 0, 0, 0})
-    socket = assign(socket, :remote_ip, remote_ip) |> assign_user_and_token(params)
+    remote_ip =
+      get_connect_info(socket, :peer_data) |> Map.get(:address, {0, 0, 0, 0})
+
+    socket =
+      assign(socket, :remote_ip, remote_ip) |> assign_user_and_token(params)
 
     form_source =
       case socket.assigns do
@@ -56,7 +66,8 @@ defmodule YscWeb.UserResetPasswordLive do
           %{}
       end
 
-    {:ok, assign_form(socket, form_source) |> assign(:page_title, "Reset Password"),
+    {:ok,
+     assign_form(socket, form_source) |> assign(:page_title, "Reset Password"),
      temporary_assigns: [form: nil]}
   end
 

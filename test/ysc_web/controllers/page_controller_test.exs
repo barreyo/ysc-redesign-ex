@@ -32,9 +32,13 @@ defmodule YscWeb.PageControllerTest do
       timezone = "America/Los_Angeles"
 
       # Mock the get_signup_application_submission_date function
-      Mox.expect(Ysc.AccountsMock, :get_signup_application_submission_date, fn _user_id ->
-        %{submit_date: submitted_date, timezone: timezone}
-      end)
+      Mox.expect(
+        Ysc.AccountsMock,
+        :get_signup_application_submission_date,
+        fn _user_id ->
+          %{submit_date: submitted_date, timezone: timezone}
+        end
+      )
 
       conn = get(conn, ~p"/pending-review")
 
@@ -45,18 +49,23 @@ defmodule YscWeb.PageControllerTest do
       assert conn.assigns.time_delta =~ "ago"
     end
 
-    test "renders pending review page with submission from different timezone", %{
-      conn: conn,
-      user: _user
-    } do
+    test "renders pending review page with submission from different timezone",
+         %{
+           conn: conn,
+           user: _user
+         } do
       # Setup submission date in a different timezone (5 minutes ago to ensure "ago" is returned)
       submitted_date = DateTime.add(DateTime.utc_now(), -300, :second)
       timezone = "Europe/Stockholm"
 
       # Mock the get_signup_application_submission_date function
-      Mox.expect(Ysc.AccountsMock, :get_signup_application_submission_date, fn _user_id ->
-        %{submit_date: submitted_date, timezone: timezone}
-      end)
+      Mox.expect(
+        Ysc.AccountsMock,
+        :get_signup_application_submission_date,
+        fn _user_id ->
+          %{submit_date: submitted_date, timezone: timezone}
+        end
+      )
 
       conn = get(conn, ~p"/pending-review")
 
@@ -73,9 +82,13 @@ defmodule YscWeb.PageControllerTest do
       submitted_date = DateTime.add(DateTime.utc_now(), -300, :second)
 
       # Mock the get_signup_application_submission_date function
-      Mox.expect(Ysc.AccountsMock, :get_signup_application_submission_date, fn _user_id ->
-        %{submit_date: submitted_date, timezone: nil}
-      end)
+      Mox.expect(
+        Ysc.AccountsMock,
+        :get_signup_application_submission_date,
+        fn _user_id ->
+          %{submit_date: submitted_date, timezone: nil}
+        end
+      )
 
       conn = get(conn, ~p"/pending-review")
 

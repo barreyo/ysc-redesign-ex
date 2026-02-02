@@ -2,14 +2,18 @@ defmodule Ysc.Events.TicketOrderStatus do
   @moduledoc """
   Ticket order status enum.
   """
-  use EctoEnum, type: :ticket_order_status, enums: [:pending, :completed, :cancelled, :expired]
+  use EctoEnum,
+    type: :ticket_order_status,
+    enums: [:pending, :completed, :cancelled, :expired]
 end
 
 defmodule Ysc.Events.TicketStatus do
   @moduledoc """
   Ticket status enum.
   """
-  use EctoEnum, type: :ticket_status, enums: [:pending, :confirmed, :cancelled, :expired]
+  use EctoEnum,
+    type: :ticket_status,
+    enums: [:pending, :confirmed, :cancelled, :expired]
 end
 
 defmodule Ysc.Events.TicketTierType do
@@ -23,5 +27,7 @@ defmodule Ysc.Events.EventState do
   @moduledoc """
   Event state enum.
   """
-  use EctoEnum, type: :event_state, enums: [:draft, :scheduled, :published, :cancelled, :deleted]
+  use EctoEnum,
+    type: :event_state,
+    enums: [:draft, :scheduled, :published, :cancelled, :deleted]
 end

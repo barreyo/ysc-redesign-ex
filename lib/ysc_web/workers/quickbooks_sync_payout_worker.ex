@@ -34,14 +34,18 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorker do
            |> Repo.one()
          end) do
       {:ok, nil} ->
-        Logger.warning("Payout not found for QuickBooks sync", payout_id: payout_id)
+        Logger.warning("Payout not found for QuickBooks sync",
+          payout_id: payout_id
+        )
 
         {:discard, :payout_not_found}
 
       {:ok, payout} ->
         # Check if already synced (double-check after acquiring lock)
-        if payout.quickbooks_sync_status == "synced" && payout.quickbooks_deposit_id do
-          Logger.info("Payout already synced to QuickBooks (checked after lock)",
+        if payout.quickbooks_sync_status == "synced" &&
+             payout.quickbooks_deposit_id do
+          Logger.info(
+            "Payout already synced to QuickBooks (checked after lock)",
             payout_id: payout_id,
             deposit_id: payout.quickbooks_deposit_id
           )
@@ -86,7 +90,10 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorker do
 
       {:error, %Postgrex.Error{postgres: %{code: :lock_not_available}}} ->
         # Another worker is processing this payout
-        Logger.info("Payout is locked by another worker, skipping", payout_id: payout_id)
+        Logger.info("Payout is locked by another worker, skipping",
+          payout_id: payout_id
+        )
+
         :ok
 
       {:error, reason} ->
@@ -96,7 +103,10 @@ defmodule YscWeb.Workers.QuickbooksSyncPayoutWorker do
         )
 
         # Report to Sentry (only for non-lock errors)
-        unless match?(%Postgrex.Error{postgres: %{code: :lock_not_available}}, reason) do
+        unless match?(
+                 %Postgrex.Error{postgres: %{code: :lock_not_available}},
+                 reason
+               ) do
           Sentry.capture_message("Failed to lock payout for QuickBooks sync",
             level: :error,
             extra: %{

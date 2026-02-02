@@ -19,7 +19,8 @@ defmodule Ysc.AgendasTest do
         description: "A test event",
         state: "draft",
         organizer_id: organizer.id,
-        start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day)
+        start_date:
+          DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day)
       })
 
     %{event: event, organizer: organizer}
@@ -27,7 +28,9 @@ defmodule Ysc.AgendasTest do
 
   describe "create_agenda/2" do
     test "creates an agenda for an event", %{event: event} do
-      assert {:ok, %Agenda{} = agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
+      assert {:ok, %Agenda{} = agenda} =
+               Agendas.create_agenda(event, %{title: "Day 1"})
+
       assert agenda.title == "Day 1"
       assert agenda.event_id == event.id
       assert agenda.position == 0
@@ -47,7 +50,9 @@ defmodule Ysc.AgendasTest do
   describe "get_agenda!/1" do
     test "returns the agenda with preloaded items", %{event: event} do
       {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
-      {:ok, _item} = Agendas.create_agenda_item(event.id, agenda, %{title: "Opening"})
+
+      {:ok, _item} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Opening"})
 
       fetched = Agendas.get_agenda!(agenda.id)
       assert fetched.id == agenda.id
@@ -81,7 +86,9 @@ defmodule Ysc.AgendasTest do
     test "updates an agenda's title", %{event: event} do
       {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
 
-      {:ok, updated} = Agendas.update_agenda(event.id, agenda, %{title: "Day One"})
+      {:ok, updated} =
+        Agendas.update_agenda(event.id, agenda, %{title: "Day One"})
+
       assert updated.title == "Day One"
     end
   end
@@ -100,7 +107,9 @@ defmodule Ysc.AgendasTest do
       {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
 
       assert {:ok, %AgendaItem{} = item} =
-               Agendas.create_agenda_item(event.id, agenda, %{title: "Opening Ceremony"})
+               Agendas.create_agenda_item(event.id, agenda, %{
+                 title: "Opening Ceremony"
+               })
 
       assert item.title == "Opening Ceremony"
       assert item.agenda_id == agenda.id
@@ -110,9 +119,14 @@ defmodule Ysc.AgendasTest do
     test "creates multiple items with correct positions", %{event: event} do
       {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
 
-      {:ok, item1} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 1"})
-      {:ok, item2} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 2"})
-      {:ok, item3} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 3"})
+      {:ok, item1} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Item 1"})
+
+      {:ok, item2} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Item 2"})
+
+      {:ok, item3} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Item 3"})
 
       assert item1.position == 0
       assert item2.position == 1
@@ -123,7 +137,9 @@ defmodule Ysc.AgendasTest do
   describe "get_agenda_item!/1" do
     test "returns the agenda item with preloaded agenda", %{event: event} do
       {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
-      {:ok, item} = Agendas.create_agenda_item(event.id, agenda, %{title: "Opening"})
+
+      {:ok, item} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Opening"})
 
       fetched = Agendas.get_agenda_item!(item.id)
       assert fetched.id == item.id
@@ -134,9 +150,13 @@ defmodule Ysc.AgendasTest do
   describe "update_agenda_item/3" do
     test "updates an agenda item's title", %{event: event} do
       {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
-      {:ok, item} = Agendas.create_agenda_item(event.id, agenda, %{title: "Opening"})
 
-      {:ok, updated} = Agendas.update_agenda_item(event.id, item, %{title: "Grand Opening"})
+      {:ok, item} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Opening"})
+
+      {:ok, updated} =
+        Agendas.update_agenda_item(event.id, item, %{title: "Grand Opening"})
+
       assert updated.title == "Grand Opening"
     end
   end
@@ -144,7 +164,9 @@ defmodule Ysc.AgendasTest do
   describe "delete_agenda_item/2" do
     test "deletes an agenda item", %{event: event} do
       {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
-      {:ok, item} = Agendas.create_agenda_item(event.id, agenda, %{title: "Opening"})
+
+      {:ok, item} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Opening"})
 
       {:ok, _} = Agendas.delete_agenda_item(event.id, item)
 
@@ -166,7 +188,9 @@ defmodule Ysc.AgendasTest do
   describe "change_agenda_item/2" do
     test "returns a changeset for an agenda item", %{event: event} do
       {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
-      {:ok, item} = Agendas.create_agenda_item(event.id, agenda, %{title: "Opening"})
+
+      {:ok, item} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Opening"})
 
       changeset = Agendas.change_agenda_item(item, %{title: "New Title"})
       assert %Ecto.Changeset{} = changeset
@@ -177,8 +201,12 @@ defmodule Ysc.AgendasTest do
   describe "list_all_agenda_items/0" do
     test "returns all agenda items", %{event: event} do
       {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
-      {:ok, _item1} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 1"})
-      {:ok, _item2} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 2"})
+
+      {:ok, _item1} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Item 1"})
+
+      {:ok, _item2} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Item 2"})
 
       items = Agendas.list_all_agenda_items()
       assert length(items) >= 2
@@ -200,8 +228,12 @@ defmodule Ysc.AgendasTest do
   describe "update_agenda_item_position/3" do
     test "updates agenda item position", %{event: event} do
       {:ok, agenda} = Agendas.create_agenda(event, %{title: "Day 1"})
-      {:ok, item1} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 1"})
-      {:ok, _item2} = Agendas.create_agenda_item(event.id, agenda, %{title: "Item 2"})
+
+      {:ok, item1} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Item 1"})
+
+      {:ok, _item2} =
+        Agendas.create_agenda_item(event.id, agenda, %{title: "Item 2"})
 
       assert :ok = Agendas.update_agenda_item_position(event.id, item1, 1)
       # Reload to verify
@@ -214,9 +246,13 @@ defmodule Ysc.AgendasTest do
     test "moves agenda item to different agenda", %{event: event} do
       {:ok, agenda1} = Agendas.create_agenda(event, %{title: "Day 1"})
       {:ok, agenda2} = Agendas.create_agenda(event, %{title: "Day 2"})
-      {:ok, item} = Agendas.create_agenda_item(event.id, agenda1, %{title: "Item"})
 
-      assert :ok = Agendas.move_agenda_item_to_agenda(event.id, item, agenda2, 0)
+      {:ok, item} =
+        Agendas.create_agenda_item(event.id, agenda1, %{title: "Item"})
+
+      assert :ok =
+               Agendas.move_agenda_item_to_agenda(event.id, item, agenda2, 0)
+
       # Reload to verify
       updated = Agendas.get_agenda_item!(item.id)
       assert updated.agenda_id == agenda2.id

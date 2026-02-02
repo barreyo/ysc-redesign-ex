@@ -266,7 +266,8 @@ defmodule Ysc.Accounts.UserTest do
         last_name: "Doe"
       }
 
-      changeset = User.registration_changeset(%User{}, attrs, require_password: true)
+      changeset =
+        User.registration_changeset(%User{}, attrs, require_password: true)
 
       assert changeset.valid?
       # Password should be removed
@@ -284,7 +285,8 @@ defmodule Ysc.Accounts.UserTest do
         last_name: "Doe"
       }
 
-      changeset = User.registration_changeset(%User{}, attrs, require_password: true)
+      changeset =
+        User.registration_changeset(%User{}, attrs, require_password: true)
 
       refute changeset.valid?
       assert changeset.errors[:password] != nil
@@ -300,7 +302,8 @@ defmodule Ysc.Accounts.UserTest do
         last_name: "Doe"
       }
 
-      changeset = User.registration_changeset(%User{}, attrs, require_password: true)
+      changeset =
+        User.registration_changeset(%User{}, attrs, require_password: true)
 
       refute changeset.valid?
       assert changeset.errors[:password] != nil
@@ -329,7 +332,10 @@ defmodule Ysc.Accounts.UserTest do
       }
 
       changeset =
-        User.registration_changeset(%User{}, attrs, require_password: true, hash_password: false)
+        User.registration_changeset(%User{}, attrs,
+          require_password: true,
+          hash_password: false
+        )
 
       assert changeset.valid?
       # Password should still be present (not hashed)
@@ -458,7 +464,8 @@ defmodule Ysc.Accounts.UserTest do
         date_of_birth: ~D[2010-01-01]
       }
 
-      changeset = User.sub_account_registration_changeset(%User{}, attrs, primary_user_id)
+      changeset =
+        User.sub_account_registration_changeset(%User{}, attrs, primary_user_id)
 
       assert changeset.valid?
       assert changeset.changes.primary_user_id == primary_user_id
@@ -474,7 +481,8 @@ defmodule Ysc.Accounts.UserTest do
         last_name: "Doe"
       }
 
-      changeset = User.sub_account_registration_changeset(%User{}, attrs, primary_user_id)
+      changeset =
+        User.sub_account_registration_changeset(%User{}, attrs, primary_user_id)
 
       refute changeset.valid?
       assert changeset.errors[:date_of_birth] != nil
@@ -510,7 +518,8 @@ defmodule Ysc.Accounts.UserTest do
         date_of_birth: ~D[1899-12-31]
       }
 
-      changeset = User.sub_account_registration_changeset(%User{}, attrs, primary_user_id)
+      changeset =
+        User.sub_account_registration_changeset(%User{}, attrs, primary_user_id)
 
       refute changeset.valid?
       assert changeset.errors[:date_of_birth] != nil
@@ -527,7 +536,8 @@ defmodule Ysc.Accounts.UserTest do
         date_of_birth: future_date
       }
 
-      changeset = User.sub_account_registration_changeset(%User{}, attrs, primary_user_id)
+      changeset =
+        User.sub_account_registration_changeset(%User{}, attrs, primary_user_id)
 
       refute changeset.valid?
       assert changeset.errors[:date_of_birth] != nil
@@ -914,7 +924,10 @@ defmodule Ysc.Accounts.UserTest do
       user = %User{email: @valid_email}
       verified_at = DateTime.utc_now() |> DateTime.truncate(:second)
 
-      changeset = User.email_verification_changeset(user, %{email_verified_at: verified_at})
+      changeset =
+        User.email_verification_changeset(user, %{
+          email_verified_at: verified_at
+        })
 
       assert changeset.valid?
       assert changeset.changes.email_verified_at == verified_at
@@ -924,7 +937,10 @@ defmodule Ysc.Accounts.UserTest do
       user = %User{email: @valid_email}
       verified_at = DateTime.utc_now() |> DateTime.truncate(:second)
 
-      changeset = User.phone_verification_changeset(user, %{phone_verified_at: verified_at})
+      changeset =
+        User.phone_verification_changeset(user, %{
+          phone_verified_at: verified_at
+        })
 
       assert changeset.valid?
       assert changeset.changes.phone_verified_at == verified_at
@@ -989,7 +1005,13 @@ defmodule Ysc.Accounts.UserTest do
 
   describe "enum validations" do
     test "accepts valid state values" do
-      valid_states = [:pending_approval, :rejected, :active, :suspended, :deleted]
+      valid_states = [
+        :pending_approval,
+        :rejected,
+        :active,
+        :suspended,
+        :deleted
+      ]
 
       for state <- valid_states do
         attrs = %{

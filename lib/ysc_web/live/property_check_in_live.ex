@@ -43,7 +43,11 @@ defmodule YscWeb.PropertyCheckInLive do
   end
 
   @impl true
-  def handle_event("update_last_name", %{"search" => %{"last_name" => last_name}}, socket) do
+  def handle_event(
+        "update_last_name",
+        %{"search" => %{"last_name" => last_name}},
+        socket
+      ) do
     update_last_name(last_name, socket)
   end
 
@@ -79,7 +83,12 @@ defmodule YscWeb.PropertyCheckInLive do
         end
 
       if is_nil(booking) do
-        {:noreply, put_flash(socket, :error, "Reservation not found. Please search again.")}
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Reservation not found. Please search again."
+         )}
       else
         reservation = transform_booking_to_reservation(booking)
 
@@ -93,14 +102,22 @@ defmodule YscWeb.PropertyCheckInLive do
          |> assign(:vehicle_step, :overview)
          |> assign(:vehicle_draft, %{type: nil, color: nil, make: ""})
          |> assign(:vehicle_make_form, to_form(%{"make" => ""}, as: :vehicle))
-         |> assign(:rules_form, to_form(%{"rules_agreement" => false}, as: :rules))
+         |> assign(
+           :rules_form,
+           to_form(%{"rules_agreement" => false}, as: :rules)
+         )
          |> assign(:rules_agreed, false)
          |> assign(:confirm_button_style, build_confirm_button_style())
          |> assign(:confirm_button_disabled, true)}
       end
     rescue
       Ecto.NoResultsError ->
-        {:noreply, put_flash(socket, :error, "Reservation not found. Please search again.")}
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Reservation not found. Please search again."
+         )}
     end
   end
 
@@ -121,14 +138,21 @@ defmodule YscWeb.PropertyCheckInLive do
   end
 
   # Handle phx-change events from rules agreement form
-  def handle_event("update_rules_agreement", %{"rules" => %{"rules_agreement" => value}}, socket) do
+  def handle_event(
+        "update_rules_agreement",
+        %{"rules" => %{"rules_agreement" => value}},
+        socket
+      ) do
     new_value = value == true or value == "true"
     confirm_button_style = build_confirm_button_style()
 
     {:noreply,
      socket
      |> assign(:rules_agreed, new_value)
-     |> assign(:rules_form, to_form(%{"rules_agreement" => new_value}, as: :rules))
+     |> assign(
+       :rules_form,
+       to_form(%{"rules_agreement" => new_value}, as: :rules)
+     )
      |> assign(:confirm_button_style, confirm_button_style)
      |> assign(:confirm_button_disabled, !new_value)}
   end
@@ -142,7 +166,10 @@ defmodule YscWeb.PropertyCheckInLive do
     {:noreply,
      socket
      |> assign(:rules_agreed, new_value)
-     |> assign(:rules_form, to_form(%{"rules_agreement" => new_value}, as: :rules))
+     |> assign(
+       :rules_form,
+       to_form(%{"rules_agreement" => new_value}, as: :rules)
+     )
      |> assign(:confirm_button_style, confirm_button_style)
      |> assign(:confirm_button_disabled, !new_value)}
   end
@@ -189,7 +216,11 @@ defmodule YscWeb.PropertyCheckInLive do
   end
 
   # LiveView Native LiveForm currently emits unnested params for phx-change, so accept both shapes.
-  def handle_event("update_vehicle_make", %{"vehicle" => %{"make" => make}}, socket) do
+  def handle_event(
+        "update_vehicle_make",
+        %{"vehicle" => %{"make" => make}},
+        socket
+      ) do
     update_vehicle_make(make, socket)
   end
 
@@ -216,7 +247,8 @@ defmodule YscWeb.PropertyCheckInLive do
     rules_agreed = socket.assigns.rules_agreed
 
     if is_nil(booking) do
-      {:noreply, put_flash(socket, :error, "No booking selected. Please search again.")}
+      {:noreply,
+       put_flash(socket, :error, "No booking selected. Please search again.")}
     else
       attrs = %{
         rules_agreed: rules_agreed,
@@ -249,7 +281,8 @@ defmodule YscWeb.PropertyCheckInLive do
     rules_agreed = socket.assigns.rules_agreed
 
     if is_nil(booking) do
-      {:noreply, put_flash(socket, :error, "No booking selected. Please search again.")}
+      {:noreply,
+       put_flash(socket, :error, "No booking selected. Please search again.")}
     else
       vehicle_attrs =
         Enum.map(vehicles, fn vehicle ->
@@ -309,7 +342,9 @@ defmodule YscWeb.PropertyCheckInLive do
              |> assign(:step, :confirm)
              |> assign(
                :rules_form,
-               to_form(%{"rules_agreement" => socket.assigns.rules_agreed}, as: :rules)
+               to_form(%{"rules_agreement" => socket.assigns.rules_agreed},
+                 as: :rules
+               )
              )}
 
           :type ->
@@ -398,10 +433,17 @@ defmodule YscWeb.PropertyCheckInLive do
         {:noreply, put_flash(socket, :error, "Please select a car color.")}
 
       make == "" ->
-        {:noreply, put_flash(socket, :error, "Please enter the maker (e.g. Subaru).")}
+        {:noreply,
+         put_flash(socket, :error, "Please enter the maker (e.g. Subaru).")}
 
       true ->
-        vehicle = %{id: System.unique_integer([:positive]), type: type, color: color, make: make}
+        vehicle = %{
+          id: System.unique_integer([:positive]),
+          type: type,
+          color: color,
+          make: make
+        }
+
         vehicles = socket.assigns.vehicles ++ [vehicle]
 
         {:noreply,
@@ -422,7 +464,8 @@ defmodule YscWeb.PropertyCheckInLive do
       |> String.trim()
       |> String.upcase()
 
-    socket = assign(socket, :form, to_form(%{"last_name" => last_name}, as: :search))
+    socket =
+      assign(socket, :form, to_form(%{"last_name" => last_name}, as: :search))
 
     if last_name == "" do
       {:noreply,
@@ -466,7 +509,8 @@ defmodule YscWeb.PropertyCheckInLive do
     # LiveView Native triggers phx-change right before phx-submit when tapping
     # the submit button; if the value hasn't changed, don't clear/reset UI.
     if last_name == socket.assigns.last_name do
-      {:noreply, assign(socket, :form, to_form(%{"last_name" => last_name}, as: :search))}
+      {:noreply,
+       assign(socket, :form, to_form(%{"last_name" => last_name}, as: :search))}
     else
       {:noreply,
        socket

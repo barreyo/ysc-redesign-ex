@@ -77,7 +77,10 @@ defmodule Mix.Tasks.TestOutageEmail do
 
       IO.puts("\n✅ Test email sent successfully!")
       IO.puts("Check your email inbox at: #{email}")
-      IO.puts("\nNote: If using local mailer, check /dev/mailbox in your browser")
+
+      IO.puts(
+        "\nNote: If using local mailer, check /dev/mailbox in your browser"
+      )
     else
       IO.puts("Failed to create or find user")
     end
@@ -158,7 +161,8 @@ defmodule Mix.Tasks.TestOutageEmail do
 
     if booking.user && booking.user.email do
       # Use booking ID and incident type as idempotency key to prevent duplicate emails
-      idempotency_key = "test_outage_alert_#{booking.id}_#{outage.incident_type}"
+      idempotency_key =
+        "test_outage_alert_#{booking.id}_#{outage.incident_type}"
 
       # Get user's first name or fallback to email
       first_name = booking.user.first_name || booking.user.email
@@ -174,8 +178,11 @@ defmodule Mix.Tasks.TestOutageEmail do
           nil
         end
 
-      cabin_master_phone = if cabin_master, do: cabin_master.phone_number, else: nil
-      cabin_master_email = OutageNotification.get_cabin_master_email(outage.property)
+      cabin_master_phone =
+        if cabin_master, do: cabin_master.phone_number, else: nil
+
+      cabin_master_email =
+        OutageNotification.get_cabin_master_email(outage.property)
 
       # Build email variables
       variables = %{
@@ -192,7 +199,8 @@ defmodule Mix.Tasks.TestOutageEmail do
         cabin_master_email: cabin_master_email
       }
 
-      subject = "Property Outage Alert - #{OutageNotification.property_name(outage.property)}"
+      subject =
+        "Property Outage Alert - #{OutageNotification.property_name(outage.property)}"
 
       # Create text body for email
       text_body = """

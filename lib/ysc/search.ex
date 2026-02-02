@@ -16,7 +16,8 @@ defmodule Ysc.Search do
   """
   def global_search(search_term, limit \\ 5)
 
-  def global_search(search_term, limit) when is_binary(search_term) and search_term != "" do
+  def global_search(search_term, limit)
+      when is_binary(search_term) and search_term != "" do
     search_like = "%#{search_term}%"
 
     %{

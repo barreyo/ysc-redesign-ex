@@ -34,7 +34,8 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookHandler do
             entity_id = Map.get(entity, "id")
             operation = Map.get(entity, "operation")
 
-            if entity_name == "BillPayment" and operation in ["Create", "Update"] do
+            if entity_name == "BillPayment" and
+                 operation in ["Create", "Update"] do
               # Queue background job to process the payment
               enqueue_bill_payment_processing(webhook_event.id, entity_id)
             else

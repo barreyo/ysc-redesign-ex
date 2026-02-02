@@ -139,7 +139,9 @@ defmodule Ysc.Bookings.DoorCodeTest do
 
       refute changeset.valid?
       assert changeset.errors[:code] != nil
-      assert changeset.errors[:code] == {"must be 4 or 5 alphanumeric characters", []}
+
+      assert changeset.errors[:code] ==
+               {"must be 4 or 5 alphanumeric characters", []}
     end
 
     test "rejects code with spaces" do
@@ -247,11 +249,16 @@ defmodule Ysc.Bookings.DoorCodeTest do
 
       # Deactivate by setting active_to
       deactivated_at = DateTime.utc_now() |> DateTime.truncate(:second)
-      update_changeset = DoorCode.changeset(door_code, %{active_to: deactivated_at})
+
+      update_changeset =
+        DoorCode.changeset(door_code, %{active_to: deactivated_at})
+
       {:ok, updated_door_code} = Repo.update(update_changeset)
 
       refute DoorCode.active?(updated_door_code)
-      assert DateTime.compare(updated_door_code.active_to, deactivated_at) == :eq
+
+      assert DateTime.compare(updated_door_code.active_to, deactivated_at) ==
+               :eq
     end
 
     test "can update door code" do
@@ -388,7 +395,9 @@ defmodule Ysc.Bookings.DoorCodeTest do
 
     test "scheduled code activation (future active_from)" do
       future_activation =
-        DateTime.utc_now() |> DateTime.add(7, :day) |> DateTime.truncate(:second)
+        DateTime.utc_now()
+        |> DateTime.add(7, :day)
+        |> DateTime.truncate(:second)
 
       attrs = %{
         code: "FUTR",

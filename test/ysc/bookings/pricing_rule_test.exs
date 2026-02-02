@@ -520,7 +520,10 @@ defmodule Ysc.Bookings.PricingRuleTest do
       assert changeset_error.errors[:season_id] != nil
     end
 
-    test "can insert and retrieve complete pricing rule", %{season: season, room: room} do
+    test "can insert and retrieve complete pricing rule", %{
+      season: season,
+      room: room
+    } do
       attrs = %{
         amount: Money.new(15_000, :USD),
         children_amount: Money.new(7500, :USD),

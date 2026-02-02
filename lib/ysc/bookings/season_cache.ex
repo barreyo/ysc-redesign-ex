@@ -37,7 +37,13 @@ defmodule Ysc.Bookings.SeasonCache do
         now = System.system_time(:millisecond)
 
         if now < ttl_expires_at do
-          validate_cached_season_version(cache_key, version, season, property, date)
+          validate_cached_season_version(
+            cache_key,
+            version,
+            season,
+            property,
+            date
+          )
         else
           # TTL expired - refetch
           refetch_and_cache_season(cache_key, property, date)
@@ -139,13 +145,18 @@ defmodule Ysc.Bookings.SeasonCache do
 
     case Cachex.get(@cache_name, @cache_version_key) do
       {:ok, version} when is_integer(version) ->
-        Cachex.put(@cache_name, key, {:version, version, ttl_expires_at, value}, ttl: ttl_ms)
+        Cachex.put(@cache_name, key, {:version, version, ttl_expires_at, value},
+          ttl: ttl_ms
+        )
 
       _ ->
         # No version set yet - initialize it
         version = System.system_time(:second)
         Cachex.put(@cache_name, @cache_version_key, version)
-        Cachex.put(@cache_name, key, {:version, version, ttl_expires_at, value}, ttl: ttl_ms)
+
+        Cachex.put(@cache_name, key, {:version, version, ttl_expires_at, value},
+          ttl: ttl_ms
+        )
     end
   end
 
@@ -154,7 +165,13 @@ defmodule Ysc.Bookings.SeasonCache do
     Application.get_env(:ysc, :season_cache_ttl_ms, @default_ttl)
   end
 
-  defp validate_cached_season_version(cache_key, version, season, property, date) do
+  defp validate_cached_season_version(
+         cache_key,
+         version,
+         season,
+         property,
+         date
+       ) do
     # Check if cache version is still valid
     case Cachex.get(@cache_name, @cache_version_key) do
       {:ok, current_version} when current_version == version ->

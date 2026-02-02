@@ -79,7 +79,8 @@ defmodule Ysc.Quickbooks.SyncTest do
   end
 
   describe "sync_payment/1" do
-    test "creates QuickBooks SalesReceipt with positive amount for event payment", %{user: user} do
+    test "creates QuickBooks SalesReceipt with positive amount for event payment",
+         %{user: user} do
       # Set up mocks before process_payment (which triggers sync job)
       expect(ClientMock, :create_customer, fn _params ->
         {:ok, %{"Id" => "qb_customer_123", "DisplayName" => "Test User"}}
@@ -133,13 +134,19 @@ defmodule Ysc.Quickbooks.SyncTest do
         expect(ClientMock, :create_sales_receipt, fn params ->
           # Verify the amount is positive
           assert params.total_amt == Decimal.new("10000.00")
-          assert params.line |> List.first() |> Map.get(:amount) == Decimal.new("10000.00")
 
-          assert params.line |> List.first() |> get_in([:sales_item_line_detail, :unit_price]) ==
+          assert params.line |> List.first() |> Map.get(:amount) ==
+                   Decimal.new("10000.00")
+
+          assert params.line
+                 |> List.first()
+                 |> get_in([:sales_item_line_detail, :unit_price]) ==
                    Decimal.new("10000.00")
 
           # CRITICAL: Verify class_ref is present (ALL QuickBooks exports must have a class)
-          line_detail = params.line |> List.first() |> Map.get(:sales_item_line_detail)
+          line_detail =
+            params.line |> List.first() |> Map.get(:sales_item_line_detail)
+
           assert Map.has_key?(line_detail, :class_ref)
           assert Map.has_key?(line_detail.class_ref, :value)
           assert Map.has_key?(line_detail.class_ref, :name)
@@ -176,7 +183,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       assert payment.quickbooks_response["TotalAmt"] == "100.00"
     end
 
-    test "creates QuickBooks SalesReceipt with correct account and class for event", %{user: user} do
+    test "creates QuickBooks SalesReceipt with correct account and class for event",
+         %{user: user} do
       # Set up mocks before process_payment (which triggers sync job)
       setup_default_mocks()
 
@@ -206,7 +214,9 @@ defmodule Ysc.Quickbooks.SyncTest do
 
         expect(ClientMock, :create_sales_receipt, fn params ->
           # Verify class is set correctly for events
-          line_detail = params.line |> List.first() |> Map.get(:sales_item_line_detail)
+          line_detail =
+            params.line |> List.first() |> Map.get(:sales_item_line_detail)
+
           assert line_detail.class_ref.value == "events_class_default"
 
           {:ok, %{"Id" => "qb_sales_receipt_123", "TotalAmt" => "50.00"}}
@@ -216,9 +226,10 @@ defmodule Ysc.Quickbooks.SyncTest do
       end
     end
 
-    test "creates QuickBooks SalesReceipt with correct account and class for donation", %{
-      user: user
-    } do
+    test "creates QuickBooks SalesReceipt with correct account and class for donation",
+         %{
+           user: user
+         } do
       setup_default_mocks()
 
       {:ok, {payment, _transaction, _entries}} =
@@ -246,7 +257,9 @@ defmodule Ysc.Quickbooks.SyncTest do
         end)
 
         expect(ClientMock, :create_sales_receipt, fn params ->
-          line_detail = params.line |> List.first() |> Map.get(:sales_item_line_detail)
+          line_detail =
+            params.line |> List.first() |> Map.get(:sales_item_line_detail)
+
           assert line_detail.class_ref.value == "admin_class_default"
 
           {:ok, %{"Id" => "qb_sales_receipt_123", "TotalAmt" => "250.00"}}
@@ -397,7 +410,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       if refund.quickbooks_sync_status == "synced" &&
            (refund.quickbooks_sales_receipt_id == "qb_sr_default" ||
               is_nil(refund.quickbooks_response) ||
-              Decimal.new(refund.quickbooks_response["TotalAmt"] || "0.00") == Decimal.new("0.00")) do
+              Decimal.new(refund.quickbooks_response["TotalAmt"] || "0.00") ==
+                Decimal.new("0.00")) do
         refund
         |> Refund.changeset(%{
           quickbooks_sync_status: "pending",
@@ -444,7 +458,9 @@ defmodule Ysc.Quickbooks.SyncTest do
         # CRITICAL: Verify refund_from_account_ref is present (Quickbooks.create_refund_receipt
         # converts refund_from_account_id to refund_from_account_ref before calling the client)
         assert Map.has_key?(params, :refund_from_account_ref)
-        assert params.refund_from_account_ref.value == "undeposited_funds_account_default"
+
+        assert params.refund_from_account_ref.value ==
+                 "undeposited_funds_account_default"
 
         # CRITICAL: Verify the amount is correct for refunds
         # Note: Quickbooks.create_refund_receipt uses Decimal.abs() on unit_price,
@@ -497,7 +513,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       if refund.quickbooks_sync_status == "synced" &&
            (refund.quickbooks_sales_receipt_id != "qb_refund_sales_receipt_123" ||
               is_nil(refund.quickbooks_response) ||
-              Decimal.new(refund.quickbooks_response["TotalAmt"] || "0.00") == Decimal.new("0.00")) do
+              Decimal.new(refund.quickbooks_response["TotalAmt"] || "0.00") ==
+                Decimal.new("0.00")) do
         refund
         |> Refund.changeset(%{
           quickbooks_sales_receipt_id: "qb_refund_sales_receipt_123",
@@ -519,7 +536,9 @@ defmodule Ysc.Quickbooks.SyncTest do
       assert refund.quickbooks_response["TotalAmt"] == "-5000.00"
     end
 
-    test "links refund to original payment's QuickBooks SalesReceipt", %{user: user} do
+    test "links refund to original payment's QuickBooks SalesReceipt", %{
+      user: user
+    } do
       setup_default_mocks()
 
       # Create and sync a payment first
@@ -546,14 +565,17 @@ defmodule Ysc.Quickbooks.SyncTest do
         end)
 
         expect(ClientMock, :create_sales_receipt, fn _params ->
-          {:ok, %{"Id" => "qb_payment_sales_receipt_123", "TotalAmt" => "100.00"}}
+          {:ok,
+           %{"Id" => "qb_payment_sales_receipt_123", "TotalAmt" => "100.00"}}
         end)
 
         assert {:ok, _} = Sync.sync_payment(payment)
       else
         # If already synced, update with expected sales receipt ID
         payment
-        |> Payment.changeset(%{quickbooks_sales_receipt_id: "qb_payment_sales_receipt_123"})
+        |> Payment.changeset(%{
+          quickbooks_sales_receipt_id: "qb_payment_sales_receipt_123"
+        })
         |> Repo.update!()
       end
 
@@ -597,6 +619,7 @@ defmodule Ysc.Quickbooks.SyncTest do
         expect(ClientMock, :create_refund_receipt, fn params ->
           # CRITICAL: Verify refund_from_account_id is present
           assert Map.has_key?(params, :refund_from_account_ref)
+
           # CRITICAL: Verify the private_note contains the original payment's SalesReceipt ID
           assert params.private_note =~ "qb_payment_sales_receipt_123"
           assert params.private_note =~ "Original Payment SalesReceipt"
@@ -608,7 +631,9 @@ defmodule Ysc.Quickbooks.SyncTest do
       else
         # If already synced, update with expected sales receipt ID
         refund
-        |> Refund.changeset(%{quickbooks_sales_receipt_id: "qb_refund_sales_receipt_123"})
+        |> Refund.changeset(%{
+          quickbooks_sales_receipt_id: "qb_refund_sales_receipt_123"
+        })
         |> Repo.update!()
       end
 
@@ -684,9 +709,10 @@ defmodule Ysc.Quickbooks.SyncTest do
   end
 
   describe "sync_payment/1 with mixed event/donation payments" do
-    test "creates QuickBooks SalesReceipt with separate line items for event and donation", %{
-      user: user
-    } do
+    test "creates QuickBooks SalesReceipt with separate line items for event and donation",
+         %{
+           user: user
+         } do
       setup_default_mocks()
 
       # Create a mixed event/donation payment
@@ -736,7 +762,8 @@ defmodule Ysc.Quickbooks.SyncTest do
         # Find event line item
         event_line =
           Enum.find(params.line, fn line ->
-            get_in(line, [:sales_item_line_detail, :item_ref, :value]) == "event_item_123"
+            get_in(line, [:sales_item_line_detail, :item_ref, :value]) ==
+              "event_item_123"
           end)
 
         assert event_line != nil
@@ -749,14 +776,19 @@ defmodule Ysc.Quickbooks.SyncTest do
         # Find donation line item
         donation_line =
           Enum.find(params.line, fn line ->
-            get_in(line, [:sales_item_line_detail, :item_ref, :value]) == "donation_item_123"
+            get_in(line, [:sales_item_line_detail, :item_ref, :value]) ==
+              "donation_item_123"
           end)
 
         assert donation_line != nil
         assert donation_line.amount == Decimal.new("4000.00")
         assert donation_line.description =~ "Donation"
 
-        assert get_in(donation_line, [:sales_item_line_detail, :class_ref, :value]) ==
+        assert get_in(donation_line, [
+                 :sales_item_line_detail,
+                 :class_ref,
+                 :value
+               ]) ==
                  "admin_class_default"
 
         # Verify total amount
@@ -853,7 +885,11 @@ defmodule Ysc.Quickbooks.SyncTest do
 
         donation_line = List.first(params.line)
 
-        assert get_in(donation_line, [:sales_item_line_detail, :item_ref, :value]) ==
+        assert get_in(donation_line, [
+                 :sales_item_line_detail,
+                 :item_ref,
+                 :value
+               ]) ==
                  "donation_item_123"
 
         assert donation_line.amount == Decimal.new("5000.00")
@@ -865,7 +901,9 @@ defmodule Ysc.Quickbooks.SyncTest do
       assert {:ok, _} = Sync.sync_payment(payment)
     end
 
-    test "handles event-only payment correctly (uses regular sync path)", %{user: user} do
+    test "handles event-only payment correctly (uses regular sync path)", %{
+      user: user
+    } do
       setup_default_mocks()
 
       # Create an event-only payment (should use regular process_payment, not mixed)
@@ -927,7 +965,9 @@ defmodule Ysc.Quickbooks.SyncTest do
       assert {:ok, _} = Sync.sync_payment(payment)
     end
 
-    test "verifies correct account and class mapping for mixed payments", %{user: user} do
+    test "verifies correct account and class mapping for mixed payments", %{
+      user: user
+    } do
       setup_default_mocks()
 
       # Create a mixed payment
@@ -981,7 +1021,8 @@ defmodule Ysc.Quickbooks.SyncTest do
         # Verify event line has Events class
         event_line =
           Enum.find(params.line, fn line ->
-            get_in(line, [:sales_item_line_detail, :item_ref, :value]) == "event_item_123"
+            get_in(line, [:sales_item_line_detail, :item_ref, :value]) ==
+              "event_item_123"
           end)
 
         assert get_in(event_line, [:sales_item_line_detail, :class_ref, :value]) ==
@@ -990,10 +1031,15 @@ defmodule Ysc.Quickbooks.SyncTest do
         # Verify donation line has Administration class
         donation_line =
           Enum.find(params.line, fn line ->
-            get_in(line, [:sales_item_line_detail, :item_ref, :value]) == "donation_item_123"
+            get_in(line, [:sales_item_line_detail, :item_ref, :value]) ==
+              "donation_item_123"
           end)
 
-        assert get_in(donation_line, [:sales_item_line_detail, :class_ref, :value]) ==
+        assert get_in(donation_line, [
+                 :sales_item_line_detail,
+                 :class_ref,
+                 :value
+               ]) ==
                  "admin_class_default"
 
         {:ok, %{"Id" => "qb_sr_class_test", "TotalAmt" => "100.00"}}
@@ -1097,7 +1143,8 @@ defmodule Ysc.Quickbooks.SyncTest do
   end
 
   describe "sync_payout/1" do
-    test "creates QuickBooks Deposit with correct amounts from synced payments", %{user: user} do
+    test "creates QuickBooks Deposit with correct amounts from synced payments",
+         %{user: user} do
       setup_default_mocks()
 
       # Create and sync payments
@@ -1168,9 +1215,15 @@ defmodule Ysc.Quickbooks.SyncTest do
 
       expect(ClientMock, :create_sales_receipt, 2, fn params ->
         sales_receipt_id =
-          if params.total_amt == Decimal.new("10000.00"), do: "qb_sr_1", else: "qb_sr_2"
+          if params.total_amt == Decimal.new("10000.00"),
+            do: "qb_sr_1",
+            else: "qb_sr_2"
 
-        {:ok, %{"Id" => sales_receipt_id, "TotalAmt" => Decimal.to_string(params.total_amt)}}
+        {:ok,
+         %{
+           "Id" => sales_receipt_id,
+           "TotalAmt" => Decimal.to_string(params.total_amt)
+         }}
       end)
 
       assert {:ok, _} = Sync.sync_payment(payment1)
@@ -1212,7 +1265,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       assert payment2.quickbooks_sales_receipt_id != nil
 
       # Reload payout with payments (force fresh load from database)
-      payout = Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
+      payout =
+        Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
 
       # Verify payments are in payout and synced
       assert length(payout.payments) == 2
@@ -1232,6 +1286,7 @@ defmodule Ysc.Quickbooks.SyncTest do
         assert length(params.line) == 2
 
         line1 = Enum.at(params.line, 0)
+
         # Payment amount is $10,000.00 (Money.new(10_000, :USD) when stored as dollars)
         # Money.to_decimal returns dollars, so 10_000 becomes "10000.00"
         assert line1.amount == Decimal.new("10000.00")
@@ -1243,9 +1298,14 @@ defmodule Ysc.Quickbooks.SyncTest do
 
         # CRITICAL: Verify class_ref is present in deposit line items (ALL QuickBooks exports must have a class)
         assert get_in(line1, [:deposit_line_detail, :class_ref]) != nil
-        assert Map.has_key?(get_in(line1, [:deposit_line_detail, :class_ref]), :value)
+
+        assert Map.has_key?(
+                 get_in(line1, [:deposit_line_detail, :class_ref]),
+                 :value
+               )
 
         line2 = Enum.at(params.line, 1)
+
         # Payment amount is $5,000.00 (Money.new(5_000, :USD) when stored as dollars)
         assert line2.amount == Decimal.new("5000.00")
         # Verify linked_txn references the correct SalesReceipt
@@ -1255,7 +1315,11 @@ defmodule Ysc.Quickbooks.SyncTest do
         assert linked_txn2.txn_type == "SalesReceipt"
         # CRITICAL: Verify class_ref is present in deposit line items
         assert get_in(line2, [:deposit_line_detail, :class_ref]) != nil
-        assert Map.has_key?(get_in(line2, [:deposit_line_detail, :class_ref]), :value)
+
+        assert Map.has_key?(
+                 get_in(line2, [:deposit_line_detail, :class_ref]),
+                 :value
+               )
 
         {:ok,
          %{
@@ -1277,7 +1341,9 @@ defmodule Ysc.Quickbooks.SyncTest do
       assert payout.quickbooks_response["TotalAmt"] == "15000.00"
     end
 
-    test "creates QuickBooks Deposit with payments and refunds (net amount)", %{user: user} do
+    test "creates QuickBooks Deposit with payments and refunds (net amount)", %{
+      user: user
+    } do
       setup_default_mocks()
 
       # Create and sync a payment
@@ -1410,7 +1476,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       assert refund.quickbooks_sales_receipt_id != nil
 
       # Reload payout with payments and refunds (force fresh load from database)
-      payout = Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
+      payout =
+        Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
 
       # Verify payment and refund are in payout and synced
       assert length(payout.payments) == 1
@@ -1444,7 +1511,8 @@ defmodule Ysc.Quickbooks.SyncTest do
           Enum.find(params.line, fn line ->
             line.linked_txn != nil &&
               Enum.any?(line.linked_txn, fn txn ->
-                txn.txn_id == "qb_refund_receipt_123" && txn.txn_type == "RefundReceipt"
+                txn.txn_id == "qb_refund_receipt_123" &&
+                  txn.txn_type == "RefundReceipt"
               end)
           end)
 
@@ -1494,7 +1562,9 @@ defmodule Ysc.Quickbooks.SyncTest do
       {:ok, payout} = Ledgers.link_payment_to_payout(payout, payment)
 
       # Reload payout and payment to ensure payment is not synced
-      payout = Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
+      payout =
+        Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
+
       payment = Repo.reload!(payment)
 
       # Ensure payment is NOT synced and clear any sync status that might have been set
@@ -1506,7 +1576,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       |> Repo.update!()
 
       # Reload payout again to get the updated payment
-      payout = Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
+      payout =
+        Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
 
       # Verify payment is in the payout and is not synced
       assert length(payout.payments) == 1
@@ -1805,7 +1876,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       assert payment.quickbooks_sync_status == "synced"
 
       # Reload payout with payments
-      payout = Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
+      payout =
+        Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
 
       # Verify payment is synced
       assert List.first(payout.payments).quickbooks_sync_status == "synced"
@@ -1856,7 +1928,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       end
 
       # Reload payout to get latest state
-      payout = Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
+      payout =
+        Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
 
       # Verify payout was synced
       assert payout.quickbooks_sync_status == "synced"
@@ -2001,7 +2074,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       assert refund.quickbooks_sync_status == "synced"
 
       # Reload payout to get latest state
-      payout = Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
+      payout =
+        Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
 
       # All payments and refunds should be synced now
       assert List.first(payout.payments).quickbooks_sync_status == "synced"
@@ -2030,7 +2104,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       end
 
       # Reload payout to get latest state
-      payout = Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
+      payout =
+        Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
 
       # Verify payout was synced
       assert payout.quickbooks_sync_status == "synced"
@@ -2094,7 +2169,11 @@ defmodule Ysc.Quickbooks.SyncTest do
             assert Decimal.positive?(unit_price)
             assert unit_price == expected_decimal
 
-            {:ok, %{"Id" => "qb_sr_123", "TotalAmt" => Decimal.to_string(expected_decimal)}}
+            {:ok,
+             %{
+               "Id" => "qb_sr_123",
+               "TotalAmt" => Decimal.to_string(expected_decimal)
+             }}
           end)
 
           assert {:ok, _} = Sync.sync_payment(payment)
@@ -2197,7 +2276,10 @@ defmodule Ysc.Quickbooks.SyncTest do
           assert params.total_amt == Decimal.abs(expected_decimal)
 
           {:ok,
-           %{"Id" => "qb_refund_receipt_123", "TotalAmt" => Decimal.to_string(expected_decimal)}}
+           %{
+             "Id" => "qb_refund_receipt_123",
+             "TotalAmt" => Decimal.to_string(expected_decimal)
+           }}
         end)
 
         assert {:ok, _} = Sync.sync_refund(refund)
@@ -2210,7 +2292,8 @@ defmodule Ysc.Quickbooks.SyncTest do
           if refund.quickbooks_sync_status == "synced" &&
                (is_nil(refund.quickbooks_response) ||
                   is_nil(refund.quickbooks_response["TotalAmt"]) ||
-                  Decimal.new(refund.quickbooks_response["TotalAmt"]) == Decimal.new("0.00")) do
+                  Decimal.new(refund.quickbooks_response["TotalAmt"]) ==
+                    Decimal.new("0.00")) do
             # Update with expected response
             refund
             |> Refund.changeset(%{
@@ -2229,7 +2312,8 @@ defmodule Ysc.Quickbooks.SyncTest do
         # Ensure refund has a response with negative amount
         if is_nil(refund.quickbooks_response) ||
              is_nil(refund.quickbooks_response["TotalAmt"]) ||
-             Decimal.new(refund.quickbooks_response["TotalAmt"]) == Decimal.new("0.00") do
+             Decimal.new(refund.quickbooks_response["TotalAmt"]) ==
+               Decimal.new("0.00") do
           # Sync it now with correct mocks
           expect(ClientMock, :create_customer, fn _params ->
             {:ok, %{"Id" => "qb_customer_123"}}
@@ -2240,7 +2324,10 @@ defmodule Ysc.Quickbooks.SyncTest do
             assert params.total_amt == expected_decimal
 
             {:ok,
-             %{"Id" => "qb_sr_refund_123", "TotalAmt" => Decimal.to_string(expected_decimal)}}
+             %{
+               "Id" => "qb_sr_refund_123",
+               "TotalAmt" => Decimal.to_string(expected_decimal)
+             }}
           end)
 
           # Clear sync status first
@@ -2258,12 +2345,17 @@ defmodule Ysc.Quickbooks.SyncTest do
           # Verify the refund response has negative amount
           assert refund.quickbooks_response != nil
           assert refund.quickbooks_response["TotalAmt"] != nil
-          assert Decimal.negative?(Decimal.new(refund.quickbooks_response["TotalAmt"]))
+
+          assert Decimal.negative?(
+                   Decimal.new(refund.quickbooks_response["TotalAmt"])
+                 )
         end
       end
     end
 
-    test "payout deposit amounts match sum of payment and refund line items", %{user: user} do
+    test "payout deposit amounts match sum of payment and refund line items", %{
+      user: user
+    } do
       setup_default_mocks()
 
       # Clear user's QuickBooks customer ID to ensure create_customer is called
@@ -2356,7 +2448,12 @@ defmodule Ysc.Quickbooks.SyncTest do
 
           expect(ClientMock, :create_sales_receipt, fn params ->
             assert params.total_amt == expected_total
-            {:ok, %{"Id" => sales_receipt_id, "TotalAmt" => Decimal.to_string(params.total_amt)}}
+
+            {:ok,
+             %{
+               "Id" => sales_receipt_id,
+               "TotalAmt" => Decimal.to_string(params.total_amt)
+             }}
           end)
 
           # Sync explicitly
@@ -2368,7 +2465,9 @@ defmodule Ysc.Quickbooks.SyncTest do
           # Update with expected sales receipt ID if it doesn't match
           if payment.quickbooks_sales_receipt_id != sales_receipt_id do
             payment
-            |> Payment.changeset(%{quickbooks_sales_receipt_id: sales_receipt_id})
+            |> Payment.changeset(%{
+              quickbooks_sales_receipt_id: sales_receipt_id
+            })
             |> Repo.update!()
 
             _payment = Repo.reload!(payment)
@@ -2443,10 +2542,18 @@ defmodule Ysc.Quickbooks.SyncTest do
             assert Map.has_key?(params, :refund_from_account_ref)
             # unit_price is in the line item, not at the top level
             line_item = List.first(params.line)
-            unit_price = get_in(line_item, [:sales_item_line_detail, :unit_price])
+
+            unit_price =
+              get_in(line_item, [:sales_item_line_detail, :unit_price])
+
             # unit_price is positive (abs value), but total_amt should match
             assert params.total_amt == Decimal.abs(unit_price)
-            {:ok, %{"Id" => sales_receipt_id, "TotalAmt" => Decimal.to_string(params.total_amt)}}
+
+            {:ok,
+             %{
+               "Id" => sales_receipt_id,
+               "TotalAmt" => Decimal.to_string(params.total_amt)
+             }}
           end)
 
           # Sync explicitly
@@ -2458,7 +2565,9 @@ defmodule Ysc.Quickbooks.SyncTest do
           # Update with expected sales receipt ID if it doesn't match
           if refund.quickbooks_sales_receipt_id != sales_receipt_id do
             refund
-            |> Refund.changeset(%{quickbooks_sales_receipt_id: sales_receipt_id})
+            |> Refund.changeset(%{
+              quickbooks_sales_receipt_id: sales_receipt_id
+            })
             |> Repo.update!()
 
             _refund = Repo.reload!(refund)
@@ -2515,7 +2624,8 @@ defmodule Ysc.Quickbooks.SyncTest do
       end)
 
       # Reload payout with payments and refunds (force fresh load from database)
-      payout = Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
+      payout =
+        Repo.get!(Payout, payout.id) |> Repo.preload([:payments, :refunds])
 
       # Verify all payments and refunds are in payout and synced
       assert length(payout.payments) == 3
@@ -2573,7 +2683,11 @@ defmodule Ysc.Quickbooks.SyncTest do
           assert Decimal.negative?(line.amount)
         end)
 
-        {:ok, %{"Id" => "qb_deposit_123", "TotalAmt" => Decimal.to_string(expected_net)}}
+        {:ok,
+         %{
+           "Id" => "qb_deposit_123",
+           "TotalAmt" => Decimal.to_string(expected_net)
+         }}
       end)
 
       assert {:ok, _} = Sync.sync_payout(payout)

@@ -33,7 +33,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.membership_type == :single
@@ -51,7 +52,10 @@ defmodule Ysc.Accounts.SignupApplicationTest do
     test "creates valid changeset with optional fields" do
       attrs = %{
         membership_type: "family",
-        membership_eligibility: ["citizen_of_scandinavia", "speak_scandinavian_language"],
+        membership_eligibility: [
+          "citizen_of_scandinavia",
+          "speak_scandinavian_language"
+        ],
         birth_date: ~D[1985-06-15],
         address: "456 Nordic Street",
         country: "USA",
@@ -72,7 +76,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         browser_timezone: "America/Los_Angeles"
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.membership_type == :family
@@ -101,7 +106,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).membership_type
@@ -121,7 +127,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).birth_date
@@ -141,7 +148,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).address
@@ -161,7 +169,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).country
@@ -181,7 +190,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).city
@@ -201,7 +211,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).postal_code
@@ -221,7 +232,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).place_of_birth
@@ -241,7 +253,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).citizenship
@@ -261,9 +274,11 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
+
       assert "can't be blank" in errors_on(changeset).most_connected_nordic_country
     end
   end
@@ -271,7 +286,9 @@ defmodule Ysc.Accounts.SignupApplicationTest do
   describe "membership_type validation" do
     test "accepts single membership type" do
       attrs = valid_application_attrs(%{membership_type: "single"})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.membership_type == :single
@@ -279,7 +296,9 @@ defmodule Ysc.Accounts.SignupApplicationTest do
 
     test "accepts family membership type" do
       attrs = valid_application_attrs(%{membership_type: "family"})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.membership_type == :family
@@ -287,7 +306,9 @@ defmodule Ysc.Accounts.SignupApplicationTest do
 
     test "rejects invalid membership type" do
       attrs = valid_application_attrs(%{membership_type: "invalid_type"})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert changeset.errors[:membership_type] != nil
@@ -297,14 +318,18 @@ defmodule Ysc.Accounts.SignupApplicationTest do
   describe "agreed_to_bylaws validation" do
     test "requires agreed_to_bylaws to be true" do
       attrs = valid_application_attrs(%{agreed_to_bylaws: true})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
     end
 
     test "rejects agreed_to_bylaws = false" do
       attrs = valid_application_attrs(%{agreed_to_bylaws: false})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "must be accepted" in errors_on(changeset).agreed_to_bylaws
@@ -312,7 +337,9 @@ defmodule Ysc.Accounts.SignupApplicationTest do
 
     test "rejects missing agreed_to_bylaws" do
       attrs = valid_application_attrs() |> Map.delete(:agreed_to_bylaws)
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "must be accepted" in errors_on(changeset).agreed_to_bylaws
@@ -320,7 +347,9 @@ defmodule Ysc.Accounts.SignupApplicationTest do
 
     test "rejects agreed_to_bylaws = nil" do
       attrs = valid_application_attrs(%{agreed_to_bylaws: nil})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "must be accepted" in errors_on(changeset).agreed_to_bylaws
@@ -329,48 +358,82 @@ defmodule Ysc.Accounts.SignupApplicationTest do
 
   describe "membership_eligibility validation" do
     test "accepts valid citizen_of_scandinavia eligibility" do
-      attrs = valid_application_attrs(%{membership_eligibility: ["citizen_of_scandinavia"]})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      attrs =
+        valid_application_attrs(%{
+          membership_eligibility: ["citizen_of_scandinavia"]
+        })
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
-      assert changeset.changes.membership_eligibility == [:citizen_of_scandinavia]
+
+      assert changeset.changes.membership_eligibility == [
+               :citizen_of_scandinavia
+             ]
     end
 
     test "accepts valid born_in_scandinavia eligibility" do
-      attrs = valid_application_attrs(%{membership_eligibility: ["born_in_scandinavia"]})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      attrs =
+        valid_application_attrs(%{
+          membership_eligibility: ["born_in_scandinavia"]
+        })
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.membership_eligibility == [:born_in_scandinavia]
     end
 
     test "accepts valid scandinavian_parent eligibility" do
-      attrs = valid_application_attrs(%{membership_eligibility: ["scandinavian_parent"]})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      attrs =
+        valid_application_attrs(%{
+          membership_eligibility: ["scandinavian_parent"]
+        })
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.membership_eligibility == [:scandinavian_parent]
     end
 
     test "accepts valid lived_in_scandinavia eligibility" do
-      attrs = valid_application_attrs(%{membership_eligibility: ["lived_in_scandinavia"]})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      attrs =
+        valid_application_attrs(%{
+          membership_eligibility: ["lived_in_scandinavia"]
+        })
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.membership_eligibility == [:lived_in_scandinavia]
     end
 
     test "accepts valid speak_scandinavian_language eligibility" do
-      attrs = valid_application_attrs(%{membership_eligibility: ["speak_scandinavian_language"]})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      attrs =
+        valid_application_attrs(%{
+          membership_eligibility: ["speak_scandinavian_language"]
+        })
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
-      assert changeset.changes.membership_eligibility == [:speak_scandinavian_language]
+
+      assert changeset.changes.membership_eligibility == [
+               :speak_scandinavian_language
+             ]
     end
 
     test "accepts valid spouse_of_member eligibility" do
-      attrs = valid_application_attrs(%{membership_eligibility: ["spouse_of_member"]})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      attrs =
+        valid_application_attrs(%{membership_eligibility: ["spouse_of_member"]})
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.membership_eligibility == [:spouse_of_member]
@@ -386,7 +449,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
           ]
         })
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
 
@@ -402,7 +466,9 @@ defmodule Ysc.Accounts.SignupApplicationTest do
       # When an empty array is provided, it matches the default value ([])
       # so Ecto doesn't track it as a change
       attrs = valid_application_attrs(%{membership_eligibility: []})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       # Empty array matches default, so it's valid and not in changes
       assert changeset.valid?
@@ -410,8 +476,11 @@ defmodule Ysc.Accounts.SignupApplicationTest do
     end
 
     test "rejects invalid eligibility option" do
-      attrs = valid_application_attrs(%{membership_eligibility: ["invalid_option"]})
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      attrs =
+        valid_application_attrs(%{membership_eligibility: ["invalid_option"]})
+
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert changeset.errors[:membership_eligibility] != nil
@@ -423,7 +492,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
           membership_eligibility: ["citizen_of_scandinavia", "invalid_option"]
         })
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
 
       # The EctoEnum cast fails for invalid values and returns "is invalid" error
       refute changeset.valid?
@@ -443,7 +513,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         reviewed_by_user_id: user.id
       }
 
-      changeset = SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.reviewed_at == ~U[2024-01-15 12:00:00Z]
@@ -460,7 +531,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         reviewed_by_user_id: user.id
       }
 
-      changeset = SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.review_outcome == :approved
@@ -475,7 +547,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         reviewed_by_user_id: user.id
       }
 
-      changeset = SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
 
       assert changeset.valid?
       assert changeset.changes.review_outcome == :rejected
@@ -489,7 +562,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         reviewed_by_user_id: user.id
       }
 
-      changeset = SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).reviewed_at
@@ -503,7 +577,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         reviewed_by_user_id: user.id
       }
 
-      changeset = SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).review_outcome
@@ -515,7 +590,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         review_outcome: "approved"
       }
 
-      changeset = SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.review_outcome_changeset(%SignupApplication{}, attrs)
 
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).reviewed_by_user_id
@@ -529,7 +605,10 @@ defmodule Ysc.Accounts.SignupApplicationTest do
       attrs = %{
         user_id: user.id,
         membership_type: "family",
-        membership_eligibility: ["citizen_of_scandinavia", "speak_scandinavian_language"],
+        membership_eligibility: [
+          "citizen_of_scandinavia",
+          "speak_scandinavian_language"
+        ],
         occupation: "Software Engineer",
         birth_date: ~D[1985-06-15],
         address: "456 Nordic Street",
@@ -550,7 +629,9 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         browser_timezone: "America/Los_Angeles"
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
+
       {:ok, application} = Repo.insert(changeset)
 
       retrieved = Repo.get(SignupApplication, application.id)
@@ -603,7 +684,9 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         agreed_to_bylaws: true
       }
 
-      changeset = SignupApplication.application_changeset(%SignupApplication{}, attrs)
+      changeset =
+        SignupApplication.application_changeset(%SignupApplication{}, attrs)
+
       assert changeset.valid?
       {:ok, application} = Repo.insert(changeset)
 
@@ -623,7 +706,9 @@ defmodule Ysc.Accounts.SignupApplicationTest do
         reviewed_by_user_id: reviewer.id
       }
 
-      changeset = SignupApplication.review_outcome_changeset(application, review_attrs)
+      changeset =
+        SignupApplication.review_outcome_changeset(application, review_attrs)
+
       {:ok, updated} = Repo.update(changeset)
 
       assert updated.reviewed_at == ~U[2024-01-15 12:00:00Z]
@@ -644,7 +729,8 @@ defmodule Ysc.Accounts.SignupApplicationTest do
 
       assert {"I was born in Scandinavia", "born_in_scandinavia"} in options
 
-      assert {"I speak one of the Scandinavian languages", "speak_scandinavian_language"} in options
+      assert {"I speak one of the Scandinavian languages",
+              "speak_scandinavian_language"} in options
 
       assert {"I am the spouse of a member", "spouse_of_member"} in options
     end

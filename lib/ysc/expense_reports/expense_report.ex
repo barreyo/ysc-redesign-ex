@@ -6,7 +6,13 @@ defmodule Ysc.ExpenseReports.ExpenseReport do
   import Ecto.Changeset
 
   alias Ysc.Accounts.{User, Address}
-  alias Ysc.ExpenseReports.{BankAccount, ExpenseReportItem, ExpenseReportIncomeItem}
+
+  alias Ysc.ExpenseReports.{
+    BankAccount,
+    ExpenseReportItem,
+    ExpenseReportIncomeItem
+  }
+
   alias Ysc.Events.Event
 
   @primary_key {:id, Ecto.ULID, autogenerate: true}
@@ -29,11 +35,17 @@ defmodule Ysc.ExpenseReports.ExpenseReport do
     field :quickbooks_last_sync_attempt_at, :utc_datetime
 
     belongs_to :address, Address, foreign_key: :address_id, references: :id
-    belongs_to :bank_account, BankAccount, foreign_key: :bank_account_id, references: :id
+
+    belongs_to :bank_account, BankAccount,
+      foreign_key: :bank_account_id,
+      references: :id
+
     belongs_to :event, Event, foreign_key: :event_id, references: :id
 
     has_many :expense_items, ExpenseReportItem, foreign_key: :expense_report_id
-    has_many :income_items, ExpenseReportIncomeItem, foreign_key: :expense_report_id
+
+    has_many :income_items, ExpenseReportIncomeItem,
+      foreign_key: :expense_report_id
 
     timestamps()
   end
@@ -64,7 +76,13 @@ defmodule Ysc.ExpenseReports.ExpenseReport do
     ])
     |> validate_required([:user_id, :purpose, :reimbursement_method])
     |> validate_inclusion(:reimbursement_method, ["check", "bank_transfer"])
-    |> validate_inclusion(:status, ["draft", "submitted", "approved", "rejected", "paid"])
+    |> validate_inclusion(:status, [
+      "draft",
+      "submitted",
+      "approved",
+      "rejected",
+      "paid"
+    ])
     |> validate_reimbursement_method(opts)
     |> cast_assoc(:expense_items, with: &ExpenseReportItem.changeset/2)
     |> cast_assoc(:income_items, with: &ExpenseReportIncomeItem.changeset/2)
@@ -146,11 +164,16 @@ defmodule Ysc.ExpenseReports.ExpenseReport do
 
   defp validate_certification_accepted(changeset) do
     status = Ecto.Changeset.get_field(changeset, :status)
-    certification_accepted = Ecto.Changeset.get_field(changeset, :certification_accepted)
+
+    certification_accepted =
+      Ecto.Changeset.get_field(changeset, :certification_accepted)
 
     if status == "submitted" && !certification_accepted do
       changeset
-      |> add_error(:certification_accepted, "You must accept the certification to submit")
+      |> add_error(
+        :certification_accepted,
+        "You must accept the certification to submit"
+      )
     else
       changeset
     end

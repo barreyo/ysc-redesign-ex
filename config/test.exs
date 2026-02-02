@@ -27,7 +27,8 @@ config :ysc, Ysc.Repo,
 # you can enable the server option below.
 config :ysc, YscWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
-  secret_key_base: "JR0p+50lWrtv0/Y2H9jGQbi0lPOIw/jTGkHJOhpOD6JpyyJDLpN5I1058al/ibel",
+  secret_key_base:
+    "JR0p+50lWrtv0/Y2H9jGQbi0lPOIw/jTGkHJOhpOD6JpyyJDLpN5I1058al/ibel",
   server: false
 
 # In test we don't send emails.

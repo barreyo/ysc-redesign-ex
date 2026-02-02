@@ -44,7 +44,9 @@ defmodule YscWeb.Workers.QuickbooksSyncRetryWorker do
     # Find payments that are not synced (status is nil, "pending", or "failed")
     unsynced_payments =
       from(p in Payment,
-        where: is_nil(p.quickbooks_sync_status) or p.quickbooks_sync_status != "synced",
+        where:
+          is_nil(p.quickbooks_sync_status) or
+            p.quickbooks_sync_status != "synced",
         select: p.id,
         limit: 1000
       )
@@ -69,7 +71,9 @@ defmodule YscWeb.Workers.QuickbooksSyncRetryWorker do
     # Find refunds that are not synced (status is nil, "pending", or "failed")
     unsynced_refunds =
       from(r in Refund,
-        where: is_nil(r.quickbooks_sync_status) or r.quickbooks_sync_status != "synced",
+        where:
+          is_nil(r.quickbooks_sync_status) or
+            r.quickbooks_sync_status != "synced",
         select: r.id,
         limit: 1000
       )
@@ -94,7 +98,9 @@ defmodule YscWeb.Workers.QuickbooksSyncRetryWorker do
     # Find payouts that are not synced (status is nil, "pending", or "failed")
     unsynced_payouts =
       from(p in Payout,
-        where: is_nil(p.quickbooks_sync_status) or p.quickbooks_sync_status != "synced",
+        where:
+          is_nil(p.quickbooks_sync_status) or
+            p.quickbooks_sync_status != "synced",
         select: p.id,
         limit: 1000
       )

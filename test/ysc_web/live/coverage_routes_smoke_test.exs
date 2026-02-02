@@ -62,6 +62,7 @@ defmodule YscWeb.CoverageRoutesSmokeTest do
 
       # Booking marketing pages (no auth required)
       assert {:ok, _view, _html} = live(conn, ~p"/bookings/tahoe")
+
       # Note: /bookings/tahoe/staying-with is a native-only route (SwiftUI), skip in web test
       assert {:ok, _view, _html} = live(conn, ~p"/bookings/clear-lake")
 
@@ -82,7 +83,8 @@ defmodule YscWeb.CoverageRoutesSmokeTest do
       user = user_fixture()
       conn = log_in_user(conn, user)
 
-      booking = BookingsFixtures.booking_fixture(%{user_id: user.id, status: :hold})
+      booking =
+        BookingsFixtures.booking_fixture(%{user_id: user.id, status: :hold})
 
       Application.put_env(:ysc, :stripe_client, Ysc.StripeMock)
 
@@ -98,8 +100,13 @@ defmodule YscWeb.CoverageRoutesSmokeTest do
       # Most auth views should mount and render
       assert {:ok, _view, _html} = live(conn, ~p"/users/settings")
       assert {:ok, _view, _html} = live(conn, ~p"/users/settings/security")
-      assert {:ok, _view, _html} = live(conn, ~p"/users/settings/phone-verification")
-      assert {:ok, _view, _html} = live(conn, ~p"/users/settings/email-verification")
+
+      assert {:ok, _view, _html} =
+               live(conn, ~p"/users/settings/phone-verification")
+
+      assert {:ok, _view, _html} =
+               live(conn, ~p"/users/settings/email-verification")
+
       assert {:ok, _view, _html} = live(conn, ~p"/users/settings/family")
       assert {:ok, _view, _html} = live(conn, ~p"/users/tickets")
       assert {:ok, _view, _html} = live(conn, ~p"/users/payments")
@@ -108,8 +115,12 @@ defmodule YscWeb.CoverageRoutesSmokeTest do
 
       # Booking-related authenticated routes
       assert {:ok, _view, _html} = live(conn, ~p"/bookings/#{booking.id}")
-      assert {:ok, _view, _html} = live(conn, ~p"/bookings/checkout/#{booking.id}")
-      assert {:ok, _view, _html} = live(conn, ~p"/bookings/#{booking.id}/receipt")
+
+      assert {:ok, _view, _html} =
+               live(conn, ~p"/bookings/checkout/#{booking.id}")
+
+      assert {:ok, _view, _html} =
+               live(conn, ~p"/bookings/#{booking.id}/receipt")
 
       # Expense reports (auth)
       assert {:ok, _view, _html} = live(conn, ~p"/expensereport")

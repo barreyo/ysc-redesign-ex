@@ -34,7 +34,11 @@ defmodule Ysc.ExpenseReports.Scheduler do
     |> case do
       {:ok, job} ->
         require Logger
-        Logger.debug("Scheduled expense report QuickBooks sync job", job_id: job.id)
+
+        Logger.debug("Scheduled expense report QuickBooks sync job",
+          job_id: job.id
+        )
+
         {:ok, job}
 
       {:error, reason} ->

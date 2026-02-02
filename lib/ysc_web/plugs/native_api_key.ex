@@ -24,7 +24,10 @@ defmodule YscWeb.Plugs.NativeAPIKey do
     case get_req_header(conn, "accept") do
       [accept_header | _] ->
         String.contains?(accept_header, "swiftui") ||
-          String.contains?(accept_header, "application/vnd.liveviewnative+swiftui")
+          String.contains?(
+            accept_header,
+            "application/vnd.liveviewnative+swiftui"
+          )
 
       _ ->
         false

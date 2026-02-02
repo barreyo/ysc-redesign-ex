@@ -53,11 +53,13 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
 
     # Validate required associations
     if is_nil(ticket_order.user) do
-      raise ArgumentError, "Ticket order missing user association: #{ticket_order.id}"
+      raise ArgumentError,
+            "Ticket order missing user association: #{ticket_order.id}"
     end
 
     if is_nil(ticket_order.event) do
-      raise ArgumentError, "Ticket order missing event association: #{ticket_order.id}"
+      raise ArgumentError,
+            "Ticket order missing event association: #{ticket_order.id}"
     end
 
     if is_nil(ticket_order.tickets) or Enum.empty?(ticket_order.tickets) do
@@ -65,14 +67,17 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
     end
 
     # Group tickets by tier for summary
-    ticket_summaries = prepare_ticket_summaries(ticket_order.tickets, ticket_order)
+    ticket_summaries =
+      prepare_ticket_summaries(ticket_order.tickets, ticket_order)
 
     # Format dates and times
     event_date_time = format_event_datetime(ticket_order.event)
     purchase_date = format_datetime(ticket_order.completed_at)
 
     payment_date =
-      if ticket_order.payment, do: format_datetime(ticket_order.payment.payment_date), else: "N/A"
+      if ticket_order.payment,
+        do: format_datetime(ticket_order.payment.payment_date),
+        else: "N/A"
 
     # Get payment method information
     payment_method =
@@ -85,7 +90,8 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
 
     # Use stored discount_amount from ticket_order, or calculate from tickets if not stored
     discount_amount =
-      ticket_order.discount_amount || calculate_discount_from_tickets(ticket_order)
+      ticket_order.discount_amount ||
+        calculate_discount_from_tickets(ticket_order)
 
     total_discount_str = format_money(discount_amount)
 
@@ -98,7 +104,9 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
 
     # Prepare agenda data if available
     # Handle case where event.agendas might be nil
-    agendas = if ticket_order.event, do: ticket_order.event.agendas || [], else: []
+    agendas =
+      if ticket_order.event, do: ticket_order.event.agendas || [], else: []
+
     agenda_data = prepare_agenda_data(agendas)
 
     %{
@@ -123,9 +131,15 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
       purchase_date: purchase_date,
       payment: %{
         reference_id:
-          if(ticket_order.payment, do: ticket_order.payment.reference_id, else: "N/A"),
+          if(ticket_order.payment,
+            do: ticket_order.payment.reference_id,
+            else: "N/A"
+          ),
         external_payment_id:
-          if(ticket_order.payment, do: ticket_order.payment.external_payment_id, else: "N/A"),
+          if(ticket_order.payment,
+            do: ticket_order.payment.external_payment_id,
+            else: "N/A"
+          ),
         amount: total_amount,
         payment_date: payment_date
       },
@@ -171,10 +185,13 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
       # Check if this is a donation tier
       is_donation = tier.type == "donation" || tier.type == :donation
 
-      {price_per_ticket, total_price, original_price, discount_amount, discount_percentage} =
+      {price_per_ticket, total_price, original_price, discount_amount,
+       discount_percentage} =
         if is_donation do
           # Calculate donation amount from ticket_order
-          {per_ticket, total} = calculate_donation_amounts(tier_tickets, ticket_order)
+          {per_ticket, total} =
+            calculate_donation_amounts(tier_tickets, ticket_order)
+
           {per_ticket, total, total, Money.new(0, :USD), nil}
         else
           # Regular tier pricing - use stored discount_amount from tickets
@@ -221,8 +238,9 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
               nil
             end
 
-          {format_money(price), format_money(discounted_total), format_money(original_total),
-           format_money(total_tier_discount), discount_pct}
+          {format_money(price), format_money(discounted_total),
+           format_money(original_total), format_money(total_tier_discount),
+           discount_pct}
         end
 
       %{
@@ -284,7 +302,11 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
       this_tier_count = length(this_tier_tickets)
 
       total_donation_count =
-        Enum.sum(Enum.map(donation_tickets_by_tier, fn {_tid, tickets} -> length(tickets) end))
+        Enum.sum(
+          Enum.map(donation_tickets_by_tier, fn {_tid, tickets} ->
+            length(tickets)
+          end)
+        )
 
       if total_donation_count > 0 && Money.positive?(donation_total) do
         # If there's only one donation tier, divide evenly
@@ -332,7 +354,9 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
 
       {date, time} ->
         # Convert DateTime to Date if needed
-        date_only = if is_struct(date, DateTime), do: DateTime.to_date(date), else: date
+        date_only =
+          if is_struct(date, DateTime), do: DateTime.to_date(date), else: date
+
         datetime = DateTime.new!(date_only, time, "Etc/UTC")
         # Convert to PST
         pst_datetime = DateTime.shift_zone!(datetime, "America/Los_Angeles")
@@ -358,6 +382,7 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
           :card ->
             if payment_method.last_four do
               brand = payment_method.display_brand || "Card"
+
               "#{String.capitalize(brand)} ending in #{payment_method.last_four}"
             else
               "Credit Card"
@@ -506,7 +531,11 @@ defmodule YscWeb.Emails.TicketPurchaseConfirmation do
   end
 
   defp format_money(%Money{} = money) do
-    Money.to_string!(money, separator: ".", delimiter: ",", fractional_digits: 2)
+    Money.to_string!(money,
+      separator: ".",
+      delimiter: ",",
+      fractional_digits: 2
+    )
   end
 
   defp format_money(_), do: "$0.00"

@@ -45,7 +45,11 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
             guests_count: 2,
             status: :hold,
             hold_expires_at:
-              DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), -1, :hour),
+              DateTime.add(
+                DateTime.utc_now() |> DateTime.truncate(:second),
+                -1,
+                :hour
+              ),
             total_price: Money.new(100, :USD)
           },
           skip_validation: true
@@ -81,7 +85,11 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
             guests_count: 2,
             status: :hold,
             hold_expires_at:
-              DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :hour),
+              DateTime.add(
+                DateTime.utc_now() |> DateTime.truncate(:second),
+                1,
+                :hour
+              ),
             total_price: Money.new(100, :USD)
           },
           skip_validation: true
@@ -112,7 +120,11 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
             guests_count: 2,
             status: :draft,
             hold_expires_at:
-              DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), -1, :hour),
+              DateTime.add(
+                DateTime.utc_now() |> DateTime.truncate(:second),
+                -1,
+                :hour
+              ),
             total_price: Money.new(100, :USD)
           },
           skip_validation: true
@@ -144,7 +156,11 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
             guests_count: 2,
             status: :hold,
             hold_expires_at:
-              DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), -i, :hour),
+              DateTime.add(
+                DateTime.utc_now() |> DateTime.truncate(:second),
+                -i,
+                :hour
+              ),
             total_price: Money.new(100, :USD)
           },
           skip_validation: true
@@ -155,7 +171,10 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
       # Verify all are in hold status
       expired_holds =
         Booking
-        |> where([b], b.status == :hold and b.hold_expires_at < ^DateTime.utc_now())
+        |> where(
+          [b],
+          b.status == :hold and b.hold_expires_at < ^DateTime.utc_now()
+        )
         |> Repo.all()
 
       assert length(expired_holds) == 3
@@ -166,7 +185,10 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
       # Verify all are now canceled
       expired_holds =
         Booking
-        |> where([b], b.status == :hold and b.hold_expires_at < ^DateTime.utc_now())
+        |> where(
+          [b],
+          b.status == :hold and b.hold_expires_at < ^DateTime.utc_now()
+        )
         |> Repo.all()
 
       assert expired_holds == []
@@ -202,7 +224,11 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
           guests_count: 2,
           status: :hold,
           hold_expires_at:
-            DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), -1, :hour),
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              -1,
+              :hour
+            ),
           total_price: Money.new(100, :USD)
         },
         skip_validation: true
@@ -246,7 +272,11 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
             guests_count: 2,
             status: :hold,
             hold_expires_at:
-              DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), -1, :hour),
+              DateTime.add(
+                DateTime.utc_now() |> DateTime.truncate(:second),
+                -1,
+                :hour
+              ),
             total_price: Money.new(100, :USD)
           },
           skip_validation: true
@@ -269,7 +299,10 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
         "test-hold-expired-batch",
         [:ysc, :bookings, :hold_expired_batch],
         fn event_name, measurements, metadata, _config ->
-          send(test_pid, {:telemetry_batch_event, event_name, measurements, metadata})
+          send(
+            test_pid,
+            {:telemetry_batch_event, event_name, measurements, metadata}
+          )
         end,
         nil
       )
@@ -278,14 +311,17 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
       HoldExpiryWorker.expire_expired_holds()
 
       # Verify telemetry event was emitted
-      assert_receive {:telemetry_event, [:ysc, :bookings, :hold_expired], %{count: 1}, metadata}
+      assert_receive {:telemetry_event, [:ysc, :bookings, :hold_expired],
+                      %{count: 1}, metadata}
+
       assert metadata.booking_id == booking.id
       assert metadata.property == "tahoe"
       assert metadata.booking_mode == "room"
       assert metadata.user_id == user.id
 
       # Verify batch event was emitted
-      assert_receive {:telemetry_batch_event, [:ysc, :bookings, :hold_expired_batch], %{count: 1},
+      assert_receive {:telemetry_batch_event,
+                      [:ysc, :bookings, :hold_expired_batch], %{count: 1},
                       _metadata}
 
       # Cleanup telemetry handlers
@@ -300,7 +336,10 @@ defmodule Ysc.Bookings.HoldExpiryWorkerTest do
         "test-no-batch",
         [:ysc, :bookings, :hold_expired_batch],
         fn event_name, measurements, metadata, _config ->
-          send(test_pid, {:telemetry_batch_event, event_name, measurements, metadata})
+          send(
+            test_pid,
+            {:telemetry_batch_event, event_name, measurements, metadata}
+          )
         end,
         nil
       )

@@ -94,7 +94,9 @@ defmodule Ysc.PropertyOutages.QueriesTest do
                o.property == :tahoe && o.incident_type == :power_outage
              end)
 
-      clear_lake_water = Queries.by_property_and_type(:clear_lake, :water_outage)
+      clear_lake_water =
+        Queries.by_property_and_type(:clear_lake, :water_outage)
+
       assert clear_lake_water != []
 
       assert Enum.all?(clear_lake_water, fn o ->
@@ -111,7 +113,11 @@ defmodule Ysc.PropertyOutages.QueriesTest do
 
       liberty_outages = Queries.by_company("Liberty Utilities")
       assert liberty_outages != []
-      assert Enum.all?(liberty_outages, &(&1.company_name == "Liberty Utilities"))
+
+      assert Enum.all?(
+               liberty_outages,
+               &(&1.company_name == "Liberty Utilities")
+             )
     end
   end
 
@@ -130,7 +136,8 @@ defmodule Ysc.PropertyOutages.QueriesTest do
       outages = Queries.recent(10)
 
       if length(outages) > 1 do
-        assert Enum.at(outages, 0).inserted_at >= Enum.at(outages, 1).inserted_at
+        assert Enum.at(outages, 0).inserted_at >=
+                 Enum.at(outages, 1).inserted_at
       end
     end
   end

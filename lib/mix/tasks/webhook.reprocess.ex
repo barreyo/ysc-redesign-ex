@@ -133,10 +133,14 @@ defmodule Mix.Tasks.Webhook.Reprocess do
         Logger.error("❌ Webhook #{webhook_id} not found")
 
       {:error, {:not_failed, state}} ->
-        Logger.error("❌ Webhook #{webhook_id} is not in failed state (current state: #{state})")
+        Logger.error(
+          "❌ Webhook #{webhook_id} is not in failed state (current state: #{state})"
+        )
 
       {:error, reason} ->
-        Logger.error("❌ Failed to re-process webhook #{webhook_id}: #{inspect(reason)}")
+        Logger.error(
+          "❌ Failed to re-process webhook #{webhook_id}: #{inspect(reason)}"
+        )
     end
   end
 
@@ -176,16 +180,22 @@ defmodule Mix.Tasks.Webhook.Reprocess do
 
     case Ysc.Webhooks.Reprocessor.reset_webhook_to_pending(webhook_id) do
       {:ok, _webhook} ->
-        Logger.info("✅ Successfully reset webhook #{webhook_id} to pending state")
+        Logger.info(
+          "✅ Successfully reset webhook #{webhook_id} to pending state"
+        )
 
       {:error, :not_found} ->
         Logger.error("❌ Webhook #{webhook_id} not found")
 
       {:error, {:not_failed, state}} ->
-        Logger.error("❌ Webhook #{webhook_id} is not in failed state (current state: #{state})")
+        Logger.error(
+          "❌ Webhook #{webhook_id} is not in failed state (current state: #{state})"
+        )
 
       {:error, changeset} ->
-        Logger.error("❌ Failed to reset webhook #{webhook_id}: #{inspect(changeset)}")
+        Logger.error(
+          "❌ Failed to reset webhook #{webhook_id}: #{inspect(changeset)}"
+        )
     end
   end
 
@@ -193,11 +203,20 @@ defmodule Mix.Tasks.Webhook.Reprocess do
     opts
     |> Enum.chunk_every(2)
     |> Enum.reduce([], fn
-      ["--provider", provider], acc -> Keyword.put(acc, :provider, provider)
-      ["--event-type", event_type], acc -> Keyword.put(acc, :event_type, event_type)
-      ["--limit", limit], acc -> Keyword.put(acc, :limit, String.to_integer(limit))
-      ["--dry-run"], acc -> Keyword.put(acc, :dry_run, true)
-      _, acc -> acc
+      ["--provider", provider], acc ->
+        Keyword.put(acc, :provider, provider)
+
+      ["--event-type", event_type], acc ->
+        Keyword.put(acc, :event_type, event_type)
+
+      ["--limit", limit], acc ->
+        Keyword.put(acc, :limit, String.to_integer(limit))
+
+      ["--dry-run"], acc ->
+        Keyword.put(acc, :dry_run, true)
+
+      _, acc ->
+        acc
     end)
   end
 

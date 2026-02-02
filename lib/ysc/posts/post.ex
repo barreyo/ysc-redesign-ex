@@ -44,7 +44,9 @@ defmodule Ysc.Posts.Post do
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]
   schema "posts" do
-    belongs_to :author, Ysc.Accounts.User, foreign_key: :user_id, references: :id
+    belongs_to :author, Ysc.Accounts.User,
+      foreign_key: :user_id,
+      references: :id
 
     field :state, PostState
     field :title, :string
@@ -54,7 +56,9 @@ defmodule Ysc.Posts.Post do
     field :raw_body, :string
     field :preview_text, :string
 
-    belongs_to :featured_image, Ysc.Media.Image, foreign_key: :image_id, references: :id
+    belongs_to :featured_image, Ysc.Media.Image,
+      foreign_key: :image_id,
+      references: :id
 
     field :featured_post, :boolean
 

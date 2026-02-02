@@ -76,10 +76,18 @@ defmodule Ysc.Accounts.User do
       where: [is_default: true]
 
     has_many :payment_methods, Ysc.Payments.PaymentMethod, foreign_key: :user_id
-    has_many :subscriptions, Ysc.Subscriptions.Subscription, foreign_key: :user_id
+
+    has_many :subscriptions, Ysc.Subscriptions.Subscription,
+      foreign_key: :user_id
+
     has_many :auth_events, Ysc.Accounts.AuthEvent
-    has_many :expense_reports, Ysc.ExpenseReports.ExpenseReport, foreign_key: :user_id
-    has_many :bank_accounts, Ysc.ExpenseReports.BankAccount, foreign_key: :user_id
+
+    has_many :expense_reports, Ysc.ExpenseReports.ExpenseReport,
+      foreign_key: :user_id
+
+    has_many :bank_accounts, Ysc.ExpenseReports.BankAccount,
+      foreign_key: :user_id
+
     has_many :user_notes, Ysc.Accounts.UserNote, foreign_key: :user_id
     has_many :passkeys, Ysc.Accounts.UserPasskey, foreign_key: :user_id
 
@@ -99,10 +107,15 @@ defmodule Ysc.Accounts.User do
   @spec registration_changeset(
           {map(), map()}
           | %{
-              :__struct__ => atom() | %{:__changeset__ => map(), optional(any()) => any()},
+              :__struct__ =>
+                atom() | %{:__changeset__ => map(), optional(any()) => any()},
               optional(atom()) => any()
             },
-          :invalid | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
+          :invalid
+          | %{
+              optional(:__struct__) => none(),
+              optional(atom() | binary()) => any()
+            }
         ) :: Ecto.Changeset.t()
   @doc """
   A user changeset for registration.
@@ -176,7 +189,12 @@ defmodule Ysc.Accounts.User do
   - Sets state to :active (sub-accounts don't need approval)
   - Password is optional (can be set later)
   """
-  def sub_account_registration_changeset(user, attrs, primary_user_id, opts \\ []) do
+  def sub_account_registration_changeset(
+        user,
+        attrs,
+        primary_user_id,
+        opts \\ []
+      ) do
     require_password = Keyword.get(opts, :require_password, false)
 
     user
@@ -206,10 +224,15 @@ defmodule Ysc.Accounts.User do
   @spec update_user_changeset(
           {map(), map()}
           | %{
-              :__struct__ => atom() | %{:__changeset__ => map(), optional(any()) => any()},
+              :__struct__ =>
+                atom() | %{:__changeset__ => map(), optional(any()) => any()},
               optional(atom()) => any()
             },
-          :invalid | %{optional(:__struct__) => none(), optional(atom() | binary()) => any()}
+          :invalid
+          | %{
+              optional(:__struct__) => none(),
+              optional(atom() | binary()) => any()
+            }
         ) :: Ecto.Changeset.t()
   def update_user_changeset(user, attrs, opts \\ []) do
     user
@@ -379,6 +402,7 @@ defmodule Ysc.Accounts.User do
   defp set_password_set_at_if_password_provided(changeset, opts) do
     hash_password? = Keyword.get(opts, :hash_password, true)
     password = get_change(changeset, :password)
+
     # Also check if hashed_password was set (password was already hashed in a previous step)
     hashed_password = get_change(changeset, :hashed_password)
 
@@ -398,7 +422,9 @@ defmodule Ysc.Accounts.User do
   defp validate_email(changeset, opts) do
     changeset
     |> validate_required([:email])
-    |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must have the @ sign and no spaces")
+    |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/,
+      message: "must have the @ sign and no spaces"
+    )
     |> validate_length(:email, max: 160)
     |> maybe_validate_unique_email(opts)
   end
@@ -499,7 +525,10 @@ defmodule Ysc.Accounts.User do
   If there is no user or the user doesn't have a password, we call
   `Argon2.no_user_verify/0` to avoid timing attacks.
   """
-  def valid_password?(%Ysc.Accounts.User{hashed_password: hashed_password}, password)
+  def valid_password?(
+        %Ysc.Accounts.User{hashed_password: hashed_password},
+        password
+      )
       when is_binary(hashed_password) and byte_size(password) > 0 do
     Argon2.verify_pass(password, hashed_password)
   end
@@ -555,10 +584,12 @@ defmodule Ysc.Accounts.User do
         registration_form_changeset = get_change(changeset, :registration_form)
 
         case registration_form_changeset do
-          %Ecto.Changeset{changes: %{birth_date: birth_date}} when not is_nil(birth_date) ->
+          %Ecto.Changeset{changes: %{birth_date: birth_date}}
+          when not is_nil(birth_date) ->
             put_change(changeset, :date_of_birth, birth_date)
 
-          %Ecto.Changeset{data: %{birth_date: birth_date}} when not is_nil(birth_date) ->
+          %Ecto.Changeset{data: %{birth_date: birth_date}}
+          when not is_nil(birth_date) ->
             put_change(changeset, :date_of_birth, birth_date)
 
           _ ->
@@ -571,7 +602,9 @@ defmodule Ysc.Accounts.User do
   end
 
   defp validate_date_of_birth(changeset) do
-    date_of_birth = get_change(changeset, :date_of_birth) || get_field(changeset, :date_of_birth)
+    date_of_birth =
+      get_change(changeset, :date_of_birth) ||
+        get_field(changeset, :date_of_birth)
 
     cond do
       is_nil(date_of_birth) ->

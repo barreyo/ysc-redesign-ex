@@ -15,7 +15,13 @@ defmodule Ysc.Tickets.TicketOrder do
   @derive {
     Flop.Schema,
     filterable: [:user_id, :status, :event_id],
-    sortable: [:reference_id, :status, :total_amount, :inserted_at, :completed_at],
+    sortable: [
+      :reference_id,
+      :status,
+      :total_amount,
+      :inserted_at,
+      :completed_at
+    ],
     default_limit: 50,
     max_limit: 200,
     default_order: %{
@@ -41,9 +47,14 @@ defmodule Ysc.Tickets.TicketOrder do
 
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
     belongs_to :event, Ysc.Events.Event, foreign_key: :event_id, references: :id
-    belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
 
-    has_many :tickets, Ysc.Events.Ticket, foreign_key: :ticket_order_id, references: :id
+    belongs_to :payment, Ysc.Ledgers.Payment,
+      foreign_key: :payment_id,
+      references: :id
+
+    has_many :tickets, Ysc.Events.Ticket,
+      foreign_key: :ticket_order_id,
+      references: :id
 
     timestamps()
   end

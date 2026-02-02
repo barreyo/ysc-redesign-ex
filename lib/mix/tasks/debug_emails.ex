@@ -14,7 +14,8 @@ defmodule Mix.Tasks.DebugEmails do
   @shortdoc "Debug email queue and Oban jobs"
 
   def run(args) do
-    {opts, _, _} = OptionParser.parse(args, strict: [queue: :string, recent: :integer])
+    {opts, _, _} =
+      OptionParser.parse(args, strict: [queue: :string, recent: :integer])
 
     queue = Keyword.get(opts, :queue, "mailers")
     recent_count = Keyword.get(opts, :recent, 5)

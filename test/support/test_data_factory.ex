@@ -59,7 +59,8 @@ defmodule Ysc.TestDataFactory do
     {:ok, user} =
       user
       |> Ecto.Changeset.change(%{
-        lifetime_membership_awarded_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        lifetime_membership_awarded_at:
+          DateTime.utc_now() |> DateTime.truncate(:second)
       })
       |> Repo.update()
 
@@ -69,7 +70,11 @@ defmodule Ysc.TestDataFactory do
   def user_with_membership(:subscription, attrs) do
     # Create user and set up mock subscription
     # Note: In real tests, you'd mock the Stripe API calls
-    user = user_fixture(Map.put(attrs, :stripe_id, "cus_test_#{System.unique_integer()}"))
+    user =
+      user_fixture(
+        Map.put(attrs, :stripe_id, "cus_test_#{System.unique_integer()}")
+      )
+
     user
   end
 
@@ -96,7 +101,11 @@ defmodule Ysc.TestDataFactory do
       family = family_with_sub_accounts(3)
       family = family_with_sub_accounts(2, %{first_name: "Primary"}, %{last_name: "Child"})
   """
-  def family_with_sub_accounts(count \\ 2, primary_attrs \\ %{}, sub_account_attrs \\ %{}) do
+  def family_with_sub_accounts(
+        count \\ 2,
+        primary_attrs \\ %{},
+        sub_account_attrs \\ %{}
+      ) do
     # Create primary user with membership
     primary =
       primary_attrs
@@ -162,29 +171,37 @@ defmodule Ysc.TestDataFactory do
       case state do
         :upcoming ->
           {
-            DateTime.add(DateTime.utc_now(), 7, :day) |> DateTime.truncate(:second),
-            DateTime.add(DateTime.utc_now(), 8, :day) |> DateTime.truncate(:second),
+            DateTime.add(DateTime.utc_now(), 7, :day)
+            |> DateTime.truncate(:second),
+            DateTime.add(DateTime.utc_now(), 8, :day)
+            |> DateTime.truncate(:second),
             :published
           }
 
         :past ->
           {
-            DateTime.add(DateTime.utc_now(), -8, :day) |> DateTime.truncate(:second),
-            DateTime.add(DateTime.utc_now(), -7, :day) |> DateTime.truncate(:second),
+            DateTime.add(DateTime.utc_now(), -8, :day)
+            |> DateTime.truncate(:second),
+            DateTime.add(DateTime.utc_now(), -7, :day)
+            |> DateTime.truncate(:second),
             :published
           }
 
         :ongoing ->
           {
-            DateTime.add(DateTime.utc_now(), -1, :day) |> DateTime.truncate(:second),
-            DateTime.add(DateTime.utc_now(), 1, :day) |> DateTime.truncate(:second),
+            DateTime.add(DateTime.utc_now(), -1, :day)
+            |> DateTime.truncate(:second),
+            DateTime.add(DateTime.utc_now(), 1, :day)
+            |> DateTime.truncate(:second),
             :published
           }
 
         :cancelled ->
           {
-            DateTime.add(DateTime.utc_now(), 7, :day) |> DateTime.truncate(:second),
-            DateTime.add(DateTime.utc_now(), 8, :day) |> DateTime.truncate(:second),
+            DateTime.add(DateTime.utc_now(), 7, :day)
+            |> DateTime.truncate(:second),
+            DateTime.add(DateTime.utc_now(), 8, :day)
+            |> DateTime.truncate(:second),
             :cancelled
           }
       end

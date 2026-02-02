@@ -22,7 +22,11 @@ defmodule Ysc.ResendRateLimiter do
   """
   @spec resend_allowed?(String.t() | integer(), atom(), integer()) ::
           {:ok, :allowed} | {:error, :rate_limited, integer()}
-  def resend_allowed?(identifier, type, rate_limit_seconds \\ @default_rate_limit_seconds) do
+  def resend_allowed?(
+        identifier,
+        type,
+        rate_limit_seconds \\ @default_rate_limit_seconds
+      ) do
     cache_key = cache_key(identifier, type)
 
     case Cachex.get(:ysc_cache, cache_key) do
@@ -47,7 +51,11 @@ defmodule Ysc.ResendRateLimiter do
   - `:ok` on success
   """
   @spec record_resend(String.t() | integer(), atom(), integer()) :: :ok
-  def record_resend(identifier, type, rate_limit_seconds \\ @default_rate_limit_seconds) do
+  def record_resend(
+        identifier,
+        type,
+        rate_limit_seconds \\ @default_rate_limit_seconds
+      ) do
     cache_key = cache_key(identifier, type)
     ttl_ms = :timer.seconds(rate_limit_seconds)
 
@@ -84,7 +92,11 @@ defmodule Ysc.ResendRateLimiter do
   """
   @spec check_and_record_resend(String.t() | integer(), atom(), integer()) ::
           {:ok, :allowed} | {:error, :rate_limited, integer()}
-  def check_and_record_resend(identifier, type, rate_limit_seconds \\ @default_rate_limit_seconds) do
+  def check_and_record_resend(
+        identifier,
+        type,
+        rate_limit_seconds \\ @default_rate_limit_seconds
+      ) do
     case resend_allowed?(identifier, type, rate_limit_seconds) do
       {:ok, :allowed} ->
         record_resend(identifier, type, rate_limit_seconds)
@@ -107,8 +119,13 @@ defmodule Ysc.ResendRateLimiter do
   - `0` if resend is currently allowed
   - Positive integer representing remaining seconds if rate limited
   """
-  @spec remaining_seconds(String.t() | integer(), atom(), integer()) :: non_neg_integer()
-  def remaining_seconds(identifier, type, rate_limit_seconds \\ @default_rate_limit_seconds) do
+  @spec remaining_seconds(String.t() | integer(), atom(), integer()) ::
+          non_neg_integer()
+  def remaining_seconds(
+        identifier,
+        type,
+        rate_limit_seconds \\ @default_rate_limit_seconds
+      ) do
     cache_key = cache_key(identifier, type)
 
     case Cachex.get(:ysc_cache, cache_key) do
@@ -156,8 +173,11 @@ defmodule Ysc.ResendRateLimiter do
       end
 
     case Map.get(assigns, key) do
-      nil -> true
-      disabled_until -> DateTime.compare(disabled_until, DateTime.utc_now()) == :lt
+      nil ->
+        true
+
+      disabled_until ->
+        DateTime.compare(disabled_until, DateTime.utc_now()) == :lt
     end
   end
 

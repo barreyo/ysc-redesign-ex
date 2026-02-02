@@ -55,7 +55,10 @@ defmodule Ysc.SmsTest do
         from: "12061231234",
         body: "MMS message",
         is_mms: true,
-        media_urls: ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
+        media_urls: [
+          "https://example.com/image1.jpg",
+          "https://example.com/image2.jpg"
+        ]
       }
 
       assert {:ok, %SmsMessage{} = sms_message} = Sms.create_sms_message(attrs)
@@ -85,7 +88,9 @@ defmodule Ysc.SmsTest do
       assert {:error, changeset} = Sms.create_sms_message(attrs)
       # The unique constraint might report on provider or provider_message_id
       errors = errors_on(changeset)
-      assert Map.has_key?(errors, :provider) or Map.has_key?(errors, :provider_message_id)
+
+      assert Map.has_key?(errors, :provider) or
+               Map.has_key?(errors, :provider_message_id)
     end
   end
 
@@ -105,7 +110,8 @@ defmodule Ysc.SmsTest do
     end
 
     test "returns nil when not found" do
-      assert Sms.get_sms_message_by_provider_id(:flowroute, "nonexistent") == nil
+      assert Sms.get_sms_message_by_provider_id(:flowroute, "nonexistent") ==
+               nil
     end
   end
 
@@ -121,7 +127,9 @@ defmodule Ysc.SmsTest do
           status: :sent
         })
 
-      assert {:ok, updated} = Sms.update_sms_message_status(sms_message, :delivered)
+      assert {:ok, updated} =
+               Sms.update_sms_message_status(sms_message, :delivered)
+
       assert updated.status == :delivered
     end
 
@@ -136,7 +144,9 @@ defmodule Ysc.SmsTest do
           status: :sent
         })
 
-      assert {:ok, updated} = Sms.update_sms_message_status(sms_message, :failed)
+      assert {:ok, updated} =
+               Sms.update_sms_message_status(sms_message, :failed)
+
       assert updated.status == :failed
     end
   end
@@ -152,7 +162,9 @@ defmodule Ysc.SmsTest do
         direction: :inbound
       }
 
-      assert {:ok, %SmsReceived{} = sms_received} = Sms.create_sms_received(attrs)
+      assert {:ok, %SmsReceived{} = sms_received} =
+               Sms.create_sms_received(attrs)
+
       assert sms_received.provider == :flowroute
       assert sms_received.from == "14155551234"
       assert sms_received.to == "12061231234"
@@ -171,7 +183,9 @@ defmodule Ysc.SmsTest do
         provider_timestamp: timestamp
       }
 
-      assert {:ok, %SmsReceived{} = sms_received} = Sms.create_sms_received(attrs)
+      assert {:ok, %SmsReceived{} = sms_received} =
+               Sms.create_sms_received(attrs)
+
       assert sms_received.provider_timestamp == timestamp
     end
 
@@ -186,7 +200,9 @@ defmodule Ysc.SmsTest do
         raw_payload: raw_payload
       }
 
-      assert {:ok, %SmsReceived{} = sms_received} = Sms.create_sms_received(attrs)
+      assert {:ok, %SmsReceived{} = sms_received} =
+               Sms.create_sms_received(attrs)
+
       assert sms_received.raw_payload == raw_payload
     end
 
@@ -254,7 +270,9 @@ defmodule Ysc.SmsTest do
         status_code_description: "Message delivered"
       }
 
-      assert {:ok, %SmsDeliveryReceipt{} = dlr} = Sms.create_delivery_receipt(attrs)
+      assert {:ok, %SmsDeliveryReceipt{} = dlr} =
+               Sms.create_delivery_receipt(attrs)
+
       assert dlr.provider == :flowroute
       assert dlr.status == :delivered
       assert dlr.status_code == "0"
@@ -270,7 +288,9 @@ defmodule Ysc.SmsTest do
         provider_timestamp: timestamp
       }
 
-      assert {:ok, %SmsDeliveryReceipt{} = dlr} = Sms.create_delivery_receipt(attrs)
+      assert {:ok, %SmsDeliveryReceipt{} = dlr} =
+               Sms.create_delivery_receipt(attrs)
+
       assert dlr.provider_timestamp == timestamp
     end
 
@@ -284,7 +304,9 @@ defmodule Ysc.SmsTest do
         raw_payload: raw_payload
       }
 
-      assert {:ok, %SmsDeliveryReceipt{} = dlr} = Sms.create_delivery_receipt(attrs)
+      assert {:ok, %SmsDeliveryReceipt{} = dlr} =
+               Sms.create_delivery_receipt(attrs)
+
       assert dlr.raw_payload == raw_payload
     end
 
@@ -314,14 +336,18 @@ defmodule Ysc.SmsTest do
           provider_timestamp: ~U[2025-12-05 10:01:00Z]
         })
 
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-list-123")
+      receipts =
+        Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-list-123")
+
       assert length(receipts) == 2
       # Ordered by timestamp descending
       assert hd(receipts).status == :delivered
     end
 
     test "returns empty list when no receipts found" do
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "nonexistent")
+      receipts =
+        Sms.list_delivery_receipts_for_message(:flowroute, "nonexistent")
+
       assert receipts == []
     end
   end

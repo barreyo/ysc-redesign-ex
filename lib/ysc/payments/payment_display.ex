@@ -8,7 +8,8 @@ defmodule Ysc.Payments.PaymentDisplay do
   @doc """
   Gets the icon name for a payment type.
   """
-  def get_payment_icon(%{type: :booking, booking: booking}) when not is_nil(booking) do
+  def get_payment_icon(%{type: :booking, booking: booking})
+      when not is_nil(booking) do
     "hero-home"
   end
 
@@ -20,7 +21,8 @@ defmodule Ysc.Payments.PaymentDisplay do
   @doc """
   Gets the background color class for a payment icon.
   """
-  def get_payment_icon_bg(%{type: :booking, booking: booking}) when not is_nil(booking) do
+  def get_payment_icon_bg(%{type: :booking, booking: booking})
+      when not is_nil(booking) do
     case booking.property do
       :tahoe -> "bg-blue-50 group-hover:bg-blue-600"
       :clear_lake -> "bg-emerald-50 group-hover:bg-emerald-600"
@@ -28,15 +30,22 @@ defmodule Ysc.Payments.PaymentDisplay do
     end
   end
 
-  def get_payment_icon_bg(%{type: :ticket}), do: "bg-purple-50 group-hover:bg-purple-600"
-  def get_payment_icon_bg(%{type: :membership}), do: "bg-teal-50 group-hover:bg-teal-600"
-  def get_payment_icon_bg(%{type: :donation}), do: "bg-yellow-50 group-hover:bg-yellow-600"
+  def get_payment_icon_bg(%{type: :ticket}),
+    do: "bg-purple-50 group-hover:bg-purple-600"
+
+  def get_payment_icon_bg(%{type: :membership}),
+    do: "bg-teal-50 group-hover:bg-teal-600"
+
+  def get_payment_icon_bg(%{type: :donation}),
+    do: "bg-yellow-50 group-hover:bg-yellow-600"
+
   def get_payment_icon_bg(_), do: "bg-zinc-50 group-hover:bg-zinc-600"
 
   @doc """
   Gets the text color class for a payment icon.
   """
-  def get_payment_icon_color(%{type: :booking, booking: booking}) when not is_nil(booking) do
+  def get_payment_icon_color(%{type: :booking, booking: booking})
+      when not is_nil(booking) do
     case booking.property do
       :tahoe -> "text-blue-600 group-hover:text-white"
       :clear_lake -> "text-emerald-600 group-hover:text-white"
@@ -44,15 +53,22 @@ defmodule Ysc.Payments.PaymentDisplay do
     end
   end
 
-  def get_payment_icon_color(%{type: :ticket}), do: "text-purple-600 group-hover:text-white"
-  def get_payment_icon_color(%{type: :membership}), do: "text-teal-600 group-hover:text-white"
-  def get_payment_icon_color(%{type: :donation}), do: "text-yellow-600 group-hover:text-white"
+  def get_payment_icon_color(%{type: :ticket}),
+    do: "text-purple-600 group-hover:text-white"
+
+  def get_payment_icon_color(%{type: :membership}),
+    do: "text-teal-600 group-hover:text-white"
+
+  def get_payment_icon_color(%{type: :donation}),
+    do: "text-yellow-600 group-hover:text-white"
+
   def get_payment_icon_color(_), do: "text-zinc-600 group-hover:text-white"
 
   @doc """
   Gets the display title for a payment.
   """
-  def get_payment_title(%{type: :booking, booking: booking}) when not is_nil(booking) do
+  def get_payment_title(%{type: :booking, booking: booking})
+      when not is_nil(booking) do
     property_name =
       case booking.property do
         :tahoe -> "Tahoe"
@@ -63,7 +79,8 @@ defmodule Ysc.Payments.PaymentDisplay do
     "#{property_name} Booking"
   end
 
-  def get_payment_title(%{type: :ticket, event: event}) when not is_nil(event) do
+  def get_payment_title(%{type: :ticket, event: event})
+      when not is_nil(event) do
     event.title
   end
 
@@ -80,7 +97,8 @@ defmodule Ysc.Payments.PaymentDisplay do
     booking.reference_id || "—"
   end
 
-  def get_payment_reference(%{ticket_order: ticket_order}) when not is_nil(ticket_order) do
+  def get_payment_reference(%{ticket_order: ticket_order})
+      when not is_nil(ticket_order) do
     ticket_order.reference_id || "—"
   end
 

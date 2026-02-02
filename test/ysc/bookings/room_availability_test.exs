@@ -32,7 +32,10 @@ defmodule Ysc.Bookings.RoomAvailabilityTest do
     {:ok, user: user, room: room}
   end
 
-  test "room_available? returns false when property has buyout", %{user: user, room: room} do
+  test "room_available? returns false when property has buyout", %{
+    user: user,
+    room: room
+  } do
     checkin = ~D[2025-06-01]
     checkout = ~D[2025-06-05]
 
@@ -56,7 +59,10 @@ defmodule Ysc.Bookings.RoomAvailabilityTest do
     refute Bookings.room_available?(room.id, ~D[2025-06-02], ~D[2025-06-03])
   end
 
-  test "room_available? returns true for dates outside buyout", %{user: user, room: room} do
+  test "room_available? returns true for dates outside buyout", %{
+    user: user,
+    room: room
+  } do
     checkin = ~D[2025-06-01]
     checkout = ~D[2025-06-05]
 

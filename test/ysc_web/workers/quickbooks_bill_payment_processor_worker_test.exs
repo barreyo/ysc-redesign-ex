@@ -31,7 +31,8 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorkerTest do
   end
 
   describe "perform/1" do
-    test "successfully processes BillPayment and marks expense report as paid", %{user: user} do
+    test "successfully processes BillPayment and marks expense report as paid",
+         %{user: user} do
       # Create expense report with QuickBooks bill ID
       expense_report =
         %ExpenseReport{
@@ -105,7 +106,8 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorkerTest do
         attempt: 1
       }
 
-      assert {:error, :webhook_not_found} = QuickbooksBillPaymentProcessorWorker.perform(job)
+      assert {:error, :webhook_not_found} =
+               QuickbooksBillPaymentProcessorWorker.perform(job)
     end
 
     test "skips webhook event already being processed", %{user: user} do
@@ -152,7 +154,9 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorkerTest do
       assert updated_report.status == "submitted"
     end
 
-    test "handles QuickBooks API failure when fetching BillPayment", %{user: user} do
+    test "handles QuickBooks API failure when fetching BillPayment", %{
+      user: user
+    } do
       # Create expense report
       expense_report =
         %ExpenseReport{
@@ -193,7 +197,8 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorkerTest do
         attempt: 1
       }
 
-      assert {:error, :fetch_failed} = QuickbooksBillPaymentProcessorWorker.perform(job)
+      assert {:error, :fetch_failed} =
+               QuickbooksBillPaymentProcessorWorker.perform(job)
 
       # Verify expense report was not updated
       updated_report = Repo.get!(ExpenseReport, expense_report.id)

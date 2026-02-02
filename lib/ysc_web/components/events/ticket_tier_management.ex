@@ -24,17 +24,22 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
         <div :if={length(@ticket_tiers) == 0} class="text-center py-8 text-zinc-500">
           <p class="font-semibold">No ticket tiers created yet.</p>
-          <p class="text-sm">Click "Add Ticket Tier" to create your first ticket tier.</p>
+          <p class="text-sm">
+            Click "Add Ticket Tier" to create your first ticket tier.
+          </p>
         </div>
 
         <div :if={length(@ticket_tiers) > 0} class="space-y-3 sm:space-y-4">
           <%= for ticket_tier <- @ticket_tiers do %>
-            <% is_donation = ticket_tier.type == "donation" || ticket_tier.type == :donation %>
+            <% is_donation =
+              ticket_tier.type == "donation" || ticket_tier.type == :donation %>
             <div class="group border border-zinc-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-sm transition-all bg-white">
               <div class="flex flex-col lg:flex-row lg:items-center gap-4">
                 <div class="flex-1">
                   <div class="flex items-center gap-3 mb-1">
-                    <h4 class="font-bold text-zinc-900 text-lg"><%= ticket_tier.name %></h4>
+                    <h4 class="font-bold text-zinc-900 text-lg">
+                      <%= ticket_tier.name %>
+                    </h4>
                     <.badge
                       type={tier_status_badge_type(ticket_tier)}
                       class="text-[10px] uppercase tracking-wider font-bold rounded-full px-2 py-0.5 me-0"
@@ -109,7 +114,8 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                         </div>
                       </div>
                       <%= if !is_donation do %>
-                        <% reserved_count = get_reserved_count(ticket_tier.id, @reservations_by_tier) %>
+                        <% reserved_count =
+                          get_reserved_count(ticket_tier.id, @reservations_by_tier) %>
                         <%= if reserved_count > 0 do %>
                           <p class="text-xs text-amber-600 mt-1">
                             <%= reserved_count %> reserved
@@ -123,7 +129,10 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                         Sales Period
                       </p>
                       <p class="text-sm text-zinc-700 whitespace-nowrap">
-                        <%= format_sales_period(ticket_tier.start_date, ticket_tier.end_date) %>
+                        <%= format_sales_period(
+                          ticket_tier.start_date,
+                          ticket_tier.end_date
+                        ) %>
                       </p>
                     </div>
 
@@ -132,7 +141,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                         Registration
                       </p>
                       <p class="text-sm text-zinc-700">
-                        <%= if ticket_tier.requires_registration, do: "Required", else: "Not Required" %>
+                        <%= if ticket_tier.requires_registration,
+                          do: "Required",
+                          else: "Not Required" %>
                       </p>
                     </div>
                   </div>
@@ -201,11 +212,16 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                                                                                                          "s" %>
                               <%= if reservation.discount_percentage && Decimal.gt?(reservation.discount_percentage, 0) do %>
                                 <span class="text-green-600 font-medium">
-                                  • <%= Decimal.to_float(reservation.discount_percentage)
+                                  • <%= Decimal.to_float(
+                                    reservation.discount_percentage
+                                  )
                                   |> Float.round(2) %>% off
                                 </span>
                               <% end %>
-                              <span :if={reservation.expires_at} class="text-amber-600">
+                              <span
+                                :if={reservation.expires_at}
+                                class="text-amber-600"
+                              >
                                 • Expires <%= format_date(reservation.expires_at) %>
                               </span>
                             </p>
@@ -236,7 +252,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
           <h3 class="text-lg font-semibold">Ticket Purchases</h3>
           <div class="flex items-center gap-3">
             <span class="text-sm text-zinc-600">
-              <%= length(@ticket_purchases) %> purchase<%= if length(@ticket_purchases) != 1, do: "s" %>
+              <%= length(@ticket_purchases) %> purchase<%= if length(
+                                                                @ticket_purchases
+                                                              ) != 1, do: "s" %>
             </span>
             <.button
               phx-click="export-tickets-csv"
@@ -250,9 +268,14 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
           </div>
         </div>
 
-        <div :if={length(@ticket_purchases) == 0} class="text-center py-8 text-zinc-500">
+        <div
+          :if={length(@ticket_purchases) == 0}
+          class="text-center py-8 text-zinc-500"
+        >
           <p class="font-semibold">No tickets purchased yet.</p>
-          <p class="text-sm">Ticket purchases will appear here once users start buying tickets.</p>
+          <p class="text-sm">
+            Ticket purchases will appear here once users start buying tickets.
+          </p>
         </div>
 
         <div :if={length(@ticket_purchases) > 0} class="space-y-3 sm:space-y-4">
@@ -262,7 +285,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
                 <div class="flex-1">
                   <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mb-2">
                     <h4 class="font-semibold"><%= purchase.user_name %></h4>
-                    <span class="text-sm text-zinc-600"><%= purchase.user_email %></span>
+                    <span class="text-sm text-zinc-600">
+                      <%= purchase.user_email %>
+                    </span>
                   </div>
 
                   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
@@ -381,15 +406,27 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
         socket
         |> assign(
           :show_add_modal,
-          Map.get(assigns, :show_add_modal, socket.assigns[:show_add_modal] || false)
+          Map.get(
+            assigns,
+            :show_add_modal,
+            socket.assigns[:show_add_modal] || false
+          )
         )
         |> assign(
           :show_edit_modal,
-          Map.get(assigns, :show_edit_modal, socket.assigns[:show_edit_modal] || false)
+          Map.get(
+            assigns,
+            :show_edit_modal,
+            socket.assigns[:show_edit_modal] || false
+          )
         )
         |> assign(
           :show_reserve_modal,
-          Map.get(assigns, :show_reserve_modal, socket.assigns[:show_reserve_modal] || false)
+          Map.get(
+            assigns,
+            :show_reserve_modal,
+            socket.assigns[:show_reserve_modal] || false
+          )
         )
       end
 
@@ -445,11 +482,13 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     sold_count = Events.count_tickets_for_tier(id)
 
     if sold_count > 0 do
-      {:noreply, put_flash(socket, :error, "Cannot delete ticket tier with sold tickets")}
+      {:noreply,
+       put_flash(socket, :error, "Cannot delete ticket tier with sold tickets")}
     else
       case Events.delete_ticket_tier(ticket_tier) do
         {:ok, _ticket_tier} ->
-          ticket_tiers = Events.list_ticket_tiers_for_event(socket.assigns.event_id)
+          ticket_tiers =
+            Events.list_ticket_tiers_for_event(socket.assigns.event_id)
 
           {:noreply,
            socket
@@ -480,7 +519,10 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
     {:noreply,
      socket
-     |> push_event("download-csv", %{content: encoded_content, filename: filename})}
+     |> push_event("download-csv", %{
+       content: encoded_content,
+       filename: filename
+     })}
   end
 
   @impl true
@@ -488,7 +530,8 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
     ticket_tier = Events.get_ticket_tier!(tier_id)
 
     # Don't allow reservations for donation tiers
-    is_donation = ticket_tier.type == "donation" || ticket_tier.type == :donation
+    is_donation =
+      ticket_tier.type == "donation" || ticket_tier.type == :donation
 
     if is_donation do
       {:noreply,
@@ -518,7 +561,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
       {:ok, _reservation} ->
         # Refresh reservations
         reservations_by_tier = refresh_reservations(socket.assigns.event_id)
-        ticket_tiers = Events.list_ticket_tiers_for_event(socket.assigns.event_id)
+
+        ticket_tiers =
+          Events.list_ticket_tiers_for_event(socket.assigns.event_id)
 
         {:noreply,
          socket
@@ -532,7 +577,8 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
   end
 
   def handle_info(
-        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
         socket
       ) do
     if ticket_tier.event_id == socket.assigns.event_id do
@@ -544,7 +590,8 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
   end
 
   def handle_info(
-        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierUpdated{ticket_tier: ticket_tier}},
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketTierUpdated{ticket_tier: ticket_tier}},
         socket
       ) do
     if ticket_tier.event_id == socket.assigns.event_id do
@@ -556,7 +603,8 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
   end
 
   def handle_info(
-        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
         socket
       ) do
     if ticket_tier.event_id == socket.assigns.event_id do
@@ -586,7 +634,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationCreated{
+           ticket_reservation: reservation
+         }},
         socket
       ) do
     ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
@@ -608,7 +658,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationFulfilled{
+           ticket_reservation: reservation
+         }},
         socket
       ) do
     ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
@@ -628,7 +680,9 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationCancelled{
+           ticket_reservation: reservation
+         }},
         socket
       ) do
     ticket_tier = Events.get_ticket_tier(reservation.ticket_tier_id)
@@ -659,7 +713,10 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
 
   defp get_reserved_count(tier_id, reservations_by_tier) do
     reservations = Map.get(reservations_by_tier, tier_id, [])
-    Enum.reduce(reservations, 0, fn reservation, acc -> acc + reservation.quantity end)
+
+    Enum.reduce(reservations, 0, fn reservation, acc ->
+      acc + reservation.quantity
+    end)
   end
 
   defp build_csv_rows(tickets) do
@@ -707,7 +764,10 @@ defmodule YscWeb.AdminEventsLive.TicketTierManagement do
   end
 
   defp format_sales_period(nil, nil), do: "Always available"
-  defp format_sales_period(start_date, nil), do: "From #{format_date(start_date)}"
+
+  defp format_sales_period(start_date, nil),
+    do: "From #{format_date(start_date)}"
+
   defp format_sales_period(nil, end_date), do: "Until #{format_date(end_date)}"
 
   defp format_sales_period(start_date, end_date),

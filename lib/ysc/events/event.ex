@@ -59,7 +59,9 @@ defmodule Ysc.Events.Event do
     field :publish_at, :utc_datetime
 
     # Who created the event (organizer)
-    belongs_to :organizer, Ysc.Accounts.User, foreign_key: :organizer_id, references: :id
+    belongs_to :organizer, Ysc.Accounts.User,
+      foreign_key: :organizer_id,
+      references: :id
 
     field :title, :string
     # Short description that will be displayed in the event list
@@ -85,7 +87,9 @@ defmodule Ysc.Events.Event do
     field :rendered_details, :string
 
     # Required: A cover image for the event to show in the list
-    belongs_to :cover_image, Ysc.Media.Image, foreign_key: :image_id, references: :id
+    belongs_to :cover_image, Ysc.Media.Image,
+      foreign_key: :image_id,
+      references: :id
 
     # When event starts
     field :start_date, :utc_datetime
@@ -169,7 +173,8 @@ defmodule Ysc.Events.Event do
     start_datetime = combine_date_time(start_date, start_time)
     end_datetime = combine_date_time(end_date, end_time)
 
-    if start_datetime && end_datetime && DateTime.compare(start_datetime, end_datetime) == :gt do
+    if start_datetime && end_datetime &&
+         DateTime.compare(start_datetime, end_datetime) == :gt do
       add_error(changeset, :start_date, "must be before the end date and time")
     else
       changeset
@@ -183,8 +188,13 @@ defmodule Ysc.Events.Event do
 
     start_datetime = combine_date_time(start_date, start_time)
 
-    if publish_at && start_datetime && DateTime.compare(publish_at, start_datetime) == :gt do
-      add_error(changeset, :publish_at, "must be before the event start date and time")
+    if publish_at && start_datetime &&
+         DateTime.compare(publish_at, start_datetime) == :gt do
+      add_error(
+        changeset,
+        :publish_at,
+        "must be before the event start date and time"
+      )
     else
       changeset
     end
@@ -200,7 +210,8 @@ defmodule Ysc.Events.Event do
     DateTime.from_naive!(naive_datetime, "Etc/UTC")
   end
 
-  defp combine_date_time(date, time) when not is_nil(date) and not is_nil(time) do
+  defp combine_date_time(date, time)
+       when not is_nil(date) and not is_nil(time) do
     NaiveDateTime.new!(date, time)
     |> DateTime.from_naive!("Etc/UTC")
   end

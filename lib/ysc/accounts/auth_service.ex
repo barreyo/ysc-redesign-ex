@@ -30,7 +30,12 @@ defmodule Ysc.Accounts.AuthService do
   @doc """
   Logs a failed login attempt.
   """
-  def log_login_failure(email, conn, failure_reason \\ "invalid_credentials", params \\ %{}) do
+  def log_login_failure(
+        email,
+        conn,
+        failure_reason \\ "invalid_credentials",
+        params \\ %{}
+      ) do
     auth_data = extract_auth_data(conn, params)
 
     auth_data =
@@ -123,14 +128,25 @@ defmodule Ysc.Accounts.AuthService do
     # Extract authentication method from params (google, facebook, passkey, email_password)
     auth_method =
       cond do
-        Map.has_key?(params, "method") -> Map.get(params, "method")
-        Map.has_key?(params, :method) -> Map.get(params, :method)
-        Map.has_key?(params, "provider") -> Map.get(params, "provider") |> to_string()
-        Map.has_key?(params, :provider) -> Map.get(params, :provider) |> to_string()
+        Map.has_key?(params, "method") ->
+          Map.get(params, "method")
+
+        Map.has_key?(params, :method) ->
+          Map.get(params, :method)
+
+        Map.has_key?(params, "provider") ->
+          Map.get(params, "provider") |> to_string()
+
+        Map.has_key?(params, :provider) ->
+          Map.get(params, :provider) |> to_string()
+
         # fallback for oauth without provider
-        Map.get(params, "oauth") == true -> "oauth"
+        Map.get(params, "oauth") == true ->
+          "oauth"
+
         # default for email/password login
-        true -> "email_password"
+        true ->
+          "email_password"
       end
 
     base_metadata = %{
@@ -212,7 +228,10 @@ defmodule Ysc.Accounts.AuthService do
       |> Ecto.Changeset.change(%{
         threat_indicators: threat_indicators,
         is_suspicious: true,
-        risk_score: AuthEvent.calculate_risk_score(%{threat_indicators: threat_indicators})
+        risk_score:
+          AuthEvent.calculate_risk_score(%{
+            threat_indicators: threat_indicators
+          })
       })
       |> Repo.update()
     end
@@ -383,7 +402,11 @@ defmodule Ysc.Accounts.AuthService do
           %{session_start: login_time, session_end: nil, is_active: true}
         else
           # Logout is more recent than login (user's last session ended)
-          %{session_start: login_time, session_end: logout_time, is_active: false}
+          %{
+            session_start: login_time,
+            session_end: logout_time,
+            is_active: false
+          }
         end
     end
   end

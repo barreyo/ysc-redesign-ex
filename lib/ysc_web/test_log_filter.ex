@@ -30,7 +30,8 @@ defmodule YscWeb.TestLogFilter do
         msg_str = IO.iodata_to_binary(msg)
 
         if String.contains?(msg_str, "disconnected") and
-             (String.contains?(msg_str, "owner") or String.contains?(msg_str, "client")) and
+             (String.contains?(msg_str, "owner") or
+                String.contains?(msg_str, "client")) and
              String.contains?(msg_str, "exited") do
           # Suppress this expected error
           :stop

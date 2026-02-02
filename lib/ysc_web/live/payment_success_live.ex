@@ -42,7 +42,8 @@ defmodule YscWeb.PaymentSuccessLive do
                 {:ok, redirect(socket, to: redirect_path)}
 
               {:error, reason} ->
-                Logger.error("Failed to redirect from payment success after retries",
+                Logger.error(
+                  "Failed to redirect from payment success after retries",
                   payment_intent_id: payment_intent_id,
                   user_id: user.id,
                   error: reason
@@ -68,7 +69,11 @@ defmodule YscWeb.PaymentSuccessLive do
           failure_message = get_failure_message(redirect_status)
 
           if payment_intent_id do
-            case redirect_to_failure_page(payment_intent_id, user, redirect_status) do
+            case redirect_to_failure_page(
+                   payment_intent_id,
+                   user,
+                   redirect_status
+                 ) do
               {:ok, redirect_path} ->
                 {:ok,
                  socket

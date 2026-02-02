@@ -38,7 +38,8 @@ defmodule Ysc.Controllers.StripePaymentMethodController do
     user = conn.assigns.user
     payment_method_id = params["payment_method_id"]
 
-    with {:ok, stripe_payment_method} <- retrieve_stripe_payment_method(payment_method_id),
+    with {:ok, stripe_payment_method} <-
+           retrieve_stripe_payment_method(payment_method_id),
          {:ok, _} <-
            Ysc.Payments.upsert_and_set_default_payment_method_from_stripe(
              user,
@@ -53,7 +54,10 @@ defmodule Ysc.Controllers.StripePaymentMethodController do
 
       conn
       |> assign(:user, updated_user)
-      |> json(%{success: true, message: "Payment method stored and set as default successfully"})
+      |> json(%{
+        success: true,
+        message: "Payment method stored and set as default successfully"
+      })
     else
       {:error, :stripe_error} ->
         conn
@@ -63,12 +67,18 @@ defmodule Ysc.Controllers.StripePaymentMethodController do
       {:error, %Stripe.Error{} = stripe_error} ->
         conn
         |> put_status(:bad_request)
-        |> json(%{error: "Failed to update Stripe customer", reason: stripe_error.message})
+        |> json(%{
+          error: "Failed to update Stripe customer",
+          reason: stripe_error.message
+        })
 
       {:error, %Ecto.Changeset{} = changeset} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{error: "Failed to store payment method", details: changeset.errors})
+        |> json(%{
+          error: "Failed to store payment method",
+          details: changeset.errors
+        })
 
       {:error, reason} ->
         conn

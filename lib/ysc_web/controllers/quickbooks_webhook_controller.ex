@@ -34,7 +34,9 @@ defmodule YscWeb.QuickbooksWebhookController do
   }
   """
   def webhook(conn, params) do
-    Logger.info("Received QuickBooks webhook", payload: inspect(params, limit: 100))
+    Logger.info("Received QuickBooks webhook",
+      payload: inspect(params, limit: 100)
+    )
 
     # Verify the intuit-signature header
     case verify_signature(conn) do
@@ -92,7 +94,9 @@ defmodule YscWeb.QuickbooksWebhookController do
     # Try both config paths for backwards compatibility
     verifier_token =
       Application.get_env(:ysc, :quickbooks_webhook_verifier_token) ||
-        get_in(Application.get_env(:ysc, :quickbooks, []), [:webhook_verifier_token])
+        get_in(Application.get_env(:ysc, :quickbooks, []), [
+          :webhook_verifier_token
+        ])
 
     if is_nil(verifier_token) || verifier_token == "" do
       Logger.warning("QuickBooks webhook verifier token not configured")
@@ -101,7 +105,9 @@ defmodule YscWeb.QuickbooksWebhookController do
       # Get the intuit-signature header
       signature_header =
         conn.req_headers
-        |> Enum.find(fn {key, _value} -> String.downcase(key) == "intuit-signature" end)
+        |> Enum.find(fn {key, _value} ->
+          String.downcase(key) == "intuit-signature"
+        end)
 
       case signature_header do
         {_key, signature} ->
@@ -119,7 +125,10 @@ defmodule YscWeb.QuickbooksWebhookController do
           end
 
         nil ->
-          Logger.warning("Missing intuit-signature header in QuickBooks webhook")
+          Logger.warning(
+            "Missing intuit-signature header in QuickBooks webhook"
+          )
+
           {:error, :missing_signature}
       end
     end
@@ -151,7 +160,8 @@ defmodule YscWeb.QuickbooksWebhookController do
             event_id = "#{realm_id}:#{entity_name}:#{entity_id}:#{operation}"
 
             # Only process BillPayment Create/Update operations
-            if entity_name == "BillPayment" and operation in ["Create", "Update"] do
+            if entity_name == "BillPayment" and
+                 operation in ["Create", "Update"] do
               try do
                 webhook_event =
                   Webhooks.create_webhook_event!(%{
@@ -167,7 +177,8 @@ defmodule YscWeb.QuickbooksWebhookController do
                   {:error, %Ysc.Webhooks.DuplicateWebhookEventError{}}
               end
             else
-              Logger.debug("Skipping QuickBooks webhook for non-BillPayment entity",
+              Logger.debug(
+                "Skipping QuickBooks webhook for non-BillPayment entity",
                 entity_name: entity_name,
                 operation: operation
               )

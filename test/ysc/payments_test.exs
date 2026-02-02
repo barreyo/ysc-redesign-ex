@@ -18,7 +18,12 @@ defmodule Ysc.PaymentsTest do
 
   describe "get_payment_method_by_provider/2" do
     test "returns payment method by provider and provider_id" do
-      method = create_payment_method_fixture(%{provider: :stripe, provider_id: "pm_test123"})
+      method =
+        create_payment_method_fixture(%{
+          provider: :stripe,
+          provider_id: "pm_test123"
+        })
+
       found = Payments.get_payment_method_by_provider(:stripe, "pm_test123")
       assert found.id == method.id
     end
@@ -45,8 +50,12 @@ defmodule Ysc.PaymentsTest do
   describe "get_default_payment_method/1" do
     test "returns default payment method for user" do
       user = user_fixture()
-      default = create_payment_method_fixture(%{user_id: user.id, is_default: true})
-      _other = create_payment_method_fixture(%{user_id: user.id, is_default: false})
+
+      default =
+        create_payment_method_fixture(%{user_id: user.id, is_default: true})
+
+      _other =
+        create_payment_method_fixture(%{user_id: user.id, is_default: false})
 
       found = Payments.get_default_payment_method(user)
       assert found.id == default.id
@@ -54,7 +63,10 @@ defmodule Ysc.PaymentsTest do
 
     test "returns nil when no default payment method" do
       user = user_fixture()
-      _method = create_payment_method_fixture(%{user_id: user.id, is_default: false})
+
+      _method =
+        create_payment_method_fixture(%{user_id: user.id, is_default: false})
+
       refute Payments.get_default_payment_method(user)
     end
   end
@@ -84,7 +96,9 @@ defmodule Ysc.PaymentsTest do
       method = create_payment_method_fixture()
       update_attrs = %{is_default: true}
 
-      assert {:ok, updated} = Payments.update_payment_method(method, update_attrs)
+      assert {:ok, updated} =
+               Payments.update_payment_method(method, update_attrs)
+
       assert updated.is_default == true
     end
   end
@@ -101,8 +115,12 @@ defmodule Ysc.PaymentsTest do
 
     test "sets new default when deleting default payment method" do
       user = user_fixture()
-      default = create_payment_method_fixture(%{user_id: user.id, is_default: true})
-      other = create_payment_method_fixture(%{user_id: user.id, is_default: false})
+
+      default =
+        create_payment_method_fixture(%{user_id: user.id, is_default: true})
+
+      other =
+        create_payment_method_fixture(%{user_id: user.id, is_default: false})
 
       assert {:ok, _} = Payments.delete_payment_method(default)
       # Reload other method
@@ -142,7 +160,8 @@ defmodule Ysc.PaymentsTest do
       Ysc.Repo.delete_all(
         from(pm in PaymentMethod,
           where:
-            pm.user_id == ^user.id and pm.provider == :stripe and pm.provider_id == ^unique_id
+            pm.user_id == ^user.id and pm.provider == :stripe and
+              pm.provider_id == ^unique_id
         )
       )
 
@@ -181,7 +200,9 @@ defmodule Ysc.PaymentsTest do
       {:ok, _} =
         Ysc.Repo.transaction(fn ->
           # Drop the unique index (it's an index, not a constraint)
-          Ysc.Repo.query!("DROP INDEX IF EXISTS payment_methods_provider_provider_id_index")
+          Ysc.Repo.query!(
+            "DROP INDEX IF EXISTS payment_methods_provider_provider_id_index"
+          )
 
           # Insert duplicate using raw SQL
           # Use an empty JSON object (not a string) for payload
@@ -224,7 +245,9 @@ defmodule Ysc.PaymentsTest do
         Postgrex.Error ->
           # Index might already exist or there might still be duplicates
           # Try to drop and recreate
-          Ysc.Repo.query!("DROP INDEX IF EXISTS payment_methods_provider_provider_id_index")
+          Ysc.Repo.query!(
+            "DROP INDEX IF EXISTS payment_methods_provider_provider_id_index"
+          )
 
           Ysc.Repo.query!(
             "CREATE UNIQUE INDEX payment_methods_provider_provider_id_index ON payment_methods(provider, provider_id)"
@@ -241,19 +264,29 @@ defmodule Ysc.PaymentsTest do
   describe "set_default_payment_method_if_none/2" do
     test "sets default when user has no default" do
       user = user_fixture()
-      method = create_payment_method_fixture(%{user_id: user.id, is_default: false})
 
-      assert {:ok, _} = Payments.set_default_payment_method_if_none(user, method)
+      method =
+        create_payment_method_fixture(%{user_id: user.id, is_default: false})
+
+      assert {:ok, _} =
+               Payments.set_default_payment_method_if_none(user, method)
+
       found = Payments.get_default_payment_method(user)
       assert found.id == method.id
     end
 
     test "does not set default when user already has one" do
       user = user_fixture()
-      existing_default = create_payment_method_fixture(%{user_id: user.id, is_default: true})
-      new_method = create_payment_method_fixture(%{user_id: user.id, is_default: false})
 
-      assert {:ok, _} = Payments.set_default_payment_method_if_none(user, new_method)
+      existing_default =
+        create_payment_method_fixture(%{user_id: user.id, is_default: true})
+
+      new_method =
+        create_payment_method_fixture(%{user_id: user.id, is_default: false})
+
+      assert {:ok, _} =
+               Payments.set_default_payment_method_if_none(user, new_method)
+
       found = Payments.get_default_payment_method(user)
       assert found.id == existing_default.id
     end

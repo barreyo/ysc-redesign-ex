@@ -57,7 +57,10 @@ defmodule Ysc.S3Config do
         if String.contains?(base_url, "tigris.dev") do
           # Tigris virtual-hosted style: https://<bucket-name>.fly.storage.tigris.dev
           base_url
-          |> String.replace("fly.storage.tigris.dev", "#{bucket}.fly.storage.tigris.dev")
+          |> String.replace(
+            "fly.storage.tigris.dev",
+            "#{bucket}.fly.storage.tigris.dev"
+          )
         else
           # Localstack or other custom endpoint
           base_url
@@ -121,7 +124,10 @@ defmodule Ysc.S3Config do
           # e.g., https://fly.storage.tigris.dev -> https://<bucket>.fly.storage.tigris.dev
           virtual_hosted_url =
             base_url
-            |> String.replace("fly.storage.tigris.dev", "#{bucket}.fly.storage.tigris.dev")
+            |> String.replace(
+              "fly.storage.tigris.dev",
+              "#{bucket}.fly.storage.tigris.dev"
+            )
 
           "#{virtual_hosted_url}/#{key}"
         else

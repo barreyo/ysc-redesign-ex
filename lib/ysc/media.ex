@@ -109,7 +109,12 @@ defmodule Ysc.Media do
             where: i.inserted_at < ^before_date
 
         start_at_year ->
-          end_date = DateTime.new!(Date.new!(start_at_year, 12, 31), ~T[23:59:59], "Etc/UTC")
+          end_date =
+            DateTime.new!(
+              Date.new!(start_at_year, 12, 31),
+              ~T[23:59:59],
+              "Etc/UTC"
+            )
 
           from i in query,
             where: i.inserted_at <= ^end_date
@@ -132,8 +137,11 @@ defmodule Ysc.Media do
 
     query =
       if year do
-        start_date = DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
-        end_date = DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
+        start_date =
+          DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
+
+        end_date =
+          DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
 
         from i in query,
           where: i.inserted_at >= ^start_date and i.inserted_at <= ^end_date
@@ -241,15 +249,22 @@ defmodule Ysc.Media do
     output_format = determine_output_format(original_format)
 
     # Ensure optimized output path uses correct extension
-    optimized_output_path = ensure_format_extension(optimized_output_path, output_format)
-    thumbnail_output_path = ensure_format_extension(thumbnail_output_path, output_format)
+    optimized_output_path =
+      ensure_format_extension(optimized_output_path, output_format)
+
+    thumbnail_output_path =
+      ensure_format_extension(thumbnail_output_path, output_format)
 
     # Create optimized version: maintain aspect ratio, cap at max dimensions, preserve quality
     optimized_image =
-      if original_width > @max_optimized_width or original_height > @max_optimized_height do
+      if original_width > @max_optimized_width or
+           original_height > @max_optimized_height do
         # Resize if too large, maintaining aspect ratio
         scale =
-          min(@max_optimized_width / original_width, @max_optimized_height / original_height)
+          min(
+            @max_optimized_width / original_width,
+            @max_optimized_height / original_height
+          )
 
         {:ok, resized} = Image.resize(meta_free_image, scale)
         resized
@@ -260,11 +275,15 @@ defmodule Ysc.Media do
 
     # Write optimized image with quality settings
     write_options = get_write_options(output_format, @optimized_quality)
-    _write_result = Image.write(optimized_image, optimized_output_path, write_options)
+
+    _write_result =
+      Image.write(optimized_image, optimized_output_path, write_options)
 
     # Create thumbnail (always 500px on longest side)
     {:ok, thumbnail_image} = Image.thumbnail(meta_free_image, @thumbnail_size)
-    _thumbnail_write_result = Image.write(thumbnail_image, thumbnail_output_path, write_options)
+
+    _thumbnail_write_result =
+      Image.write(thumbnail_image, thumbnail_output_path, write_options)
 
     upload_result =
       upload_files_to_s3(
@@ -394,7 +413,12 @@ defmodule Ysc.Media do
     # This ensures Blurhash won't create files in the seed directory
 
     # Generate blurhash from the temp file
-    result = Blurhash.downscale_and_encode(temp_image_path, @blur_hash_comp_x, @blur_hash_comp_y)
+    result =
+      Blurhash.downscale_and_encode(
+        temp_image_path,
+        @blur_hash_comp_x,
+        @blur_hash_comp_y
+      )
 
     blur_hash =
       case result do
@@ -415,7 +439,8 @@ defmodule Ysc.Media do
     potential_png = Path.join(original_dir, "#{original_base}.png")
 
     # Only clean up if the PNG exists and is in a seed/assets directory (to be safe)
-    if File.exists?(potential_png) and String.contains?(original_path, "seed/assets") do
+    if File.exists?(potential_png) and
+         String.contains?(original_path, "seed/assets") do
       try do
         File.rm(potential_png)
       rescue

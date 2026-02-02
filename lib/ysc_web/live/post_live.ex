@@ -69,7 +69,9 @@ defmodule YscWeb.PostLive do
               class="w-10 h-10 rounded-full"
             />
             <div class="text-left">
-              <p class="text-[10px] font-black text-zinc-900 uppercase tracking-widest">Post By</p>
+              <p class="text-[10px] font-black text-zinc-900 uppercase tracking-widest">
+                Post By
+              </p>
               <p class="text-sm font-medium text-zinc-500">
                 <%= String.capitalize(@post.author.first_name || "") %>
                 <%= String.capitalize(@post.author.last_name || "") %>
@@ -105,7 +107,8 @@ defmodule YscWeb.PostLive do
           alt={
             if @post.featured_image,
               do:
-                @post.featured_image.alt_text || @post.featured_image.title || @post.title ||
+                @post.featured_image.alt_text || @post.featured_image.title ||
+                  @post.title ||
                   "Featured image",
               else: "Featured image"
           }
@@ -126,7 +129,10 @@ defmodule YscWeb.PostLive do
       </div>
 
       <%!-- Interactive "Discussion" Area --%>
-      <div :if={@post != nil && @current_user != nil} class="max-w-screen-lg mx-auto px-4 mt-16">
+      <div
+        :if={@post != nil && @current_user != nil}
+        class="max-w-screen-lg mx-auto px-4 mt-16"
+      >
         <section class="max-w-2xl mx-auto">
           <div class="bg-white border border-zinc-200 rounded-xl p-10 shadow-sm">
             <div class="flex items-center gap-3 mb-8">
@@ -136,7 +142,12 @@ defmodule YscWeb.PostLive do
               </h2>
             </div>
 
-            <.form class="group mb-6" for={@form} id="primary-post-comment" phx-submit="save">
+            <.form
+              class="group mb-6"
+              for={@form}
+              id="primary-post-comment"
+              phx-submit="save"
+            >
               <.input
                 field={@form[:text]}
                 type="textarea"
@@ -164,7 +175,8 @@ defmodule YscWeb.PostLive do
             <div :if={!@comments_loaded && @n_comments > 0} class="space-y-4">
               <%= for _i <- 1..min(@n_comments, 3) do %>
                 <div class="flex gap-4 p-4 bg-zinc-50 rounded-lg animate-pulse">
-                  <div class="w-10 h-10 bg-zinc-200 rounded-full flex-shrink-0"></div>
+                  <div class="w-10 h-10 bg-zinc-200 rounded-full flex-shrink-0">
+                  </div>
                   <div class="flex-1 space-y-2">
                     <div class="h-3 bg-zinc-200 rounded w-1/4"></div>
                     <div class="h-4 bg-zinc-200 rounded w-full"></div>
@@ -174,7 +186,11 @@ defmodule YscWeb.PostLive do
               <% end %>
             </div>
 
-            <div :if={@comments_loaded} id={"comment-section-#{@post.id}"} phx-update="stream">
+            <div
+              :if={@comments_loaded}
+              id={"comment-section-#{@post.id}"}
+              phx-update="stream"
+            >
               <.comment
                 :for={{id, comment} <- @streams.comments}
                 id={id}
@@ -216,7 +232,8 @@ defmodule YscWeb.PostLive do
 
       post ->
         # Essential assigns for initial render (SEO-critical)
-        new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
+        new_comment_changeset =
+          Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
 
         socket =
           socket
@@ -237,7 +254,8 @@ defmodule YscWeb.PostLive do
           YscWeb.Endpoint.subscribe(Posts.post_topic(post.id))
 
           # Load comments asynchronously (not needed for SEO)
-          {:ok, load_comments_async(socket, post.id), temporary_assigns: [form: nil]}
+          {:ok, load_comments_async(socket, post.id),
+           temporary_assigns: [form: nil]}
         else
           {:ok, socket, temporary_assigns: [form: nil]}
         end
@@ -256,7 +274,8 @@ defmodule YscWeb.PostLive do
   def handle_async(:load_comments, {:ok, sorted_comments}, socket) do
     # Re-assign the form since temporary_assigns clears it after each render
     # The .comment component needs a valid form to render
-    new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
+    new_comment_changeset =
+      Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
 
     {:noreply,
      socket
@@ -269,7 +288,8 @@ defmodule YscWeb.PostLive do
     require Logger
     Logger.error("Failed to load comments async: #{inspect(reason)}")
     # Still need to provide a form even on error
-    new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
+    new_comment_changeset =
+      Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
 
     {:noreply,
      socket
@@ -282,7 +302,9 @@ defmodule YscWeb.PostLive do
     text_body = Map.get(comment, "text", "")
     # Ensure no bad stuff gets rendered ever
     # It will be escaped later for safety but lets be defensive
-    scrubbed_comment = Map.put(comment, "text", Scrubber.scrub(text_body, Scrubber.BasicHTML))
+    scrubbed_comment =
+      Map.put(comment, "text", Scrubber.scrub(text_body, Scrubber.BasicHTML))
+
     current_user = socket.assigns[:current_user]
 
     Posts.add_comment_to_post(scrubbed_comment, current_user)
@@ -291,9 +313,14 @@ defmodule YscWeb.PostLive do
   end
 
   @impl true
-  def handle_info(%Phoenix.Socket.Broadcast{event: "new_comment", payload: new_comment}, socket) do
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "new_comment", payload: new_comment},
+        socket
+      ) do
     loaded = Posts.get_comment!(new_comment.id, [:author])
-    new_comment_changeset = Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
+
+    new_comment_changeset =
+      Posts.Comment.new_comment_changeset(%Posts.Comment{}, %{})
 
     new_socket =
       socket
@@ -331,15 +358,22 @@ defmodule YscWeb.PostLive do
   defp get_reply_to_id(%Comment{comment_id: nil} = comment), do: comment.id
   defp get_reply_to_id(comment), do: comment.comment_id
 
-  defp featured_image_url(%Image{optimized_image_path: nil} = image), do: image.raw_image_path
-  defp featured_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
+  defp featured_image_url(%Image{optimized_image_path: nil} = image),
+    do: image.raw_image_path
+
+  defp featured_image_url(%Image{optimized_image_path: optimized_path}),
+    do: optimized_path
 
   defp get_blur_hash(%Image{blur_hash: nil}), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
   defp get_blur_hash(%Image{blur_hash: blur_hash}), do: blur_hash
 
   # Format board position using the lookup map
   defp format_board_position(position) when is_atom(position) do
-    Map.get(@board_position_to_title_lookup, position, String.capitalize(to_string(position)))
+    Map.get(
+      @board_position_to_title_lookup,
+      position,
+      String.capitalize(to_string(position))
+    )
   end
 
   defp format_board_position(position) when is_binary(position) do

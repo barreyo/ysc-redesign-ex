@@ -11,7 +11,9 @@ defmodule YscWeb.Workers.KeilaSubscriber do
   alias Ysc.Keila
 
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"email" => email, "action" => "subscribe"} = args}) do
+  def perform(%Oban.Job{
+        args: %{"email" => email, "action" => "subscribe"} = args
+      }) do
     project_id = args["project_id"]
     form_id = args["form_id"]
     first_name = args["first_name"]
@@ -40,7 +42,10 @@ defmodule YscWeb.Workers.KeilaSubscriber do
         :ok
 
       {:error, :not_configured} ->
-        Logger.debug("KeilaSubscriber: Keila not configured, skipping", email: email)
+        Logger.debug("KeilaSubscriber: Keila not configured, skipping",
+          email: email
+        )
+
         :ok
 
       {:error, :invalid_email} ->
@@ -57,7 +62,9 @@ defmodule YscWeb.Workers.KeilaSubscriber do
     end
   end
 
-  def perform(%Oban.Job{args: %{"email" => email, "action" => "unsubscribe"} = args}) do
+  def perform(%Oban.Job{
+        args: %{"email" => email, "action" => "unsubscribe"} = args
+      }) do
     project_id = args["project_id"]
 
     Logger.info("KeilaSubscriber: Starting unsubscribe",
@@ -74,7 +81,10 @@ defmodule YscWeb.Workers.KeilaSubscriber do
         :ok
 
       {:error, :not_configured} ->
-        Logger.debug("KeilaSubscriber: Keila not configured, skipping", email: email)
+        Logger.debug("KeilaSubscriber: Keila not configured, skipping",
+          email: email
+        )
+
         :ok
 
       {:error, :invalid_email} ->

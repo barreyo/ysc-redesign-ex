@@ -57,13 +57,19 @@ defmodule YscWeb.CoreComponents.SwiftUI do
       ~w(TextFieldLink DatePicker MultiDatePicker Picker SecureField Slider Stepper TextEditor TextField Toggle hidden)
 
   attr :field, Phoenix.HTML.FormField,
-    doc: "a form field struct retrieved from the form, for example: `@form[:email]`"
+    doc:
+      "a form field struct retrieved from the form, for example: `@form[:email]`"
 
   attr :errors, :list, default: []
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
-  attr :options, :list, doc: "the options to pass to `Phoenix.HTML.Form.options_for_select/2`"
-  attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
+
+  attr :options, :list,
+    doc: "the options to pass to `Phoenix.HTML.Form.options_for_select/2`"
+
+  attr :multiple, :boolean,
+    default: false,
+    doc: "the multiple flag for select inputs"
 
   attr :min, :any, default: nil
   attr :max, :any, default: nil
@@ -84,7 +90,9 @@ defmodule YscWeb.CoreComponents.SwiftUI do
     assigns
     |> assign(field: nil, id: assigns.id || field.id)
     |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
-    |> assign_new(:name, fn -> if assigns.multiple, do: field.name <> "[]", else: field.name end)
+    |> assign_new(:name, fn ->
+      if assigns.multiple, do: field.name <> "[]", else: field.name
+    end)
     |> assign_new(:value, fn -> field.value end)
     |> assign(
       :rest,
@@ -327,10 +335,16 @@ defmodule YscWeb.CoreComponents.SwiftUI do
   attr :id, :string, doc: "the optional id of flash container"
   attr :flash, :map, default: %{}, doc: "the map of flash messages to display"
   attr :title, :string, default: nil
-  attr :kind, :atom, values: [:info, :error], doc: "used for styling and flash lookup"
-  attr :rest, :global, doc: "the arbitrary attributes to add to the flash container"
 
-  slot :inner_block, doc: "the optional inner block that renders the flash message"
+  attr :kind, :atom,
+    values: [:info, :error],
+    doc: "used for styling and flash lookup"
+
+  attr :rest, :global,
+    doc: "the arbitrary attributes to add to the flash container"
+
+  slot :inner_block,
+    doc: "the optional inner block that renders the flash message"
 
   def flash(assigns) do
     assigns = assign_new(assigns, :id, fn -> "flash-#{assigns.kind}" end)
@@ -362,7 +376,10 @@ defmodule YscWeb.CoreComponents.SwiftUI do
       <.flash_group flash={@flash} />
   """
   attr :flash, :map, required: true, doc: "the map of flash messages"
-  attr :id, :string, default: "flash-group", doc: "the optional id of flash container"
+
+  attr :id, :string,
+    default: "flash-group",
+    doc: "the optional id of flash container"
 
   def flash_group(assigns) do
     ~LVN"""
@@ -391,10 +408,14 @@ defmodule YscWeb.CoreComponents.SwiftUI do
   @doc type: :component
 
   attr :for, :any, required: true, doc: "the datastructure for the form"
-  attr :as, :any, default: nil, doc: "the server side parameter to collect all input under"
+
+  attr :as, :any,
+    default: nil,
+    doc: "the server side parameter to collect all input under"
 
   attr :rest, :global,
-    include: ~w(autocomplete name rel action enctype method novalidate target multipart),
+    include:
+      ~w(autocomplete name rel action enctype method novalidate target multipart),
     doc: "the arbitrary attributes to apply to the form tag"
 
   slot :inner_block, required: true
@@ -496,14 +517,18 @@ defmodule YscWeb.CoreComponents.SwiftUI do
   slot :inner_block, required: true
 
   def card(assigns) do
-    is_white = assigns.fill == ".white" or assigns.fill == "white" or assigns.fill == nil
+    is_white =
+      assigns.fill == ".white" or assigns.fill == "white" or assigns.fill == nil
 
     # Build style array in Elixir to avoid @ variables in style attribute
     style_array =
       [
         "padding(#{assigns.padding})",
         "frame(maxWidth: .infinity, alignment: .topLeading)",
-        if(is_white, do: "background(.white)", else: "background(#{assigns.fill})"),
+        if(is_white,
+          do: "background(.white)",
+          else: "background(#{assigns.fill})"
+        ),
         "clipShape(RoundedRectangle(cornerRadius: #{assigns.corner_radius}))",
         "shadow(color: .black.opacity(#{assigns.shadow_opacity}), radius: #{assigns.shadow_radius}, x: #{assigns.shadow_x}, y: #{assigns.shadow_y})"
       ]
@@ -534,17 +559,22 @@ defmodule YscWeb.CoreComponents.SwiftUI do
 
   attr :id, :string, required: true
   attr :rows, :list, required: true
-  attr :row_id, :any, default: nil, doc: "the function for generating the row id"
+
+  attr :row_id, :any,
+    default: nil,
+    doc: "the function for generating the row id"
 
   attr :row_item, :any,
     default: &Function.identity/1,
-    doc: "the function for mapping each row before calling the :col and :action slots"
+    doc:
+      "the function for mapping each row before calling the :col and :action slots"
 
   slot :col, required: true do
     attr :label, :string
   end
 
-  slot :action, doc: "the slot for showing user actions in the last table column"
+  slot :action,
+    doc: "the slot for showing user actions in the last table column"
 
   def table(assigns) do
     ~LVN"""
@@ -623,7 +653,11 @@ defmodule YscWeb.CoreComponents.SwiftUI do
   """
   @doc type: :component
   attr :size, :integer, default: 120
-  attr :url, :string, default: "/images/ysc_logo.png", doc: "override the logo URL"
+
+  attr :url, :string,
+    default: "/images/ysc_logo.png",
+    doc: "override the logo URL"
+
   attr :rest, :global
 
   def logo(assigns) do
@@ -651,7 +685,8 @@ defmodule YscWeb.CoreComponents.SwiftUI do
   def absolutize_url(url) when is_binary(url) do
     base =
       case {System.get_env("LVN_DEV_HOST"), System.get_env("LVN_DEV_PORT")} do
-        {host, port} when is_binary(host) and host != "" and is_binary(port) and port != "" ->
+        {host, port}
+        when is_binary(host) and host != "" and is_binary(port) and port != "" ->
           "http://#{host}:#{port}"
 
         _ ->

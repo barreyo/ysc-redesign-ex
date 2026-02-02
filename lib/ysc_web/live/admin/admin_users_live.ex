@@ -54,10 +54,21 @@ defmodule YscWeb.AdminUsersLive do
           <.input
             type="select"
             field={@form[:state]}
-            options={["active", "pending_approval", "rejected", "suspended", "deleted"]}
+            options={[
+              "active",
+              "pending_approval",
+              "rejected",
+              "suspended",
+              "deleted"
+            ]}
             label="State"
           />
-          <.input type="select" field={@form[:role]} options={["member", "admin"]} label="State" />
+          <.input
+            type="select"
+            field={@form[:role]}
+            options={["member", "admin"]}
+            label="State"
+          />
 
           <div class="flex flex-row justify-end w-full pt-8">
             <button
@@ -89,14 +100,20 @@ defmodule YscWeb.AdminUsersLive do
             This application has already been reviewed. It was
             <span>
               <.badge type={
-                if @selected_user_application.review_outcome == :approved, do: "green", else: "red"
+                if @selected_user_application.review_outcome == :approved,
+                  do: "green",
+                  else: "red"
               }>
                 <%= @selected_user_application.review_outcome %>
               </.badge>
             </span>
             on
             <span class="font-semibold">
-              <%= Timex.format!(@selected_user_application.reviewed_at, "%Y-%m-%d", :strftime) %>
+              <%= Timex.format!(
+                @selected_user_application.reviewed_at,
+                "%Y-%m-%d",
+                :strftime
+              ) %>
             </span>
             by <span class="font-semibold"><%= @selected_user_application.reviewed_by.email %></span>.
           </p>
@@ -109,9 +126,13 @@ defmodule YscWeb.AdminUsersLive do
           </.badge>
         </p>
 
-        <h3 class="leading-6 text-zinc-800 font-semibold mb-2">Applicant Details</h3>
+        <h3 class="leading-6 text-zinc-800 font-semibold mb-2">
+          Applicant Details
+        </h3>
         <ul class="leading-6 text-zinc-800 text-sm pb-6">
-          <li><span class="font-semibold">Email:</span> <%= @selected_user.email %></li>
+          <li>
+            <span class="font-semibold">Email:</span> <%= @selected_user.email %>
+          </li>
           <li>
             <span class="font-semibold">Name:</span> <%= "#{@selected_user.first_name} #{@selected_user.last_name}" %>
           </li>
@@ -132,7 +153,9 @@ defmodule YscWeb.AdminUsersLive do
           </li>
         </ul>
 
-        <h3 class="leading-6 text-zinc-800 font-semibold mb-2">Application Answers</h3>
+        <h3 class="leading-6 text-zinc-800 font-semibold mb-2">
+          Application Answers
+        </h3>
         <ul class="leading-6 text-sm text-zinc-800 pb-6">
           <li>
             <span class="font-semibold">Membership type:</span> <%= @selected_user_application.membership_type %>
@@ -142,7 +165,10 @@ defmodule YscWeb.AdminUsersLive do
             <p class="font-semibold">Eligibility:</p>
             <ul class="space-y-1 text-zinc-800 list-disc list-inside">
               <li :for={reason <- @selected_user_application.membership_eligibility}>
-                <%= Map.get(Ysc.Accounts.SignupApplication.eligibility_lookup(), reason) %>
+                <%= Map.get(
+                  Ysc.Accounts.SignupApplication.eligibility_lookup(),
+                  reason
+                ) %>
               </li>
             </ul>
           </li>
@@ -228,8 +254,13 @@ defmodule YscWeb.AdminUsersLive do
             </.tooltip>
           </:button_block>
           <div class="w-full px-4 py-3">
-            <h3 class="leading-8 font-semibold text-zinc-800 mb-2">Include Fields</h3>
-            <form phx-submit="export-csv" class="flex flex-col gap-y-2 justify-between">
+            <h3 class="leading-8 font-semibold text-zinc-800 mb-2">
+              Include Fields
+            </h3>
+            <form
+              phx-submit="export-csv"
+              class="flex flex-col gap-y-2 justify-between"
+            >
               <%= for attr <- ~w(id email first_name last_name phone_number state)a do %>
                 <.input
                   field={@form[attr]}
@@ -250,12 +281,19 @@ defmodule YscWeb.AdminUsersLive do
               <.button
                 type="submit"
                 phx-disable-with="Exporting..."
-                disabled={!(@export_status == :not_exporting || @export_status == :failed)}
+                disabled={
+                  !(@export_status == :not_exporting || @export_status == :failed)
+                }
               >
-                <span :if={@export_status == :not_exporting || @export_status == :failed}>
+                <span :if={
+                  @export_status == :not_exporting || @export_status == :failed
+                }>
                   Export CSV
                 </span>
-                <.spinner :if={@export_status == :in_progress} class="w-6 h-6 mx-auto" />
+                <.spinner
+                  :if={@export_status == :in_progress}
+                  class="w-6 h-6 mx-auto"
+                />
                 <.icon
                   :if={@export_status == :complete}
                   name="hero-check-circle"
@@ -263,13 +301,19 @@ defmodule YscWeb.AdminUsersLive do
                 />
               </.button>
 
-              <.progress_bar :if={@export_status == :in_progress} progress={@export_progress} />
+              <.progress_bar
+                :if={@export_status == :in_progress}
+                progress={@export_progress}
+              />
 
               <p
                 :if={@export_status == :failed}
                 class="flex gap-1 mt-1 text-sm leading-6 text-rose-600"
               >
-                <.icon name="hero-exclamation-circle-mini" class="mt-0.5 w-5 h-5 flex-none" />
+                <.icon
+                  name="hero-exclamation-circle-mini"
+                  class="mt-0.5 w-5 h-5 flex-none"
+                />
                 <%= @export_error %>
               </p>
 
@@ -279,8 +323,15 @@ defmodule YscWeb.AdminUsersLive do
                 href={@file_export_path}
                 target="_blank"
               >
-                <.icon name="hero-document-check" class="mt-0.5 w-5 h-5 flex-none text-green-600" />
-                <span href={@file_export_path} target="_blank" class="text-blue-800 hover:underline">
+                <.icon
+                  name="hero-document-check"
+                  class="mt-0.5 w-5 h-5 flex-none text-green-600"
+                />
+                <span
+                  href={@file_export_path}
+                  target="_blank"
+                  class="text-blue-800 hover:underline"
+                >
                   Download file
                 </span>
               </a>
@@ -327,7 +378,11 @@ defmodule YscWeb.AdminUsersLive do
         </div>
         <div class="py-6 w-full">
           <div id="admin-user-filters" class="pb-4 flex">
-            <.dropdown id="filter-state-dropdown" class="group hover:bg-zinc-100" wide={false}>
+            <.dropdown
+              id="filter-state-dropdown"
+              class="group hover:bg-zinc-100"
+              wide={false}
+            >
               <:button_block>
                 <.icon
                   name="hero-funnel"
@@ -454,7 +509,10 @@ defmodule YscWeb.AdminUsersLive do
                           </.badge>
                           <%= if membership_inherited?(user) do %>
                             <.tooltip tooltip_text="Membership inherited from parent account">
-                              <.icon name="hero-users" class="w-4 h-4 text-zinc-500" />
+                              <.icon
+                                name="hero-users"
+                                class="w-4 h-4 text-zinc-500"
+                              />
                             </.tooltip>
                           <% end %>
                         </div>
@@ -465,7 +523,9 @@ defmodule YscWeb.AdminUsersLive do
                 <div class="flex justify-end pt-3 border-t border-zinc-200">
                   <button
                     :if={user.state == :pending_approval}
-                    phx-click={JS.navigate(~p"/admin/users/#{user.id}/review?#{@params}")}
+                    phx-click={
+                      JS.navigate(~p"/admin/users/#{user.id}/review?#{@params}")
+                    }
                     class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm"
                   >
                     Review
@@ -548,7 +608,12 @@ defmodule YscWeb.AdminUsersLive do
               <:col :let={{_, user}} label="Phone" field={:phone_number}>
                 <%= format_phone_number(user.phone_number) %>
               </:col>
-              <:col :let={{_, user}} label="State" field={:state} thead_th_attrs={[class: "dance"]}>
+              <:col
+                :let={{_, user}}
+                label="State"
+                field={:state}
+                thead_th_attrs={[class: "dance"]}
+              >
                 <.badge type={user_state_to_badge_type(user.state)}>
                   <%= user_state_to_readable(user.state) %>
                 </.badge>
@@ -573,7 +638,9 @@ defmodule YscWeb.AdminUsersLive do
               <:action :let={{_, user}} label="Action">
                 <button
                   :if={user.state == :pending_approval}
-                  phx-click={JS.navigate(~p"/admin/users/#{user.id}/review?#{@params}")}
+                  phx-click={
+                    JS.navigate(~p"/admin/users/#{user.id}/review?#{@params}")
+                  }
                   class="text-blue-600 font-semibold hover:underline cursor-pointer"
                 >
                   Review
@@ -608,7 +675,9 @@ defmodule YscWeb.AdminUsersLive do
               meta={@meta}
               path={~p"/admin/users"}
               opts={[
-                wrapper_attrs: [class: "flex items-center justify-center py-10 h-10 text-base"],
+                wrapper_attrs: [
+                  class: "flex items-center justify-center py-10 h-10 text-base"
+                ],
                 pagination_list_attrs: [
                   class: [
                     "flex gap-0 order-2 justify-center items-center"
@@ -636,7 +705,12 @@ defmodule YscWeb.AdminUsersLive do
     current_user = socket.assigns[:current_user]
 
     selected_user = Accounts.get_user!(id, [:family_members])
-    application = Accounts.get_signup_application_from_user_id!(id, current_user, [:reviewed_by])
+
+    application =
+      Accounts.get_signup_application_from_user_id!(id, current_user, [
+        :reviewed_by
+      ])
+
     user_changeset = Accounts.User.update_user_changeset(selected_user, %{})
 
     {:ok,
@@ -671,9 +745,16 @@ defmodule YscWeb.AdminUsersLive do
   end
 
   @spec handle_params(
-          %{optional(:__struct__) => Flop, optional(atom() | binary()) => any()},
+          %{
+            optional(:__struct__) => Flop,
+            optional(atom() | binary()) => any()
+          },
           any(),
-          atom() | %{:assigns => nil | maybe_improper_list() | map(), optional(any()) => any()}
+          atom()
+          | %{
+              :assigns => nil | maybe_improper_list() | map(),
+              optional(any()) => any()
+            }
         ) :: {:noreply, any()}
   def handle_params(params, _, socket) do
     search = params["search"]
@@ -700,15 +781,24 @@ defmodule YscWeb.AdminUsersLive do
   @spec handle_event(
           <<_::48>>,
           map(),
-          atom() | %{:assigns => nil | maybe_improper_list() | map(), optional(any()) => any()}
+          atom()
+          | %{
+              :assigns => nil | maybe_improper_list() | map(),
+              optional(any()) => any()
+            }
         ) :: {:noreply, any()}
   def handle_event("change", %{"search" => %{"query" => search_query}}, socket) do
-    new_params = Map.put(socket.assigns[:params], "search", %{"query" => search_query})
+    new_params =
+      Map.put(socket.assigns[:params], "search", %{"query" => search_query})
+
     {:noreply, push_patch(socket, to: ~p"/admin/users?#{new_params}")}
   end
 
-  def handle_event("change", %{"search" => search_query}, socket) when is_binary(search_query) do
-    new_params = Map.put(socket.assigns[:params], "search", %{"query" => search_query})
+  def handle_event("change", %{"search" => search_query}, socket)
+      when is_binary(search_query) do
+    new_params =
+      Map.put(socket.assigns[:params], "search", %{"query" => search_query})
+
     {:noreply, push_patch(socket, to: ~p"/admin/users?#{new_params}")}
   end
 
@@ -751,10 +841,13 @@ defmodule YscWeb.AdminUsersLive do
       end)
 
     new_params = Map.replace(params, "filters", updated_filters)
-    new_params = Map.put(new_params, "search", socket.assigns[:params]["search"])
+
+    new_params =
+      Map.put(new_params, "search", socket.assigns[:params]["search"])
 
     {:noreply,
-     assign(socket, :params, new_params) |> push_patch(to: ~p"/admin/users?#{new_params}")}
+     assign(socket, :params, new_params)
+     |> push_patch(to: ~p"/admin/users?#{new_params}")}
   end
 
   def handle_event("approve-application", _params, socket) do
@@ -762,7 +855,12 @@ defmodule YscWeb.AdminUsersLive do
     application = socket.assigns[:selected_user_application]
     current_user = socket.assigns[:current_user]
 
-    case Accounts.record_application_outcome(:approved, user, application, current_user) do
+    case Accounts.record_application_outcome(
+           :approved,
+           user,
+           application,
+           current_user
+         ) do
       :ok ->
         YscWeb.Emails.Notifier.schedule_email(
           user.email,
@@ -794,8 +892,13 @@ defmodule YscWeb.AdminUsersLive do
         )
 
         # Schedule reminder emails if user hasn't paid
-        YscWeb.Workers.MembershipPaymentReminderWorker.schedule_7day_reminder(user.id)
-        YscWeb.Workers.MembershipPaymentReminderWorker.schedule_30day_reminder(user.id)
+        YscWeb.Workers.MembershipPaymentReminderWorker.schedule_7day_reminder(
+          user.id
+        )
+
+        YscWeb.Workers.MembershipPaymentReminderWorker.schedule_30day_reminder(
+          user.id
+        )
 
         {:noreply,
          socket
@@ -812,7 +915,12 @@ defmodule YscWeb.AdminUsersLive do
     application = socket.assigns[:selected_user_application]
     current_user = socket.assigns[:current_user]
 
-    case Accounts.record_application_outcome(:rejected, user, application, current_user) do
+    case Accounts.record_application_outcome(
+           :rejected,
+           user,
+           application,
+           current_user
+         ) do
       :ok ->
         YscWeb.Emails.Notifier.schedule_email(
           user.email,
@@ -861,7 +969,10 @@ defmodule YscWeb.AdminUsersLive do
   end
 
   def handle_info(
-        %Phoenix.Socket.Broadcast{event: "user_export:progress", payload: progress},
+        %Phoenix.Socket.Broadcast{
+          event: "user_export:progress",
+          payload: progress
+        },
         socket
       ) do
     {:noreply, socket |> assign(:export_progress, progress)}
@@ -882,12 +993,16 @@ defmodule YscWeb.AdminUsersLive do
      |> assign(:file_export_path, path)}
   end
 
-  def handle_info(%Phoenix.Socket.Broadcast{event: "user_export:failed", payload: msg}, socket) do
+  def handle_info(
+        %Phoenix.Socket.Broadcast{event: "user_export:failed", payload: msg},
+        socket
+      ) do
     current_user = socket.assigns[:current_user]
     topic = "exporter:#{current_user.id}"
     YscWeb.Endpoint.unsubscribe(topic)
 
-    {:noreply, socket |> assign(:export_status, :failed) |> assign(:export_error, msg)}
+    {:noreply,
+     socket |> assign(:export_status, :failed) |> assign(:export_error, msg)}
   end
 
   defp format_phone_number(phone_number) do
@@ -901,7 +1016,9 @@ defmodule YscWeb.AdminUsersLive do
     end
   end
 
-  defp maybe_update_filter(%{"value" => [""]} = filter), do: Map.replace(filter, "value", "")
+  defp maybe_update_filter(%{"value" => [""]} = filter),
+    do: Map.replace(filter, "value", "")
+
   defp maybe_update_filter(filter), do: filter
 
   defp no_results?([]), do: true

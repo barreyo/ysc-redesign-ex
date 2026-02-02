@@ -58,7 +58,10 @@ defmodule YscWeb.NewsLive do
       </div>
 
       <%!-- Modernized Featured Post - Impact Hero --%>
-      <div :if={@async_data_loaded && @featured != nil} class="max-w-screen-xl mx-auto px-4 mb-16">
+      <div
+        :if={@async_data_loaded && @featured != nil}
+        class="max-w-screen-xl mx-auto px-4 mb-16"
+      >
         <div id="featured" class="group">
           <.link
             navigate={~p"/posts/#{@featured.url_name}"}
@@ -83,7 +86,8 @@ defmodule YscWeb.NewsLive do
                   alt={
                     if @featured.featured_image,
                       do:
-                        @featured.featured_image.alt_text || @featured.featured_image.title ||
+                        @featured.featured_image.alt_text ||
+                          @featured.featured_image.title ||
                           @featured.title || "Featured news image",
                       else: "Featured news image"
                   }
@@ -105,7 +109,10 @@ defmodule YscWeb.NewsLive do
 
                   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mb-4 text-zinc-500 sm:text-white/80">
                     <span class="text-xs sm:text-sm font-black uppercase tracking-[0.1em]">
-                      <%= Timex.format!(@featured.published_on, "{Mshort} {D}, {YYYY}") %>
+                      <%= Timex.format!(
+                        @featured.published_on,
+                        "{Mshort} {D}, {YYYY}"
+                      ) %>
                     </span>
                     <span class="h-3 w-px bg-zinc-300 sm:bg-white/40"></span>
                     <span class="text-xs sm:text-sm font-bold uppercase tracking-widest">
@@ -137,7 +144,9 @@ defmodule YscWeb.NewsLive do
                         :if={@featured.author.board_position}
                         class="text-[10px] sm:text-xs text-zinc-500 sm:text-white/80 font-medium mt-0.5"
                       >
-                        YSC <%= format_board_position(@featured.author.board_position) %>
+                        YSC <%= format_board_position(
+                          @featured.author.board_position
+                        ) %>
                       </p>
                     </div>
                   </div>
@@ -151,7 +160,10 @@ defmodule YscWeb.NewsLive do
       <%!-- Balanced Masonry Grid --%>
       <div class="max-w-screen-xl mx-auto px-4">
         <%!-- Loading skeleton for posts grid --%>
-        <div :if={!@async_data_loaded} class="grid grid-cols-1 md:grid-cols-2 py-4 gap-8">
+        <div
+          :if={!@async_data_loaded}
+          class="grid grid-cols-1 md:grid-cols-2 py-4 gap-8"
+        >
           <%= for _i <- 1..4 do %>
             <div class="flex flex-col bg-white rounded-xl p-4 ring-1 ring-zinc-100 shadow-sm animate-pulse">
               <div class="aspect-[16/10] rounded-lg mb-8 bg-zinc-200"></div>
@@ -207,7 +219,8 @@ defmodule YscWeb.NewsLive do
                   alt={
                     if post.featured_image,
                       do:
-                        post.featured_image.alt_text || post.featured_image.title || post.title ||
+                        post.featured_image.alt_text || post.featured_image.title ||
+                          post.title ||
                           "News article image",
                       else: "News article image"
                   }
@@ -299,14 +312,21 @@ defmodule YscWeb.NewsLive do
       # Run queries in parallel
       tasks = [
         {:featured,
-         fn -> Posts.get_featured_post() |> Ysc.Repo.preload([:author, :featured_image]) end},
+         fn ->
+           Posts.get_featured_post()
+           |> Ysc.Repo.preload([:author, :featured_image])
+         end},
         {:post_count, fn -> Posts.count_published_posts() end},
         {:posts, fn -> Posts.list_posts(0, 10) end}
       ]
 
       tasks
-      |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
-      |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
+      |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end,
+        timeout: :infinity
+      )
+      |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc ->
+        Map.put(acc, key, value)
+      end)
     end)
   end
 
@@ -370,7 +390,8 @@ defmodule YscWeb.NewsLive do
         unique_posts = Enum.uniq_by(all_posts, & &1.id)
 
         # Sort by published_on descending to maintain chronological order
-        sorted_posts = Enum.sort_by(unique_posts, & &1.published_on, {:desc, DateTime})
+        sorted_posts =
+          Enum.sort_by(unique_posts, & &1.published_on, {:desc, DateTime})
 
         socket
         |> assign(:end_of_timeline?, length(new_posts) < per_page)
@@ -391,8 +412,12 @@ defmodule YscWeb.NewsLive do
   defp get_blur_hash(%Image{blur_hash: blur_hash}), do: blur_hash
 
   defp featured_image_url(nil), do: "/images/ysc_logo.png"
-  defp featured_image_url(%Image{optimized_image_path: nil} = image), do: image.raw_image_path
-  defp featured_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
+
+  defp featured_image_url(%Image{optimized_image_path: nil} = image),
+    do: image.raw_image_path
+
+  defp featured_image_url(%Image{optimized_image_path: optimized_path}),
+    do: optimized_path
 
   # Calculate reading time based on word count (average 225 words per minute)
   # Uses rendered_body if available, otherwise falls back to raw_body
@@ -404,7 +429,12 @@ defmodule YscWeb.NewsLive do
 
       post.raw_body && post.raw_body != "" ->
         # Strip HTML tags and count words
-        text = Scrubber.scrub(post.raw_body, YscWeb.Scrubber.StripEverythingExceptText)
+        text =
+          Scrubber.scrub(
+            post.raw_body,
+            YscWeb.Scrubber.StripEverythingExceptText
+          )
+
         word_count = count_words_in_text(text)
         calculate_minutes(word_count)
 
@@ -445,7 +475,11 @@ defmodule YscWeb.NewsLive do
 
   # Format board position using the lookup map
   defp format_board_position(position) when is_atom(position) do
-    Map.get(@board_position_to_title_lookup, position, String.capitalize(to_string(position)))
+    Map.get(
+      @board_position_to_title_lookup,
+      position,
+      String.capitalize(to_string(position))
+    )
   end
 
   defp format_board_position(position) when is_binary(position) do

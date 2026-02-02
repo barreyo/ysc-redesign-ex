@@ -39,10 +39,16 @@ defmodule Mix.Tasks.GenerateVideoPosters do
     total = length(results)
 
     if successful == total do
-      Mix.shell().info("✅ Successfully generated #{successful}/#{total} poster images")
+      Mix.shell().info(
+        "✅ Successfully generated #{successful}/#{total} poster images"
+      )
     else
       failed = total - successful
-      Mix.shell().error("⚠️  Generated #{successful}/#{total} poster images (#{failed} failed)")
+
+      Mix.shell().error(
+        "⚠️  Generated #{successful}/#{total} poster images (#{failed} failed)"
+      )
+
       System.halt(1)
     end
   end

@@ -28,7 +28,11 @@ defmodule Ysc.BookingsFixtures do
     # Buyout is only allowed in summer; ensure default checkin is in summer (May–Oct).
     checkin =
       if tahoe_winter_month?(checkin.month) do
-        year = if checkin.month in [1, 2, 3, 4], do: checkin.year, else: checkin.year + 1
+        year =
+          if checkin.month in [1, 2, 3, 4],
+            do: checkin.year,
+            else: checkin.year + 1
+
         may_first = Date.new!(year, 5, 1)
         first_monday_on_or_after(may_first)
       else

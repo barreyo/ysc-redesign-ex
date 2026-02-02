@@ -209,7 +209,8 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorkerTest do
       checkin_date = Date.add(Date.utc_today(), 5)
 
       # In inline mode, this may execute immediately or return job
-      result = BookingCheckinReminderWorker.schedule_reminder(booking_id, checkin_date)
+      result =
+        BookingCheckinReminderWorker.schedule_reminder(booking_id, checkin_date)
 
       # Result should be :ok or {:ok, job}
       assert result == :ok or match?({:ok, _}, result)
@@ -222,7 +223,8 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorkerTest do
       # Check-in is tomorrow (less than 3 days)
       checkin_date = Date.add(Date.utc_today(), 1)
 
-      result = BookingCheckinReminderWorker.schedule_reminder(booking.id, checkin_date)
+      result =
+        BookingCheckinReminderWorker.schedule_reminder(booking.id, checkin_date)
 
       # Should return :ok (sent immediately)
       assert result == :ok

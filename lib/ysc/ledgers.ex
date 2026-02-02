@@ -12,7 +12,15 @@ defmodule Ysc.Ledgers do
 
   import Ecto.Query, warn: false
   alias Ysc.Repo
-  alias Ysc.Ledgers.{LedgerAccount, LedgerEntry, LedgerTransaction, Payment, Refund, Payout}
+
+  alias Ysc.Ledgers.{
+    LedgerAccount,
+    LedgerEntry,
+    LedgerTransaction,
+    Payment,
+    Refund,
+    Payout
+  }
 
   alias YscWeb.Workers.{
     QuickbooksSyncPaymentWorker,
@@ -27,18 +35,24 @@ defmodule Ysc.Ledgers do
     # Asset accounts (debit-normal)
     {"cash", "asset", "debit", "Cash account for holding funds"},
     {"stripe_account", "asset", "debit", "Stripe account balance"},
-    {"accounts_receivable", "asset", "debit", "Outstanding payments from customers"},
+    {"accounts_receivable", "asset", "debit",
+     "Outstanding payments from customers"},
 
     # Liability accounts (credit-normal)
-    {"accounts_payable", "liability", "credit", "Outstanding payments to vendors"},
-    {"deferred_revenue", "liability", "credit", "Prepaid subscriptions and bookings"},
+    {"accounts_payable", "liability", "credit",
+     "Outstanding payments to vendors"},
+    {"deferred_revenue", "liability", "credit",
+     "Prepaid subscriptions and bookings"},
     {"refund_liability", "liability", "credit", "Pending refunds"},
 
     # Revenue accounts (credit-normal)
-    {"membership_revenue", "revenue", "credit", "Revenue from membership subscriptions"},
+    {"membership_revenue", "revenue", "credit",
+     "Revenue from membership subscriptions"},
     {"event_revenue", "revenue", "credit", "Revenue from event registrations"},
-    {"tahoe_booking_revenue", "revenue", "credit", "Revenue from Tahoe cabin bookings"},
-    {"clear_lake_booking_revenue", "revenue", "credit", "Revenue from Clear Lake cabin bookings"},
+    {"tahoe_booking_revenue", "revenue", "credit",
+     "Revenue from Tahoe cabin bookings"},
+    {"clear_lake_booking_revenue", "revenue", "credit",
+     "Revenue from Clear Lake cabin bookings"},
     {"donation_revenue", "revenue", "credit", "Revenue from donations"},
 
     # Expense accounts (debit-normal)
@@ -353,7 +367,8 @@ defmodule Ysc.Ledgers do
         # Report to Sentry
         require Logger
 
-        Logger.error("Failed to process event payment with donations and discounts in ledger",
+        Logger.error(
+          "Failed to process event payment with donations and discounts in ledger",
           user_id: user_id,
           total_amount: Money.to_string!(total_amount),
           gross_event_amount: Money.to_string!(gross_event_amount),
@@ -364,7 +379,8 @@ defmodule Ysc.Ledgers do
           error: inspect(error)
         )
 
-        Sentry.capture_message("Failed to process event payment with discounts in ledger",
+        Sentry.capture_message(
+          "Failed to process event payment with discounts in ledger",
           level: :error,
           extra: %{
             user_id: user_id,
@@ -475,7 +491,8 @@ defmodule Ysc.Ledgers do
           error: inspect(error)
         )
 
-        Sentry.capture_message("Failed to process mixed event/donation payment in ledger",
+        Sentry.capture_message(
+          "Failed to process mixed event/donation payment in ledger",
           level: :error,
           extra: %{
             user_id: user_id,
@@ -673,7 +690,8 @@ defmodule Ysc.Ledgers do
             payment_id: payment.id,
             amount: stripe_fee,
             debit_credit: :debit,
-            description: "Stripe processing fee for payment #{payment.reference_id}",
+            description:
+              "Stripe processing fee for payment #{payment.reference_id}",
             related_entity_type: :administration,
             related_entity_id: payment.id
           })
@@ -685,7 +703,8 @@ defmodule Ysc.Ledgers do
             payment_id: payment.id,
             amount: stripe_fee,
             debit_credit: :credit,
-            description: "Stripe fee deduction from receivable - #{payment.reference_id}",
+            description:
+              "Stripe fee deduction from receivable - #{payment.reference_id}",
             related_entity_type: :administration,
             related_entity_id: payment.id
           })
@@ -787,7 +806,8 @@ defmodule Ysc.Ledgers do
             payment_id: payment.id,
             amount: stripe_fee,
             debit_credit: :debit,
-            description: "Stripe processing fee for payment #{payment.reference_id}",
+            description:
+              "Stripe processing fee for payment #{payment.reference_id}",
             related_entity_type: :administration,
             related_entity_id: payment.id
           })
@@ -799,7 +819,8 @@ defmodule Ysc.Ledgers do
             payment_id: payment.id,
             amount: stripe_fee,
             debit_credit: :credit,
-            description: "Stripe fee deduction from receivable - #{payment.reference_id}",
+            description:
+              "Stripe fee deduction from receivable - #{payment.reference_id}",
             related_entity_type: :administration,
             related_entity_id: payment.id
           })
@@ -880,7 +901,8 @@ defmodule Ysc.Ledgers do
             payment_id: payment.id,
             amount: discount_amount,
             debit_credit: :debit,
-            description: "Revenue reduction from discount - Order #{ticket_order_id || "N/A"}",
+            description:
+              "Revenue reduction from discount - Order #{ticket_order_id || "N/A"}",
             related_entity_type: :event,
             related_entity_id: event_id
           })
@@ -893,7 +915,8 @@ defmodule Ysc.Ledgers do
             payment_id: payment.id,
             amount: discount_amount,
             debit_credit: :credit,
-            description: "Reserved ticket discount - Order #{ticket_order_id || "N/A"}",
+            description:
+              "Reserved ticket discount - Order #{ticket_order_id || "N/A"}",
             related_entity_type: :event,
             related_entity_id: event_id
           })
@@ -935,7 +958,8 @@ defmodule Ysc.Ledgers do
             payment_id: payment.id,
             amount: stripe_fee,
             debit_credit: :debit,
-            description: "Stripe processing fee for payment #{payment.reference_id}",
+            description:
+              "Stripe processing fee for payment #{payment.reference_id}",
             related_entity_type: :administration,
             related_entity_id: payment.id
           })
@@ -947,7 +971,8 @@ defmodule Ysc.Ledgers do
             payment_id: payment.id,
             amount: stripe_fee,
             debit_credit: :credit,
-            description: "Stripe fee deduction from receivable - #{payment.reference_id}",
+            description:
+              "Stripe fee deduction from receivable - #{payment.reference_id}",
             related_entity_type: :administration,
             related_entity_id: payment.id
           })
@@ -1001,7 +1026,8 @@ defmodule Ysc.Ledgers do
         if existing_refund do
           require Logger
 
-          Logger.info("Refund already processed, returning existing refund (idempotency)",
+          Logger.info(
+            "Refund already processed, returning existing refund (idempotency)",
             external_refund_id: external_refund_id,
             refund_id: existing_refund.id
           )
@@ -1015,7 +1041,9 @@ defmodule Ysc.Ledgers do
             |> Repo.one()
 
           # Return the existing refund wrapped in the error tuple for the caller to handle
-          Repo.rollback({:already_processed, existing_refund, existing_transaction})
+          Repo.rollback(
+            {:already_processed, existing_refund, existing_transaction}
+          )
         end
       end
 
@@ -1171,12 +1199,17 @@ defmodule Ysc.Ledgers do
 
     try do
       # Reload booking with associations
-      booking = Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
+      booking =
+        Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
 
       if booking && booking.user && payment && payment.user do
         # Prepare email data
         email_data =
-          YscWeb.Emails.BookingRefundProcessed.prepare_email_data(refund, booking, payment)
+          YscWeb.Emails.BookingRefundProcessed.prepare_email_data(
+            refund,
+            booking,
+            payment
+          )
 
         # Generate idempotency key
         idempotency_key = "booking_refund_processed_#{refund.id}"
@@ -1212,7 +1245,8 @@ defmodule Ysc.Ledgers do
             )
         end
       else
-        Logger.warning("Skipping booking refund processed email - missing booking or user",
+        Logger.warning(
+          "Skipping booking refund processed email - missing booking or user",
           refund_id: refund.id,
           booking_id: booking && booking.id
         )
@@ -1260,7 +1294,8 @@ defmodule Ysc.Ledgers do
           |> Repo.all()
 
         if Enum.empty?(refunded_tickets) do
-          Logger.warning("No refunded tickets found for ticket order refund email",
+          Logger.warning(
+            "No refunded tickets found for ticket order refund email",
             refund_id: refund.id,
             ticket_order_id: ticket_order.id
           )
@@ -1308,7 +1343,8 @@ defmodule Ysc.Ledgers do
           end
         end
       else
-        Logger.warning("Skipping ticket order refund email - missing ticket order or user",
+        Logger.warning(
+          "Skipping ticket order refund email - missing ticket order or user",
           refund_id: refund.id,
           ticket_order_id: ticket_order && ticket_order.id
         )
@@ -1428,7 +1464,8 @@ defmodule Ysc.Ledgers do
             payment_id: payment.id,
             amount: refund_amount,
             debit_credit: :credit,
-            description: "Revenue reversal - stripe account adjustment: #{reason}",
+            description:
+              "Revenue reversal - stripe account adjustment: #{reason}",
             related_entity_type: :administration,
             related_entity_id: payment.id
           })
@@ -1621,7 +1658,9 @@ defmodule Ysc.Ledgers do
 
     existing_link =
       from(pp in "payout_payments",
-        where: pp.payout_id == ^payout_id_binary and pp.payment_id == ^payment_id_binary,
+        where:
+          pp.payout_id == ^payout_id_binary and
+            pp.payment_id == ^payment_id_binary,
         select: pp.id,
         limit: 1
       )
@@ -1686,7 +1725,9 @@ defmodule Ysc.Ledgers do
 
     existing_link =
       from(pr in "payout_refunds",
-        where: pr.payout_id == ^payout_id_binary and pr.refund_id == ^refund_id_binary,
+        where:
+          pr.payout_id == ^payout_id_binary and
+            pr.refund_id == ^refund_id_binary,
         select: pr.id,
         limit: 1
       )
@@ -1916,7 +1957,8 @@ defmodule Ysc.Ledgers do
     # Check for booking entry
     booking_entry =
       Enum.find(entries, fn entry ->
-        to_string(entry.related_entity_type) == "booking" && entry.related_entity_id
+        to_string(entry.related_entity_type) == "booking" &&
+          entry.related_entity_id
       end)
 
     if booking_entry do
@@ -1977,7 +2019,9 @@ defmodule Ysc.Ledgers do
           # We look for entries with the same amount to find the matching pair
           # Convert to string to handle EctoEnum atoms
           entry_debit_credit_str = to_string(entry.debit_credit)
-          opposite_type = if entry_debit_credit_str == "debit", do: "credit", else: "debit"
+
+          opposite_type =
+            if entry_debit_credit_str == "debit", do: "credit", else: "debit"
 
           # Find the corresponding entry by loading matching entries and filtering in Elixir
           # This avoids PostgreSQL type recognition issues with Money composite types in WHERE clauses
@@ -2007,7 +2051,9 @@ defmodule Ysc.Ledgers do
                     updated_entry
 
                   {:error, changeset} ->
-                    Repo.rollback({:error, {:corresponding_entry_update_failed, changeset}})
+                    Repo.rollback(
+                      {:error, {:corresponding_entry_update_failed, changeset}}
+                    )
                 end
               else
                 # No corresponding entry found - this might be okay for some entries
@@ -2091,9 +2137,14 @@ defmodule Ysc.Ledgers do
     |> Enum.sort_by(
       fn item ->
         case item do
-          %{payment: payment} when not is_nil(payment) -> payment.inserted_at
-          %{ticket_order: ticket_order} when not is_nil(ticket_order) -> ticket_order.inserted_at
-          _ -> DateTime.utc_now()
+          %{payment: payment} when not is_nil(payment) ->
+            payment.inserted_at
+
+          %{ticket_order: ticket_order} when not is_nil(ticket_order) ->
+            ticket_order.inserted_at
+
+          _ ->
+            DateTime.utc_now()
         end
       end,
       {:desc, DateTime}
@@ -2174,7 +2225,8 @@ defmodule Ysc.Ledgers do
     enriched_payments = batch_enrich_payments(payments)
 
     # Enrich free ticket orders (already preloaded, just need to format)
-    enriched_free_orders = Enum.map(free_ticket_orders, &enrich_free_ticket_order/1)
+    enriched_free_orders =
+      Enum.map(free_ticket_orders, &enrich_free_ticket_order/1)
 
     # Combine and sort by inserted_at
     all_items =
@@ -2249,23 +2301,31 @@ defmodule Ysc.Ledgers do
       )
       |> Repo.all()
       |> Enum.group_by(& &1.payment_id)
-      |> Enum.map(fn {payment_id, entries} -> {payment_id, List.first(entries)} end)
+      |> Enum.map(fn {payment_id, entries} ->
+        {payment_id, List.first(entries)}
+      end)
       |> Map.new()
 
     # Extract entity types and IDs
     event_payment_ids =
       revenue_entries_map
-      |> Enum.filter(fn {_id, entry} -> entry && entry.related_entity_type == :event end)
+      |> Enum.filter(fn {_id, entry} ->
+        entry && entry.related_entity_type == :event
+      end)
       |> Enum.map(fn {id, _entry} -> id end)
 
     booking_payment_ids =
       revenue_entries_map
-      |> Enum.filter(fn {_id, entry} -> entry && entry.related_entity_type == :booking end)
+      |> Enum.filter(fn {_id, entry} ->
+        entry && entry.related_entity_type == :booking
+      end)
       |> Enum.map(fn {id, _entry} -> id end)
 
     membership_payment_ids =
       revenue_entries_map
-      |> Enum.filter(fn {_id, entry} -> entry && entry.related_entity_type == :membership end)
+      |> Enum.filter(fn {_id, entry} ->
+        entry && entry.related_entity_type == :membership
+      end)
       |> Enum.map(fn {id, _entry} -> id end)
 
     # Batch load ticket orders for event payments
@@ -2277,7 +2337,9 @@ defmodule Ysc.Ledgers do
         )
         |> Repo.all()
         |> Enum.group_by(& &1.payment_id)
-        |> Enum.map(fn {payment_id, orders} -> {payment_id, List.first(orders)} end)
+        |> Enum.map(fn {payment_id, orders} ->
+          {payment_id, List.first(orders)}
+        end)
         |> Map.new()
       else
         %{}
@@ -2311,8 +2373,12 @@ defmodule Ysc.Ledgers do
     # Create a reverse map from payment_id to booking_id for lookup
     payment_to_booking_id_map =
       revenue_entries_map
-      |> Enum.filter(fn {_id, entry} -> entry && entry.related_entity_type == :booking end)
-      |> Enum.map(fn {payment_id, entry} -> {payment_id, entry.related_entity_id} end)
+      |> Enum.filter(fn {_id, entry} ->
+        entry && entry.related_entity_type == :booking
+      end)
+      |> Enum.map(fn {payment_id, entry} ->
+        {payment_id, entry.related_entity_id}
+      end)
       |> Map.new()
 
     # Batch load subscriptions for membership payments
@@ -2343,14 +2409,20 @@ defmodule Ysc.Ledgers do
     # Create a reverse map from payment_id to subscription_id for lookup
     payment_to_subscription_id_map =
       revenue_entries_map
-      |> Enum.filter(fn {_id, entry} -> entry && entry.related_entity_type == :membership end)
-      |> Enum.map(fn {payment_id, entry} -> {payment_id, entry.related_entity_id} end)
+      |> Enum.filter(fn {_id, entry} ->
+        entry && entry.related_entity_type == :membership
+      end)
+      |> Enum.map(fn {payment_id, entry} ->
+        {payment_id, entry.related_entity_id}
+      end)
       |> Map.new()
 
     # Enrich each payment using the preloaded data
     Enum.map(payments, fn payment ->
       revenue_entry = Map.get(revenue_entries_map, payment.id)
-      entity_type = if revenue_entry, do: revenue_entry.related_entity_type, else: nil
+
+      entity_type =
+        if revenue_entry, do: revenue_entry.related_entity_type, else: nil
 
       ticket_order = Map.get(ticket_orders_map, payment.id)
 
@@ -2360,7 +2432,9 @@ defmodule Ysc.Ledgers do
       subscription_id = Map.get(payment_to_subscription_id_map, payment.id)
 
       subscription =
-        if subscription_id, do: Map.get(subscriptions_map, subscription_id), else: nil
+        if subscription_id,
+          do: Map.get(subscriptions_map, subscription_id),
+          else: nil
 
       payment_info = %{
         payment: payment,
@@ -2385,7 +2459,10 @@ defmodule Ysc.Ledgers do
   defp enrich_payment_with_details(payment) do
     # Get the revenue ledger entry to determine payment type
     revenue_entry = get_revenue_entry_for_payment(payment.id)
-    entity_type = if revenue_entry, do: revenue_entry.related_entity_type, else: nil
+
+    entity_type =
+      if revenue_entry, do: revenue_entry.related_entity_type, else: nil
+
     entity_id = if revenue_entry, do: revenue_entry.related_entity_id, else: nil
 
     # Get ticket order if this is an event payment
@@ -2480,7 +2557,8 @@ defmodule Ysc.Ledgers do
   end
 
   defp build_ticket_order_description(ticket_order) do
-    event_title = if ticket_order.event, do: ticket_order.event.title, else: "Event"
+    event_title =
+      if ticket_order.event, do: ticket_order.event.title, else: "Event"
 
     if ticket_order.tickets && ticket_order.tickets != [] do
       tickets = ticket_order.tickets
@@ -2500,7 +2578,10 @@ defmodule Ysc.Ledgers do
     end
   end
 
-  defp build_payment_description(%{entity_type: :membership, subscription: subscription}) do
+  defp build_payment_description(%{
+         entity_type: :membership,
+         subscription: subscription
+       }) do
     if subscription do
       plan_type = get_membership_plan_type(subscription)
       "Membership Payment - #{String.capitalize(to_string(plan_type))}"
@@ -2509,9 +2590,13 @@ defmodule Ysc.Ledgers do
     end
   end
 
-  defp build_payment_description(%{entity_type: :membership}), do: "Membership Payment"
+  defp build_payment_description(%{entity_type: :membership}),
+    do: "Membership Payment"
 
-  defp build_payment_description(%{entity_type: :event, ticket_order: ticket_order})
+  defp build_payment_description(%{
+         entity_type: :event,
+         ticket_order: ticket_order
+       })
        when not is_nil(ticket_order) do
     event = ticket_order.event
     ticket_count = length(ticket_order.tickets || [])
@@ -2585,7 +2670,8 @@ defmodule Ysc.Ledgers do
 
     # Calculate balance based on debit/credit and account's normal_balance
     balance =
-      Enum.reduce(entries, Money.new(0, :USD), fn {entry_amount, debit_credit}, acc ->
+      Enum.reduce(entries, Money.new(0, :USD), fn {entry_amount, debit_credit},
+                                                  acc ->
         # Determine if this entry increases or decreases the account balance
         # Convert to strings to handle EctoEnum atoms/strings
         normal_balance_str = to_string(account.normal_balance)
@@ -2639,7 +2725,8 @@ defmodule Ysc.Ledgers do
 
     # Calculate balance based on debit/credit and account's normal_balance
     balance =
-      Enum.reduce(entries, Money.new(0, :USD), fn {entry_amount, debit_credit}, acc ->
+      Enum.reduce(entries, Money.new(0, :USD), fn {entry_amount, debit_credit},
+                                                  acc ->
         # Determine if this entry increases or decreases the account balance
         # Convert to strings to handle EctoEnum atoms/strings
         normal_balance_str = to_string(account.normal_balance)
@@ -2705,14 +2792,17 @@ defmodule Ysc.Ledgers do
         select: {e.account_id, e.amount, e.debit_credit}
       )
       |> Repo.all()
-      |> Enum.group_by(fn {account_id, _amount, _debit_credit} -> account_id end)
+      |> Enum.group_by(fn {account_id, _amount, _debit_credit} ->
+        account_id
+      end)
 
     # Calculate balance for each account using the pre-fetched entries
     Enum.map(accounts, fn account ->
       entries = Map.get(entries_by_account, account.id, [])
 
       balance =
-        Enum.reduce(entries, Money.new(0, :USD), fn {_account_id, entry_amount, debit_credit},
+        Enum.reduce(entries, Money.new(0, :USD), fn {_account_id, entry_amount,
+                                                     debit_credit},
                                                     acc ->
           normal_balance_str = to_string(account.normal_balance)
           debit_credit_str = to_string(debit_credit)
@@ -2883,15 +2973,25 @@ defmodule Ysc.Ledgers do
           entry ->
             case entry.related_entity_type do
               :membership ->
-                %{type: "Membership", details: get_membership_details(entry.related_entity_id)}
+                %{
+                  type: "Membership",
+                  details: get_membership_details(entry.related_entity_id)
+                }
 
               :event ->
-                %{type: "Event", details: get_event_details(entry.related_entity_id)}
+                %{
+                  type: "Event",
+                  details: get_event_details(entry.related_entity_id)
+                }
 
               :booking ->
                 %{
                   type: "Booking",
-                  details: get_booking_details(entry.related_entity_id, entry.account.name)
+                  details:
+                    get_booking_details(
+                      entry.related_entity_id,
+                      entry.account.name
+                    )
                 }
 
               :donation ->
@@ -2943,14 +3043,18 @@ defmodule Ysc.Ledgers do
       # Extract unique entity IDs for batch fetching
       event_ids =
         revenue_entries
-        |> Enum.filter(fn {_payment_id, entry} -> entry.related_entity_type == :event end)
+        |> Enum.filter(fn {_payment_id, entry} ->
+          entry.related_entity_type == :event
+        end)
         |> Enum.map(fn {_payment_id, entry} -> entry.related_entity_id end)
         |> Enum.uniq()
         |> Enum.filter(& &1)
 
       subscription_ids =
         revenue_entries
-        |> Enum.filter(fn {_payment_id, entry} -> entry.related_entity_type == :membership end)
+        |> Enum.filter(fn {_payment_id, entry} ->
+          entry.related_entity_type == :membership
+        end)
         |> Enum.map(fn {_payment_id, entry} -> entry.related_entity_id end)
         |> Enum.uniq()
         |> Enum.filter(& &1)
@@ -3021,8 +3125,12 @@ defmodule Ysc.Ledgers do
               entry ->
                 case entry.related_entity_type do
                   :membership ->
-                    subscription = Map.get(subscriptions, entry.related_entity_id)
-                    details = get_membership_details_from_subscription(subscription)
+                    subscription =
+                      Map.get(subscriptions, entry.related_entity_id)
+
+                    details =
+                      get_membership_details_from_subscription(subscription)
+
                     %{type: "Membership", details: details}
 
                   :event ->
@@ -3031,7 +3139,12 @@ defmodule Ysc.Ledgers do
                     %{type: "Event", details: details}
 
                   :booking ->
-                    details = get_booking_details(entry.related_entity_id, entry.account.name)
+                    details =
+                      get_booking_details(
+                        entry.related_entity_id,
+                        entry.account.name
+                      )
+
                     %{type: "Booking", details: details}
 
                   :donation ->
@@ -3110,7 +3223,8 @@ defmodule Ysc.Ledgers do
   end
 
   # Helper function to get membership details
-  defp get_membership_details(subscription_id) when is_binary(subscription_id) do
+  defp get_membership_details(subscription_id)
+       when is_binary(subscription_id) do
     case Ysc.Subscriptions.get_subscription(subscription_id) do
       nil ->
         "Unknown membership"
@@ -3118,7 +3232,8 @@ defmodule Ysc.Ledgers do
       subscription ->
         # Get subscription items to find the price ID
         # Preload subscription items and get the first one
-        subscription_with_items = Ysc.Repo.preload(subscription, :subscription_items)
+        subscription_with_items =
+          Ysc.Repo.preload(subscription, :subscription_items)
 
         case subscription_with_items.subscription_items do
           [] ->
@@ -3137,7 +3252,9 @@ defmodule Ysc.Ledgers do
   defp get_membership_plan_by_price_id(price_id) when is_binary(price_id) do
     membership_plans = Application.get_env(:ysc, :membership_plans, [])
 
-    case Enum.find(membership_plans, fn plan -> plan.stripe_price_id == price_id end) do
+    case Enum.find(membership_plans, fn plan ->
+           plan.stripe_price_id == price_id
+         end) do
       nil ->
         "Membership"
 
@@ -3161,7 +3278,8 @@ defmodule Ysc.Ledgers do
   defp get_event_details(_), do: "Event"
 
   # Helper function to get booking details
-  defp get_booking_details(booking_id, account_name) when is_binary(booking_id) do
+  defp get_booking_details(booking_id, account_name)
+       when is_binary(booking_id) do
     property =
       case account_name do
         "tahoe_booking_revenue" -> "Tahoe"
@@ -3311,7 +3429,10 @@ defmodule Ysc.Ledgers do
       # Only include accounts with non-zero balances
       not Money.equal?(balance, Money.new(0, :USD))
     end)
-    |> Enum.sort_by(fn {_account, balance} -> Money.to_decimal(balance) end, :desc)
+    |> Enum.sort_by(
+      fn {_account, balance} -> Money.to_decimal(balance) end,
+      :desc
+    )
   end
 
   @doc """
@@ -3369,7 +3490,8 @@ defmodule Ysc.Ledgers do
           total_difference: Money.to_string!(difference),
           account_count: length(account_balances),
           asset_accounts: length(Map.get(balances_by_type, "asset", [])),
-          liability_accounts: length(Map.get(balances_by_type, "liability", [])),
+          liability_accounts:
+            length(Map.get(balances_by_type, "liability", [])),
           revenue_accounts: length(Map.get(balances_by_type, "revenue", [])),
           expense_accounts: length(Map.get(balances_by_type, "expense", []))
         )

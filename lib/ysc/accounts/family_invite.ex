@@ -42,8 +42,15 @@ defmodule Ysc.Accounts.FamilyInvite do
   def changeset(invite, attrs) do
     invite
     |> cast(attrs, [:email, :token, :primary_user_id, :created_by_user_id])
-    |> validate_required([:email, :token, :primary_user_id, :created_by_user_id])
-    |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must have the @ sign and no spaces")
+    |> validate_required([
+      :email,
+      :token,
+      :primary_user_id,
+      :created_by_user_id
+    ])
+    |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/,
+      message: "must have the @ sign and no spaces"
+    )
     |> validate_length(:email, max: 160)
     |> unique_constraint(:token)
     |> put_expires_at()

@@ -8,7 +8,11 @@ defmodule YscWeb.Workers.KeilaSubscriberTest do
 
   setup do
     Application.put_env(:ysc, :keila_client, Ysc.KeilaMock)
-    on_exit(fn -> Application.put_env(:ysc, :keila_client, Ysc.Keila.ClientStub) end)
+
+    on_exit(fn ->
+      Application.put_env(:ysc, :keila_client, Ysc.Keila.ClientStub)
+    end)
+
     :ok
   end
 
@@ -50,6 +54,7 @@ defmodule YscWeb.Workers.KeilaSubscriberTest do
 
     test "handles invalid email error" do
       email = "invalid"
+
       # No expectation needed because Ysc.Keila.subscribe_email/2 returns early for invalid emails
 
       assert {:error, "Invalid email address"} =
@@ -60,7 +65,10 @@ defmodule YscWeb.Workers.KeilaSubscriberTest do
 
     test "handles not configured error as ok" do
       email = "test@example.com"
-      expect(Ysc.KeilaMock, :subscribe_email, fn ^email, _opts -> {:error, :not_configured} end)
+
+      expect(Ysc.KeilaMock, :subscribe_email, fn ^email, _opts ->
+        {:error, :not_configured}
+      end)
 
       assert :ok =
                KeilaSubscriber.perform(%Oban.Job{

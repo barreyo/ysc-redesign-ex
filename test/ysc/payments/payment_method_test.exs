@@ -24,7 +24,9 @@ defmodule Ysc.Payments.PaymentMethodTest do
   end
 
   describe "changeset/2 - required fields" do
-    test "creates valid changeset with all required fields for card", %{user: user} do
+    test "creates valid changeset with all required fields for card", %{
+      user: user
+    } do
       attrs = %{
         provider: :stripe,
         provider_id: "pm_test_123",

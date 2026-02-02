@@ -44,7 +44,8 @@ defmodule YscWeb.BookingCheckoutLive do
   end
 
   defp validate_user_signed_in(nil) do
-    {:error, {:redirect, ~p"/", "You must be signed in to complete your booking."}}
+    {:error,
+     {:redirect, ~p"/", "You must be signed in to complete your booking."}}
   end
 
   defp validate_user_signed_in(_user), do: :ok
@@ -90,7 +91,14 @@ defmodule YscWeb.BookingCheckoutLive do
   defp initialize_checkout(socket, booking, user, timezone) do
     case calculate_booking_price(booking) do
       {:ok, total_price, price_breakdown} ->
-        setup_checkout_socket(socket, booking, user, total_price, price_breakdown, timezone)
+        setup_checkout_socket(
+          socket,
+          booking,
+          user,
+          total_price,
+          price_breakdown,
+          timezone
+        )
 
       {:error, reason} ->
         {:ok,
@@ -100,7 +108,14 @@ defmodule YscWeb.BookingCheckoutLive do
     end
   end
 
-  defp setup_checkout_socket(socket, booking, user, total_price, price_breakdown, timezone) do
+  defp setup_checkout_socket(
+         socket,
+         booking,
+         user,
+         total_price,
+         price_breakdown,
+         timezone
+       ) do
     booking = Repo.preload(booking, [:user, :booking_guests])
     is_expired = booking_expired?(booking)
     {checkout_step, guest_info_form} = determine_checkout_step(booking, user)
@@ -129,10 +144,17 @@ defmodule YscWeb.BookingCheckoutLive do
     if is_expired do
       {:ok,
        assign(socket,
-         payment_error: "This booking has expired and is no longer available for payment."
+         payment_error:
+           "This booking has expired and is no longer available for payment."
        )}
     else
-      create_payment_intent_if_needed(socket, booking, total_price, user, checkout_step)
+      create_payment_intent_if_needed(
+        socket,
+        booking,
+        total_price,
+        user,
+        checkout_step
+      )
     end
   end
 
@@ -153,21 +175,40 @@ defmodule YscWeb.BookingCheckoutLive do
 
   defp load_family_members(user) do
     family_members = Ysc.Accounts.get_family_group(user)
-    other_family_members = Enum.reject(family_members, fn member -> member.id == user.id end)
+
+    other_family_members =
+      Enum.reject(family_members, fn member -> member.id == user.id end)
+
     {family_members, other_family_members}
   end
 
-  defp create_payment_intent_if_needed(socket, booking, total_price, user, :payment) do
+  defp create_payment_intent_if_needed(
+         socket,
+         booking,
+         total_price,
+         user,
+         :payment
+       ) do
     case create_payment_intent(booking, total_price, user) do
       {:ok, payment_intent} ->
-        {:ok, assign(socket, payment_intent: payment_intent, show_payment_form: true)}
+        {:ok,
+         assign(socket, payment_intent: payment_intent, show_payment_form: true)}
 
       {:error, reason} ->
-        {:ok, assign(socket, payment_error: "Failed to initialize payment: #{reason}")}
+        {:ok,
+         assign(socket,
+           payment_error: "Failed to initialize payment: #{reason}"
+         )}
     end
   end
 
-  defp create_payment_intent_if_needed(socket, _booking, _total_price, _user, _checkout_step) do
+  defp create_payment_intent_if_needed(
+         socket,
+         _booking,
+         _total_price,
+         _user,
+         _checkout_step
+       ) do
     {:ok, socket}
   end
 
@@ -215,9 +256,10 @@ defmodule YscWeb.BookingCheckoutLive do
                     do: "adult",
                     else: "adults" %>
                   <%= if @booking.children_count && @booking.children_count > 0 do %>
-                    , <%= @booking.children_count %> <%= if @booking.children_count == 1,
-                      do: "child",
-                      else: "children" %>
+                    , <%= @booking.children_count %> <%= if @booking.children_count ==
+                                                              1,
+                                                            do: "child",
+                                                            else: "children" %>
                   <% end %>
                 </span>
                 <%= if @booking.booking_mode == :room && Ecto.assoc_loaded?(@booking.rooms) &&
@@ -250,9 +292,10 @@ defmodule YscWeb.BookingCheckoutLive do
                                                                                              else:
                                                                                                "adults" %>
               <%= if @booking.children_count && @booking.children_count > 0 do %>
-                and <%= @booking.children_count %> <%= if @booking.children_count == 1,
-                  do: "child",
-                  else: "children" %>
+                and <%= @booking.children_count %> <%= if @booking.children_count ==
+                                                            1,
+                                                          do: "child",
+                                                          else: "children" %>
               <% end %>.
             </p>
             <%!-- Booking Representative Header --%>
@@ -271,16 +314,23 @@ defmodule YscWeb.BookingCheckoutLive do
                       <.user_avatar_image
                         email={assigns[:current_user].email || ""}
                         user_id={to_string(assigns[:current_user].id)}
-                        country={assigns[:current_user].most_connected_country || "SE"}
+                        country={
+                          assigns[:current_user].most_connected_country || "SE"
+                        }
                         class="w-full h-full object-cover"
                       />
                     <% else %>
-                      <.icon name="hero-user-circle" class="w-full h-full text-blue-600 p-2" />
+                      <.icon
+                        name="hero-user-circle"
+                        class="w-full h-full text-blue-600 p-2"
+                      />
                     <% end %>
                   </div>
                   <div class="flex-1">
                     <div class="flex items-center gap-2 mb-1">
-                      <p class="text-sm font-semibold text-blue-900">Booking Representative</p>
+                      <p class="text-sm font-semibold text-blue-900">
+                        Booking Representative
+                      </p>
                       <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-bold rounded">
                         Required
                       </span>
@@ -314,7 +364,9 @@ defmodule YscWeb.BookingCheckoutLive do
                   class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
                 >
                   <p class="text-sm font-semibold text-red-800">
-                    <%= error_count %> <%= if error_count == 1, do: "guest is", else: "guests are" %> missing required information.
+                    <%= error_count %> <%= if error_count == 1,
+                      do: "guest is",
+                      else: "guests are" %> missing required information.
                   </p>
                 </div>
               <% end %>
@@ -325,7 +377,9 @@ defmodule YscWeb.BookingCheckoutLive do
               class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
               role="alert"
             >
-              <p class="text-sm text-red-800"><%= @guest_info_errors[:general] %></p>
+              <p class="text-sm text-red-800">
+                <%= @guest_info_errors[:general] %>
+              </p>
             </div>
             <!-- Guest Information Form -->
             <form
@@ -337,7 +391,8 @@ defmodule YscWeb.BookingCheckoutLive do
               <div class="space-y-6">
                 <%= if @guest_info_form do %>
                   <%!-- Filter to only show guests up to the expected total --%>
-                  <% expected_total = (@booking.guests_count || 1) + (@booking.children_count || 0) %>
+                  <% expected_total =
+                    (@booking.guests_count || 1) + (@booking.children_count || 0) %>
                   <% guest_entries =
                     @guest_info_form.source
                     |> Enum.map(fn {index_str, guest_data} ->
@@ -365,8 +420,16 @@ defmodule YscWeb.BookingCheckoutLive do
                       name={"guests[#{index_str}][last_name]"}
                       value={Map.get(guest_data, "last_name", "")}
                     />
-                    <input type="hidden" name={"guests[#{index_str}][is_child]"} value="false" />
-                    <input type="hidden" name={"guests[#{index_str}][is_booking_user]"} value="true" />
+                    <input
+                      type="hidden"
+                      name={"guests[#{index_str}][is_child]"}
+                      value="false"
+                    />
+                    <input
+                      type="hidden"
+                      name={"guests[#{index_str}][is_booking_user]"}
+                      value="true"
+                    />
                     <input
                       type="hidden"
                       name={"guests[#{index_str}][order_index]"}
@@ -375,10 +438,13 @@ defmodule YscWeb.BookingCheckoutLive do
                   <% end %>
                   <%= for {index_str, guest_data} <- non_booking_guests do %>
                     <% index = String.to_integer(index_str) %>
-                    <% is_booking_user = Map.get(guest_data, "is_booking_user") == true %>
+                    <% is_booking_user =
+                      Map.get(guest_data, "is_booking_user") == true %>
                     <% is_child = Map.get(guest_data, "is_child") == true %>
-                    <% selected_family_members = @selected_family_members_for_guests || %{} %>
-                    <% selected_family_member_id = Map.get(selected_family_members, index_str) %>
+                    <% selected_family_members =
+                      @selected_family_members_for_guests || %{} %>
+                    <% selected_family_member_id =
+                      Map.get(selected_family_members, index_str) %>
                     <% selected_family_member =
                       if selected_family_member_id,
                         do:
@@ -386,18 +452,29 @@ defmodule YscWeb.BookingCheckoutLive do
                             to_string(u.id) == to_string(selected_family_member_id)
                           end),
                         else: nil %>
-                    <% has_selected_family_member = not is_nil(selected_family_member) %>
+                    <% has_selected_family_member =
+                      not is_nil(selected_family_member) %>
                     <% first_name =
                       cond do
-                        is_booking_user -> Map.get(guest_data, "first_name", "")
-                        has_selected_family_member -> selected_family_member.first_name || ""
-                        true -> Map.get(guest_data, "first_name", "")
+                        is_booking_user ->
+                          Map.get(guest_data, "first_name", "")
+
+                        has_selected_family_member ->
+                          selected_family_member.first_name || ""
+
+                        true ->
+                          Map.get(guest_data, "first_name", "")
                       end %>
                     <% last_name =
                       cond do
-                        is_booking_user -> Map.get(guest_data, "last_name", "")
-                        has_selected_family_member -> selected_family_member.last_name || ""
-                        true -> Map.get(guest_data, "last_name", "")
+                        is_booking_user ->
+                          Map.get(guest_data, "last_name", "")
+
+                        has_selected_family_member ->
+                          selected_family_member.last_name || ""
+
+                        true ->
+                          Map.get(guest_data, "last_name", "")
                       end %>
                     <div class={[
                       "flex items-start gap-4 p-4 rounded-r-lg shadow-sm",
@@ -450,7 +527,8 @@ defmodule YscWeb.BookingCheckoutLive do
                                       value={"family_#{family_member.id}"}
                                       selected={
                                         has_selected_family_member &&
-                                          selected_family_member.id == family_member.id
+                                          selected_family_member.id ==
+                                            family_member.id
                                       }
                                     >
                                       <%= family_member.first_name %> <%= family_member.last_name %>
@@ -458,7 +536,10 @@ defmodule YscWeb.BookingCheckoutLive do
                                   <% end %>
                                 </optgroup>
                               <% end %>
-                              <option value="other" selected={!has_selected_family_member}>
+                              <option
+                                value="other"
+                                selected={!has_selected_family_member}
+                              >
                                 Someone else (Enter details)
                               </option>
                             </select>
@@ -467,7 +548,10 @@ defmodule YscWeb.BookingCheckoutLive do
                         <%!-- Show badge when family member selected (only for adults), otherwise show form inputs --%>
                         <%= if !is_child && has_selected_family_member do %>
                           <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
-                            <.icon name="hero-check-circle" class="w-5 h-5 text-green-600" />
+                            <.icon
+                              name="hero-check-circle"
+                              class="w-5 h-5 text-green-600"
+                            />
                             <span class="text-xs font-semibold text-green-800">
                               Applied: <%= selected_family_member.first_name %> <%= selected_family_member.last_name %>
                             </span>
@@ -502,7 +586,10 @@ defmodule YscWeb.BookingCheckoutLive do
                               />
                               <%= if first_name != "" && (!@guest_info_errors[index_str] || !@guest_info_errors[index_str][:first_name]) do %>
                                 <div class="absolute right-2 top-1/2 -translate-y-1/2">
-                                  <.icon name="hero-check-circle" class="w-4 h-4 text-green-600" />
+                                  <.icon
+                                    name="hero-check-circle"
+                                    class="w-4 h-4 text-green-600"
+                                  />
                                 </div>
                               <% end %>
                             </div>
@@ -534,7 +621,10 @@ defmodule YscWeb.BookingCheckoutLive do
                               />
                               <%= if last_name != "" && (!@guest_info_errors[index_str] || !@guest_info_errors[index_str][:last_name]) do %>
                                 <div class="absolute right-2 top-1/2 -translate-y-1/2">
-                                  <.icon name="hero-check-circle" class="w-4 h-4 text-green-600" />
+                                  <.icon
+                                    name="hero-check-circle"
+                                    class="w-4 h-4 text-green-600"
+                                  />
                                 </div>
                               <% end %>
                             </div>
@@ -572,7 +662,11 @@ defmodule YscWeb.BookingCheckoutLive do
                         name={"guests[#{index_str}][is_booking_user]"}
                         value={if is_booking_user, do: "true", else: "false"}
                       />
-                      <input type="hidden" name={"guests[#{index_str}][order_index]"} value={index} />
+                      <input
+                        type="hidden"
+                        name={"guests[#{index_str}][order_index]"}
+                        value={index}
+                      />
                     </div>
                   <% end %>
                 <% end %>
@@ -609,7 +703,10 @@ defmodule YscWeb.BookingCheckoutLive do
           >
             <h2 class="text-xl font-bold mb-6">Secure Payment</h2>
             <!-- Payment Error -->
-            <div :if={@payment_error} class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div
+              :if={@payment_error}
+              class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
+            >
               <p class="text-sm text-red-800"><%= @payment_error %></p>
             </div>
             <!-- Payment Form -->
@@ -651,10 +748,17 @@ defmodule YscWeb.BookingCheckoutLive do
                 </div>
                 <%!-- Payment Icons --%>
                 <div class="flex items-center justify-center gap-3 pt-2">
-                  <span class="text-xs text-zinc-500 uppercase tracking-wide">Secure Payment</span>
+                  <span class="text-xs text-zinc-500 uppercase tracking-wide">
+                    Secure Payment
+                  </span>
                   <div class="flex items-center gap-2">
                     <%!-- Visa Logo --%>
-                    <svg class="w-10 h-6 opacity-70" viewBox="0 0 40 24" fill="none" aria-label="Visa">
+                    <svg
+                      class="w-10 h-6 opacity-70"
+                      viewBox="0 0 40 24"
+                      fill="none"
+                      aria-label="Visa"
+                    >
                       <rect width="40" height="24" rx="2" fill="#1A1F71" />
                       <path
                         d="M16.5 8.5h-2.5l-1.5 7h2.5l1.5-7zm8.5 4.5c0-1.5-2-2.5-2-3.5 0-.5.5-1 1.5-1 .5 0 1 .2 1.5.5l.5-2.5c-.5-.2-1-.5-2-.5-2.5 0-4 1.5-4 3.5 0 1.5 1.5 2.5 2.5 3 1 .5 1.5 1 1.5 1.5 0 1-1 1.5-2 1.5-.5 0-1-.2-1.5-.5l-.5 2.5c.5.2 1 .5 2 .5 2.5 0 4.5-1.5 4.5-3.5zm-6-4.5l-2 7h-2.5l2-7h2.5z"
@@ -711,7 +815,9 @@ defmodule YscWeb.BookingCheckoutLive do
         <aside class="space-y-6 lg:sticky lg:top-24">
           <!-- Hold Expiry Countdown -->
           <div
-            :if={@booking.hold_expires_at && (!assigns[:is_expired] || !@is_expired)}
+            :if={
+              @booking.hold_expires_at && (!assigns[:is_expired] || !@is_expired)
+            }
             class={[
               "border rounded-lg p-4",
               if(remaining_minutes(@booking.hold_expires_at) < 5,
@@ -731,7 +837,9 @@ defmodule YscWeb.BookingCheckoutLive do
               )
             ]}>
               <.icon name="hero-clock" class="w-4 h-4" />
-              <span class="text-xs font-semibold uppercase tracking-wide">Hold Expires</span>
+              <span class="text-xs font-semibold uppercase tracking-wide">
+                Hold Expires
+              </span>
             </div>
             <p class={[
               "text-sm leading-relaxed",
@@ -760,14 +868,18 @@ defmodule YscWeb.BookingCheckoutLive do
               type="button"
               class="lg:hidden w-full flex items-center justify-between mb-4"
               phx-click="toggle-price-details"
-              aria-expanded={if assigns[:show_price_details], do: "true", else: "false"}
+              aria-expanded={
+                if assigns[:show_price_details], do: "true", else: "false"
+              }
             >
               <h3 class="text-sm font-bold text-zinc-400 uppercase tracking-widest">
                 Price Details
               </h3>
               <.icon
                 name={
-                  if assigns[:show_price_details], do: "hero-chevron-up", else: "hero-chevron-down"
+                  if assigns[:show_price_details],
+                    do: "hero-chevron-up",
+                    else: "hero-chevron-down"
                 }
                 class="w-5 h-5 text-zinc-400"
               />
@@ -819,7 +931,9 @@ defmodule YscWeb.BookingCheckoutLive do
                 <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs">
                   4
                 </span>
-                <span>Access your booking details and manage your reservation anytime</span>
+                <span>
+                  Access your booking details and manage your reservation anytime
+                </span>
               </li>
             </ol>
           </div>
@@ -844,7 +958,10 @@ defmodule YscWeb.BookingCheckoutLive do
             class="flex-1"
             disabled={!all_guests_valid?(@guest_info_form, @booking)}
           >
-            Continue to Payment<.icon name="hero-arrow-right" class="w-5 h-5 -mt-1 ms-1" />
+            Continue to Payment<.icon
+              name="hero-arrow-right"
+              class="w-5 h-5 -mt-1 ms-1"
+            />
           </.button>
         </div>
       </div>
@@ -858,10 +975,15 @@ defmodule YscWeb.BookingCheckoutLive do
   def handle_event("validate-guest-info", %{"guests" => guest_params}, socket) do
     require Logger
     Logger.debug("[validate-guest-info] Event received")
-    Logger.debug("[validate-guest-info] Received guest_params: #{inspect(guest_params)}")
+
+    Logger.debug(
+      "[validate-guest-info] Received guest_params: #{inspect(guest_params)}"
+    )
 
     # Merge family member selections into guest_params before validation
-    selected_family_members = socket.assigns.selected_family_members_for_guests || %{}
+    selected_family_members =
+      socket.assigns.selected_family_members_for_guests || %{}
+
     other_family_members = socket.assigns.other_family_members || []
 
     Logger.debug(
@@ -908,7 +1030,8 @@ defmodule YscWeb.BookingCheckoutLive do
     )
 
     # Find and include the booking user entry from form source (it's not in the submitted params)
-    guest_info_form = socket.assigns.guest_info_form || to_form(%{}, as: "guests")
+    guest_info_form =
+      socket.assigns.guest_info_form || to_form(%{}, as: "guests")
 
     Logger.debug(
       "[validate-guest-info] guest_info_form.source keys: #{inspect(Map.keys(guest_info_form.source))}"
@@ -978,7 +1101,9 @@ defmodule YscWeb.BookingCheckoutLive do
 
     case build_guest_changesets(socket.assigns.booking, updated_guest_params) do
       {:ok, changesets} ->
-        Logger.debug("[validate-guest-info] Built #{length(changesets)} changesets")
+        Logger.debug(
+          "[validate-guest-info] Built #{length(changesets)} changesets"
+        )
 
         Logger.debug(
           "[validate-guest-info] Changesets valid status: #{inspect(Enum.map(changesets, & &1.valid?))}"
@@ -1005,7 +1130,9 @@ defmodule YscWeb.BookingCheckoutLive do
             end)
             |> Enum.sort_by(fn {index, _} -> index end)
             |> Enum.with_index()
-            |> Enum.reduce(%{}, fn {{original_index, _guest_attrs}, changeset_index}, acc ->
+            |> Enum.reduce(%{}, fn {{original_index, _guest_attrs},
+                                    changeset_index},
+                                   acc ->
               changeset = Enum.at(changesets, changeset_index)
 
               if changeset && not changeset.valid? do
@@ -1021,7 +1148,11 @@ defmodule YscWeb.BookingCheckoutLive do
                   end)
 
                 # Use the original index_str from the form to match template keys
-                Map.put(acc, Integer.to_string(original_index), changeset_errors)
+                Map.put(
+                  acc,
+                  Integer.to_string(original_index),
+                  changeset_errors
+                )
               else
                 acc
               end
@@ -1035,7 +1166,9 @@ defmodule YscWeb.BookingCheckoutLive do
         end
 
       {:error, error_message} when is_binary(error_message) ->
-        Logger.error("[validate-guest-info] Error building changesets: #{error_message}")
+        Logger.error(
+          "[validate-guest-info] Error building changesets: #{error_message}"
+        )
 
         {:noreply,
          assign(socket,
@@ -1085,7 +1218,10 @@ defmodule YscWeb.BookingCheckoutLive do
   @impl true
   def handle_event("select-guest-attendee", params, socket) do
     require Logger
-    Logger.debug("[select-guest-attendee] Event received with params: #{inspect(params)}")
+
+    Logger.debug(
+      "[select-guest-attendee] Event received with params: #{inspect(params)}"
+    )
 
     # Get guest_index from params - try phx-value-guest-index first, then extract from field name
     guest_index =
@@ -1128,9 +1264,14 @@ defmodule YscWeb.BookingCheckoutLive do
     )
 
     if guest_index && selected_value do
-      guest_info_form = socket.assigns.guest_info_form || to_form(%{}, as: "guests")
+      guest_info_form =
+        socket.assigns.guest_info_form || to_form(%{}, as: "guests")
+
       guests_for_me = socket.assigns.guests_for_me || %{}
-      selected_family_members = socket.assigns.selected_family_members_for_guests || %{}
+
+      selected_family_members =
+        socket.assigns.selected_family_members_for_guests || %{}
+
       other_family_members = socket.assigns.other_family_members || []
 
       {updated_guests_for_me, updated_selected_family_members, updated_form} =
@@ -1142,9 +1283,17 @@ defmodule YscWeb.BookingCheckoutLive do
                 "first_name" => "",
                 "last_name" => "",
                 "is_child" =>
-                  Map.get(guest_info_form.source[guest_index] || %{}, "is_child", false),
+                  Map.get(
+                    guest_info_form.source[guest_index] || %{},
+                    "is_child",
+                    false
+                  ),
                 "is_booking_user" =>
-                  Map.get(guest_info_form.source[guest_index] || %{}, "is_booking_user", false),
+                  Map.get(
+                    guest_info_form.source[guest_index] || %{},
+                    "is_booking_user",
+                    false
+                  ),
                 "order_index" =>
                   Map.get(
                     guest_info_form.source[guest_index] || %{},
@@ -1161,16 +1310,20 @@ defmodule YscWeb.BookingCheckoutLive do
               updated_form
             }
 
-          is_binary(selected_value) and String.starts_with?(selected_value, "family_") ->
+          is_binary(selected_value) and
+              String.starts_with?(selected_value, "family_") ->
             # Select a family member
             user_id_str = String.replace(selected_value, "family_", "")
 
             selected_user =
-              Enum.find(other_family_members, fn u -> to_string(u.id) == user_id_str end)
+              Enum.find(other_family_members, fn u ->
+                to_string(u.id) == user_id_str
+              end)
 
             if selected_user do
               # Get existing guest data to preserve metadata
-              existing_guest_data = Map.get(guest_info_form.source, guest_index, %{})
+              existing_guest_data =
+                Map.get(guest_info_form.source, guest_index, %{})
 
               Logger.debug(
                 "[select-guest-attendee] Existing guest data for index #{guest_index}: #{inspect(existing_guest_data)}"
@@ -1180,7 +1333,8 @@ defmodule YscWeb.BookingCheckoutLive do
                 "first_name" => selected_user.first_name || "",
                 "last_name" => selected_user.last_name || "",
                 "is_child" => Map.get(existing_guest_data, "is_child", false),
-                "is_booking_user" => Map.get(existing_guest_data, "is_booking_user", false),
+                "is_booking_user" =>
+                  Map.get(existing_guest_data, "is_booking_user", false),
                 "order_index" =>
                   Map.get(
                     existing_guest_data,
@@ -1193,7 +1347,9 @@ defmodule YscWeb.BookingCheckoutLive do
                 "[select-guest-attendee] Form data for index #{guest_index}: #{inspect(form_data)}"
               )
 
-              updated_form_source = Map.put(guest_info_form.source, guest_index, form_data)
+              updated_form_source =
+                Map.put(guest_info_form.source, guest_index, form_data)
+
               updated_form = %{guest_info_form | source: updated_form_source}
 
               Logger.debug(
@@ -1219,7 +1375,10 @@ defmodule YscWeb.BookingCheckoutLive do
         socket
         |> assign(:guest_info_form, updated_form)
         |> assign(:guests_for_me, updated_guests_for_me)
-        |> assign(:selected_family_members_for_guests, updated_selected_family_members)
+        |> assign(
+          :selected_family_members_for_guests,
+          updated_selected_family_members
+        )
 
       # Trigger validation by simulating a validate event with the current form data
       # This ensures all guest entries are preserved and validated
@@ -1249,11 +1408,18 @@ defmodule YscWeb.BookingCheckoutLive do
       # Call validate handler to ensure all data is preserved and errors are updated
       # IMPORTANT: The validate handler should preserve selected_family_members_for_guests
       {:noreply, validated_socket} =
-        handle_event("validate-guest-info", %{"guests" => validate_params}, updated_socket)
+        handle_event(
+          "validate-guest-info",
+          %{"guests" => validate_params},
+          updated_socket
+        )
 
       # Ensure selected_family_members_for_guests is preserved after validation
       final_socket =
-        if Map.get(validated_socket.assigns, :selected_family_members_for_guests) !=
+        if Map.get(
+             validated_socket.assigns,
+             :selected_family_members_for_guests
+           ) !=
              updated_selected_family_members do
           Logger.debug(
             "[select-guest-attendee] Restoring selected_family_members after validation was lost"
@@ -1290,14 +1456,24 @@ defmodule YscWeb.BookingCheckoutLive do
   def handle_event("save-guest-info", %{"guests" => guest_params}, socket) do
     require Logger
     Logger.debug("[save-guest-info] Event received")
-    Logger.debug("[save-guest-info] Received guest_params: #{inspect(guest_params)}")
+
+    Logger.debug(
+      "[save-guest-info] Received guest_params: #{inspect(guest_params)}"
+    )
 
     # Merge family member selections into guest_params before saving
-    selected_family_members = socket.assigns.selected_family_members_for_guests || %{}
+    selected_family_members =
+      socket.assigns.selected_family_members_for_guests || %{}
+
     other_family_members = socket.assigns.other_family_members || []
 
-    Logger.debug("[save-guest-info] selected_family_members: #{inspect(selected_family_members)}")
-    Logger.debug("[save-guest-info] other_family_members count: #{length(other_family_members)}")
+    Logger.debug(
+      "[save-guest-info] selected_family_members: #{inspect(selected_family_members)}"
+    )
+
+    Logger.debug(
+      "[save-guest-info] other_family_members count: #{length(other_family_members)}"
+    )
 
     # Update guest_params with family member data if selected
     updated_guest_params =
@@ -1335,13 +1511,16 @@ defmodule YscWeb.BookingCheckoutLive do
     )
 
     # Find and include the booking user entry from form source (it's not in the submitted params)
-    guest_info_form = socket.assigns.guest_info_form || to_form(%{}, as: "guests")
+    guest_info_form =
+      socket.assigns.guest_info_form || to_form(%{}, as: "guests")
 
     Logger.debug(
       "[save-guest-info] guest_info_form.source keys: #{inspect(Map.keys(guest_info_form.source))}"
     )
 
-    Logger.debug("[save-guest-info] guest_info_form.source: #{inspect(guest_info_form.source)}")
+    Logger.debug(
+      "[save-guest-info] guest_info_form.source: #{inspect(guest_info_form.source)}"
+    )
 
     # Merge all entries from form source, then update with submitted params
     # When a user types in a field, only that field's data is submitted via phx-change,
@@ -1382,7 +1561,9 @@ defmodule YscWeb.BookingCheckoutLive do
       "[save-guest-info] After merging form source, updated_guest_params keys: #{inspect(Map.keys(updated_guest_params))}"
     )
 
-    Logger.debug("[save-guest-info] Final updated_guest_params: #{inspect(updated_guest_params)}")
+    Logger.debug(
+      "[save-guest-info] Final updated_guest_params: #{inspect(updated_guest_params)}"
+    )
 
     Logger.debug(
       "[save-guest-info] Building changesets for booking: #{socket.assigns.booking.id}"
@@ -1405,12 +1586,21 @@ defmodule YscWeb.BookingCheckoutLive do
             # Reload booking to get guests
             booking =
               Repo.get!(Booking, socket.assigns.booking.id)
-              |> Repo.preload([:user, :booking_guests, :rooms, rooms: :room_category])
+              |> Repo.preload([
+                :user,
+                :booking_guests,
+                :rooms,
+                rooms: :room_category
+              ])
 
             # Create payment intent now that guests are saved
             user = socket.assigns.current_user
 
-            case create_payment_intent(booking, socket.assigns.total_price, user) do
+            case create_payment_intent(
+                   booking,
+                   socket.assigns.total_price,
+                   user
+                 ) do
               {:ok, payment_intent} ->
                 {:noreply,
                  socket
@@ -1422,7 +1612,10 @@ defmodule YscWeb.BookingCheckoutLive do
                    guest_info_form: nil,
                    guest_info_errors: %{}
                  )
-                 |> put_flash(:info, "Guest information saved. Please complete payment.")}
+                 |> put_flash(
+                   :info,
+                   "Guest information saved. Please complete payment."
+                 )}
 
               {:error, reason} ->
                 {:noreply,
@@ -1451,7 +1644,9 @@ defmodule YscWeb.BookingCheckoutLive do
         end
 
       {:error, error_message} when is_binary(error_message) ->
-        Logger.error("[save-guest-info] Error building changesets: #{error_message}")
+        Logger.error(
+          "[save-guest-info] Error building changesets: #{error_message}"
+        )
 
         {:noreply,
          assign(socket,
@@ -1527,23 +1722,33 @@ defmodule YscWeb.BookingCheckoutLive do
   end
 
   @impl true
-  def handle_event("payment-success", %{"payment_intent_id" => payment_intent_id}, socket) do
+  def handle_event(
+        "payment-success",
+        %{"payment_intent_id" => payment_intent_id},
+        socket
+      ) do
     # Check if booking has expired before processing payment
     if booking_expired?(socket.assigns.booking) do
       {:noreply,
        socket
        |> assign(
-         payment_error: "This booking has expired and is no longer available for payment.",
+         payment_error:
+           "This booking has expired and is no longer available for payment.",
          show_payment_form: false
        )
-       |> put_flash(:error, "This booking has expired. Please create a new booking.")}
+       |> put_flash(
+         :error,
+         "This booking has expired. Please create a new booking."
+       )}
     else
       case process_payment_success(socket.assigns.booking, payment_intent_id) do
         {:ok, booking} ->
           {:noreply,
            socket
            |> put_flash(:info, "Payment successful! Your booking is confirmed.")
-           |> push_navigate(to: ~p"/bookings/#{booking.id}/receipt?confetti=true")}
+           |> push_navigate(
+             to: ~p"/bookings/#{booking.id}/receipt?confetti=true"
+           )}
 
         {:error, reason} ->
           {:noreply,
@@ -1559,7 +1764,9 @@ defmodule YscWeb.BookingCheckoutLive do
     # Check if booking has expired
     if booking_expired?(socket.assigns.booking) do
       # Reload booking to get latest status
-      booking = Repo.get!(Booking, socket.assigns.booking.id) |> Repo.preload([:user, :rooms])
+      booking =
+        Repo.get!(Booking, socket.assigns.booking.id)
+        |> Repo.preload([:user, :rooms])
 
       {:noreply,
        socket
@@ -1567,9 +1774,13 @@ defmodule YscWeb.BookingCheckoutLive do
          booking: booking,
          is_expired: true,
          show_payment_form: false,
-         payment_error: "This booking has expired and is no longer available for payment."
+         payment_error:
+           "This booking has expired and is no longer available for payment."
        )
-       |> put_flash(:error, "This booking has expired. Please create a new booking.")}
+       |> put_flash(
+         :error,
+         "This booking has expired. Please create a new booking."
+       )}
     else
       # Schedule next check in 5 seconds
       Process.send_after(self(), :check_booking_expiration, 5_000)
@@ -1598,7 +1809,10 @@ defmodule YscWeb.BookingCheckoutLive do
               if breakdown && is_map(breakdown) do
                 Map.merge(breakdown, %{nights: nights})
               else
-                %{nights: nights, price_per_night: Money.div(total, nights) |> elem(1)}
+                %{
+                  nights: nights,
+                  price_per_night: Money.div(total, nights) |> elem(1)
+                }
               end
 
             {:ok, total, final_breakdown}
@@ -1640,7 +1854,10 @@ defmodule YscWeb.BookingCheckoutLive do
               # Fallback to stored pricing if recalculation fails
               if booking.total_price && booking.pricing_items do
                 {:ok, booking.total_price,
-                 extract_price_breakdown_from_pricing_items(booking.pricing_items, nights)}
+                 extract_price_breakdown_from_pricing_items(
+                   booking.pricing_items,
+                   nights
+                 )}
               else
                 error
               end
@@ -1660,7 +1877,10 @@ defmodule YscWeb.BookingCheckoutLive do
             # Use breakdown if available, otherwise create a simple one
             final_breakdown =
               if breakdown && is_map(breakdown) do
-                Map.merge(breakdown, %{nights: nights, guests_count: booking.guests_count})
+                Map.merge(breakdown, %{
+                  nights: nights,
+                  guests_count: booking.guests_count
+                })
               else
                 price_per_guest_per_night =
                   if nights > 0 and booking.guests_count > 0 do
@@ -1760,7 +1980,8 @@ defmodule YscWeb.BookingCheckoutLive do
       {:ok, payment_intent} ->
         if payment_intent.status == "succeeded" do
           # Reload booking to get latest status (webhook may have already confirmed it)
-          reloaded_booking = Repo.get!(Booking, booking.id) |> Repo.preload([:rooms, :user])
+          reloaded_booking =
+            Repo.get!(Booking, booking.id) |> Repo.preload([:rooms, :user])
 
           # Check if booking is already confirmed (e.g., by webhook)
           if reloaded_booking.status == :complete do
@@ -1784,7 +2005,8 @@ defmodule YscWeb.BookingCheckoutLive do
                     # Booking was confirmed between reload and confirm attempt (race condition)
                     # Reload again and return the confirmed booking
                     final_booking =
-                      Repo.get!(Booking, reloaded_booking.id) |> Repo.preload([:rooms, :user])
+                      Repo.get!(Booking, reloaded_booking.id)
+                      |> Repo.preload([:rooms, :user])
 
                     if final_booking.status == :complete do
                       Logger.info(
@@ -1803,12 +2025,18 @@ defmodule YscWeb.BookingCheckoutLive do
                     end
 
                   {:error, reason} ->
-                    Logger.error("Failed to confirm booking: #{inspect(reason)}")
+                    Logger.error(
+                      "Failed to confirm booking: #{inspect(reason)}"
+                    )
+
                     {:error, :booking_confirmation_failed}
                 end
 
               {:error, reason} ->
-                Logger.error("Failed to process ledger payment: #{inspect(reason)}")
+                Logger.error(
+                  "Failed to process ledger payment: #{inspect(reason)}"
+                )
+
                 {:error, :payment_processing_failed}
             end
           end
@@ -1825,10 +2053,14 @@ defmodule YscWeb.BookingCheckoutLive do
   defp process_ledger_payment(booking, payment_intent) do
     amount = cents_to_money(payment_intent.amount, :USD)
     # Use consolidated fee extraction from Stripe.WebhookHandler
-    stripe_fee = Ysc.Stripe.WebhookHandler.extract_stripe_fee_from_payment_intent(payment_intent)
+    stripe_fee =
+      Ysc.Stripe.WebhookHandler.extract_stripe_fee_from_payment_intent(
+        payment_intent
+      )
 
     # Extract and sync payment method to get our internal ULID
-    payment_method_id = extract_and_sync_payment_method(payment_intent, booking.user_id)
+    payment_method_id =
+      extract_and_sync_payment_method(payment_intent, booking.user_id)
 
     attrs = %{
       user_id: booking.user_id,
@@ -1856,7 +2088,8 @@ defmodule YscWeb.BookingCheckoutLive do
   defp extract_price_breakdown_from_pricing_items(pricing_items, nights)
        when is_map(pricing_items) do
     case pricing_items do
-      %{"type" => "room", "rooms" => rooms} when is_list(rooms) and rooms != [] ->
+      %{"type" => "room", "rooms" => rooms}
+      when is_list(rooms) and rooms != [] ->
         # Multiple rooms - for per-guest pricing, show single aggregated line item
         guests_count = pricing_items["guests_count"] || 0
         children_count = pricing_items["children_count"] || 0
@@ -1882,7 +2115,8 @@ defmodule YscWeb.BookingCheckoutLive do
     end
   end
 
-  defp extract_price_breakdown_from_pricing_items(_, nights), do: %{nights: nights}
+  defp extract_price_breakdown_from_pricing_items(_, nights),
+    do: %{nights: nights}
 
   # Helper to calculate price for multiple rooms (fallback)
   # For per-guest pricing, calculate once for total guests regardless of room count
@@ -1910,13 +2144,25 @@ defmodule YscWeb.BookingCheckoutLive do
          ) do
       {:ok, total, breakdown} when is_map(breakdown) ->
         breakdown_map =
-          build_multi_room_breakdown(breakdown, nights, guests_count, children_count, room_ids)
+          build_multi_room_breakdown(
+            breakdown,
+            nights,
+            guests_count,
+            children_count,
+            room_ids
+          )
 
         {:ok, total, breakdown_map}
 
       {:ok, total, breakdown} ->
         final_breakdown =
-          build_simple_breakdown(breakdown, nights, guests_count, children_count, room_ids)
+          build_simple_breakdown(
+            breakdown,
+            nights,
+            guests_count,
+            children_count,
+            room_ids
+          )
 
         {:ok, total, final_breakdown}
 
@@ -1925,14 +2171,21 @@ defmodule YscWeb.BookingCheckoutLive do
     end
   end
 
-  defp build_multi_room_breakdown(breakdown, nights, guests_count, children_count, room_ids) do
+  defp build_multi_room_breakdown(
+         breakdown,
+         nights,
+         guests_count,
+         children_count,
+         room_ids
+       ) do
     base_total = breakdown[:base]
     children_total = breakdown[:children]
     billable_people = breakdown[:billable_people] || guests_count
     adult_price_per_night = breakdown[:adult_price_per_night]
     children_price_per_night = breakdown[:children_price_per_night]
 
-    base_per_night = calculate_base_per_night(base_total, nights, adult_price_per_night)
+    base_per_night =
+      calculate_base_per_night(base_total, nights, adult_price_per_night)
 
     children_per_night =
       calculate_children_per_night(
@@ -2002,7 +2255,13 @@ defmodule YscWeb.BookingCheckoutLive do
     end
   end
 
-  defp build_simple_breakdown(breakdown, nights, guests_count, children_count, room_ids) do
+  defp build_simple_breakdown(
+         breakdown,
+         nights,
+         guests_count,
+         children_count,
+         room_ids
+       ) do
     base_data = %{
       nights: nights,
       guests_count: guests_count,
@@ -2067,7 +2326,8 @@ defmodule YscWeb.BookingCheckoutLive do
             is_binary(first_charge.payment_method) ->
               first_charge.payment_method
 
-            is_map(first_charge.payment_method) && Map.has_key?(first_charge.payment_method, :id) ->
+            is_map(first_charge.payment_method) &&
+                Map.has_key?(first_charge.payment_method, :id) ->
               first_charge.payment_method.id
 
             true ->
@@ -2088,7 +2348,8 @@ defmodule YscWeb.BookingCheckoutLive do
 
       pm_id when is_binary(pm_id) ->
         # Retrieve the full payment method from Stripe
-        stripe_client = Application.get_env(:ysc, :stripe_client, Ysc.StripeClient)
+        stripe_client =
+          Application.get_env(:ysc, :stripe_client, Ysc.StripeClient)
 
         case stripe_client.retrieve_payment_method(pm_id) do
           {:ok, stripe_payment_method} ->
@@ -2096,9 +2357,13 @@ defmodule YscWeb.BookingCheckoutLive do
             user = Ysc.Accounts.get_user!(user_id)
 
             # Sync the payment method to our database
-            case Ysc.Payments.sync_payment_method_from_stripe(user, stripe_payment_method) do
+            case Ysc.Payments.sync_payment_method_from_stripe(
+                   user,
+                   stripe_payment_method
+                 ) do
               {:ok, payment_method} ->
-                Logger.info("Successfully synced payment method for booking payment",
+                Logger.info(
+                  "Successfully synced payment method for booking payment",
                   payment_method_id: payment_method.id,
                   stripe_payment_method_id: pm_id,
                   user_id: user_id
@@ -2107,7 +2372,8 @@ defmodule YscWeb.BookingCheckoutLive do
                 payment_method.id
 
               {:error, reason} ->
-                Logger.warning("Failed to sync payment method for booking payment",
+                Logger.warning(
+                  "Failed to sync payment method for booking payment",
                   stripe_payment_method_id: pm_id,
                   user_id: user_id,
                   error: inspect(reason)
@@ -2162,13 +2428,15 @@ defmodule YscWeb.BookingCheckoutLive do
         <% children_count = @price_breakdown[:children_count] || 0 %>
         <% billable_people = @price_breakdown[:billable_people] || guests_count %>
         <% adult_price_per_night =
-          @price_breakdown[:adult_price_per_night] || @price_breakdown[:base_per_night] %>
+          @price_breakdown[:adult_price_per_night] ||
+            @price_breakdown[:base_per_night] %>
         <% children_price_per_night = @price_breakdown[:children_price_per_night] %>
         <% base_total = @price_breakdown[:base] %>
         <% children_total = @price_breakdown[:children] %>
         <!-- Calculate adult_price_per_night from base_total if not available -->
         <% adult_price_per_night =
-          if !adult_price_per_night && base_total && nights > 0 && billable_people > 0 do
+          if !adult_price_per_night && base_total && nights > 0 &&
+               billable_people > 0 do
             case Money.div(base_total, nights * billable_people) do
               {:ok, price} -> price
               _ -> nil
@@ -2192,7 +2460,9 @@ defmodule YscWeb.BookingCheckoutLive do
                  end) %>
           <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
             <div class="text-zinc-400">
-              <%= billable_people %> <%= if billable_people == 1, do: "adult", else: "adults" %>
+              <%= billable_people %> <%= if billable_people == 1,
+                do: "adult",
+                else: "adults" %>
             </div>
             <div class="text-right text-zinc-500 text-xs tabular-nums">
               <%= if adult_price_per_night do %>
@@ -2213,7 +2483,8 @@ defmodule YscWeb.BookingCheckoutLive do
         <%= if children_count > 0 && (children_total || children_price_per_night) do %>
           <% # Calculate children_price_per_night from children_total if not available
           calculated_children_price_per_night =
-            if !children_price_per_night && children_total && children_count > 0 && nights > 0 do
+            if !children_price_per_night && children_total && children_count > 0 &&
+                 nights > 0 do
               case Money.div(children_total, children_count * nights) do
                 {:ok, price} -> price
                 _ -> nil
@@ -2226,8 +2497,12 @@ defmodule YscWeb.BookingCheckoutLive do
             if children_total,
               do: children_total,
               else:
-                (if calculated_children_price_per_night && children_count > 0 && nights > 0 do
-                   case Money.mult(calculated_children_price_per_night, children_count * nights) do
+                (if calculated_children_price_per_night && children_count > 0 &&
+                      nights > 0 do
+                   case Money.mult(
+                          calculated_children_price_per_night,
+                          children_count * nights
+                        ) do
                      {:ok, total} -> total
                      _ -> nil
                    end
@@ -2236,7 +2511,9 @@ defmodule YscWeb.BookingCheckoutLive do
                  end) %>
           <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm mt-3">
             <div class="text-zinc-400">
-              <%= children_count %> <%= if children_count == 1, do: "child", else: "children" %>
+              <%= children_count %> <%= if children_count == 1,
+                do: "child",
+                else: "children" %>
             </div>
             <div class="text-right text-zinc-500 text-xs tabular-nums">
               <%= if calculated_children_price_per_night do %>
@@ -2263,7 +2540,9 @@ defmodule YscWeb.BookingCheckoutLive do
         <%= if guests_count > 0 && price_per_guest_per_night do %>
           <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm">
             <div class="text-zinc-400">
-              <%= guests_count %> <%= if guests_count == 1, do: "guest", else: "guests" %>
+              <%= guests_count %> <%= if guests_count == 1,
+                do: "guest",
+                else: "guests" %>
             </div>
             <div class="text-right text-zinc-500 text-xs tabular-nums">
               <%= MoneyHelper.format_money!(price_per_guest_per_night) %>/night
@@ -2344,7 +2623,8 @@ defmodule YscWeb.BookingCheckoutLive do
 
   defp booking_expired?(booking) do
     case booking do
-      %{status: :hold, hold_expires_at: hold_expires_at} when not is_nil(hold_expires_at) ->
+      %{status: :hold, hold_expires_at: hold_expires_at}
+      when not is_nil(hold_expires_at) ->
         DateTime.compare(DateTime.utc_now(), hold_expires_at) == :gt
 
       %{status: :hold} ->
@@ -2379,9 +2659,14 @@ defmodule YscWeb.BookingCheckoutLive do
     # Get guest counts from booking - ensure they're valid integers
     guests_count =
       cond do
-        is_integer(booking.guests_count) && booking.guests_count > 0 -> booking.guests_count
-        is_binary(booking.guests_count) -> String.to_integer(booking.guests_count)
-        true -> 1
+        is_integer(booking.guests_count) && booking.guests_count > 0 ->
+          booking.guests_count
+
+        is_binary(booking.guests_count) ->
+          String.to_integer(booking.guests_count)
+
+        true ->
+          1
       end
 
     children_count =
@@ -2422,7 +2707,9 @@ defmodule YscWeb.BookingCheckoutLive do
     remaining_children = children_count
 
     # Build list of all guests
-    additional_guests = build_guest_list(remaining_adults, remaining_children, 1)
+    additional_guests =
+      build_guest_list(remaining_adults, remaining_children, 1)
+
     guests = [user_guest] ++ additional_guests
 
     # Log the guest list for debugging
@@ -2454,12 +2741,16 @@ defmodule YscWeb.BookingCheckoutLive do
     filtered_guest_params =
       guest_params
       |> Enum.map(fn {index_str, guest} ->
-        order_index = Map.get(guest, "order_index") || String.to_integer(index_str)
+        order_index =
+          Map.get(guest, "order_index") || String.to_integer(index_str)
+
         {order_index, {index_str, guest}}
       end)
       |> Enum.sort_by(fn {order_index, _} -> order_index end)
       |> Enum.take(expected_total)
-      |> Enum.map(fn {_order_index, {index_str, guest}} -> {index_str, guest} end)
+      |> Enum.map(fn {_order_index, {index_str, guest}} ->
+        {index_str, guest}
+      end)
       |> Map.new()
 
     if actual_total != expected_total do
@@ -2513,11 +2804,21 @@ defmodule YscWeb.BookingCheckoutLive do
     adults ++ children
   end
 
-  defp build_guest_changesets(booking, guest_params) when is_map(guest_params) do
+  defp build_guest_changesets(booking, guest_params)
+       when is_map(guest_params) do
     require Logger
-    Logger.debug("[build_guest_changesets] Called with booking_id: #{booking.id}")
-    Logger.debug("[build_guest_changesets] guest_params keys: #{inspect(Map.keys(guest_params))}")
-    Logger.debug("[build_guest_changesets] guest_params: #{inspect(guest_params)}")
+
+    Logger.debug(
+      "[build_guest_changesets] Called with booking_id: #{booking.id}"
+    )
+
+    Logger.debug(
+      "[build_guest_changesets] guest_params keys: #{inspect(Map.keys(guest_params))}"
+    )
+
+    Logger.debug(
+      "[build_guest_changesets] guest_params: #{inspect(guest_params)}"
+    )
 
     guests_count = booking.guests_count || 1
     children_count = booking.children_count || 0
@@ -2536,11 +2837,18 @@ defmodule YscWeb.BookingCheckoutLive do
       |> Enum.sort_by(fn {index, _} -> index end)
       |> Enum.map(fn {_index, attrs} -> attrs end)
 
-    Logger.debug("[build_guest_changesets] guests_list length: #{length(guests_list)}")
-    Logger.debug("[build_guest_changesets] guests_list: #{inspect(guests_list)}")
+    Logger.debug(
+      "[build_guest_changesets] guests_list length: #{length(guests_list)}"
+    )
+
+    Logger.debug(
+      "[build_guest_changesets] guests_list: #{inspect(guests_list)}"
+    )
 
     if length(guests_list) != total_expected do
-      error_msg = "Expected #{total_expected} guests, got #{length(guests_list)}"
+      error_msg =
+        "Expected #{total_expected} guests, got #{length(guests_list)}"
+
       Logger.error("[build_guest_changesets] #{error_msg}")
       {:error, error_msg}
     else
@@ -2549,7 +2857,8 @@ defmodule YscWeb.BookingCheckoutLive do
       booking_user_count =
         Enum.count(guests_list, fn guest ->
           is_booking_user =
-            case Map.get(guest, "is_booking_user") || Map.get(guest, :is_booking_user) do
+            case Map.get(guest, "is_booking_user") ||
+                   Map.get(guest, :is_booking_user) do
               "true" -> true
               "false" -> false
               true -> true
@@ -2560,7 +2869,9 @@ defmodule YscWeb.BookingCheckoutLive do
           is_booking_user == true
         end)
 
-      Logger.debug("[build_guest_changesets] booking_user_count: #{booking_user_count}")
+      Logger.debug(
+        "[build_guest_changesets] booking_user_count: #{booking_user_count}"
+      )
 
       if booking_user_count != 1 do
         error_msg =
@@ -2604,7 +2915,9 @@ defmodule YscWeb.BookingCheckoutLive do
               )
             end)
 
-          Logger.debug("[build_guest_changesets] Built #{length(changesets)} changesets")
+          Logger.debug(
+            "[build_guest_changesets] Built #{length(changesets)} changesets"
+          )
 
           Logger.debug(
             "[build_guest_changesets] Changesets valid status: #{inspect(Enum.map(changesets, & &1.valid?))}"
@@ -2643,8 +2956,13 @@ defmodule YscWeb.BookingCheckoutLive do
       # Check if all guests have valid first_name and last_name
       guest_info_form.source
       |> Enum.all?(fn {_index, guest_data} ->
-        first_name = Map.get(guest_data, "first_name") || Map.get(guest_data, :first_name) || ""
-        last_name = Map.get(guest_data, "last_name") || Map.get(guest_data, :last_name) || ""
+        first_name =
+          Map.get(guest_data, "first_name") || Map.get(guest_data, :first_name) ||
+            ""
+
+        last_name =
+          Map.get(guest_data, "last_name") || Map.get(guest_data, :last_name) ||
+            ""
 
         # Both first_name and last_name must be non-empty strings
         String.trim(first_name) != "" && String.trim(last_name) != ""

@@ -19,10 +19,16 @@ defmodule YscWeb.UserEventsListLiveTest do
           location_name: "Test Venue"
         })
 
-      tier = ticket_tier_fixture(%{event_id: event.id, name: "General Admission"})
+      tier =
+        ticket_tier_fixture(%{event_id: event.id, name: "General Admission"})
+
       _order = ticket_order_fixture(%{user: user, event: event, tier: tier})
 
-      html = render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user})
+      html =
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user
+        })
 
       assert html =~ "Future Event"
       assert html =~ "Test Venue"
@@ -32,7 +38,11 @@ defmodule YscWeb.UserEventsListLiveTest do
     test "displays empty state when user has no upcoming events" do
       user = user_fixture()
 
-      html = render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user})
+      html =
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user
+        })
 
       assert html =~ "No upcoming events"
       assert html =~ "You haven't registered for any events yet"
@@ -41,49 +51,81 @@ defmodule YscWeb.UserEventsListLiveTest do
 
     test "displays ticket reference ID" do
       user = user_fixture()
-      event = event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
+
+      event =
+        event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
+
       tier = ticket_tier_fixture(%{event_id: event.id})
-      ticket_order = ticket_order_fixture(%{user: user, event: event, tier: tier})
+
+      ticket_order =
+        ticket_order_fixture(%{user: user, event: event, tier: tier})
+
       ticket = Repo.preload(ticket_order, :tickets).tickets |> List.first()
 
-      html = render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user})
+      html =
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user
+        })
 
       assert html =~ ticket.reference_id
     end
 
     test "displays confirmed ticket badge" do
       user = user_fixture()
-      event = event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
+
+      event =
+        event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
+
       tier = ticket_tier_fixture(%{event_id: event.id})
-      ticket_order = ticket_order_fixture(%{user: user, event: event, tier: tier})
+
+      ticket_order =
+        ticket_order_fixture(%{user: user, event: event, tier: tier})
+
       ticket = Repo.preload(ticket_order, :tickets).tickets |> List.first()
 
       # Update ticket status to confirmed
       Repo.update!(Ecto.Changeset.change(ticket, status: :confirmed))
 
-      html = render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user})
+      html =
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user
+        })
 
       assert html =~ "Confirmed"
     end
 
     test "displays pending ticket badge" do
       user = user_fixture()
-      event = event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
+
+      event =
+        event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
+
       tier = ticket_tier_fixture(%{event_id: event.id})
-      ticket_order = ticket_order_fixture(%{user: user, event: event, tier: tier})
+
+      ticket_order =
+        ticket_order_fixture(%{user: user, event: event, tier: tier})
+
       ticket = Repo.preload(ticket_order, :tickets).tickets |> List.first()
 
       # Update ticket status to pending
       Repo.update!(Ecto.Changeset.change(ticket, status: :pending))
 
-      html = render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user})
+      html =
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user
+        })
 
       assert html =~ "Pending"
     end
 
     test "displays free ticket without price display" do
       user = user_fixture()
-      event = event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
+
+      event =
+        event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
 
       # Create free tier
       tier =
@@ -96,7 +138,11 @@ defmodule YscWeb.UserEventsListLiveTest do
 
       _order = ticket_order_fixture(%{user: user, event: event, tier: tier})
 
-      html = render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user})
+      html =
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user
+        })
 
       assert html =~ "Free Entry"
       # Free tickets show $0.00
@@ -105,7 +151,9 @@ defmodule YscWeb.UserEventsListLiveTest do
 
     test "displays paid ticket with price" do
       user = user_fixture()
-      event = event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
+
+      event =
+        event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
 
       tier =
         ticket_tier_fixture(%{
@@ -116,7 +164,11 @@ defmodule YscWeb.UserEventsListLiveTest do
 
       _order = ticket_order_fixture(%{user: user, event: event, tier: tier})
 
-      html = render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user})
+      html =
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user
+        })
 
       assert html =~ "VIP Pass"
       assert html =~ "$5,000.00"
@@ -124,11 +176,18 @@ defmodule YscWeb.UserEventsListLiveTest do
 
     test "displays event link with correct path" do
       user = user_fixture()
-      event = event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
+
+      event =
+        event_fixture(%{start_date: DateTime.add(DateTime.utc_now(), 7, :day)})
+
       tier = ticket_tier_fixture(%{event_id: event.id})
       _order = ticket_order_fixture(%{user: user, event: event, tier: tier})
 
-      html = render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user})
+      html =
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user
+        })
 
       assert html =~ "/events/#{event.id}"
     end
@@ -151,14 +210,20 @@ defmodule YscWeb.UserEventsListLiveTest do
 
       # Test user1's view
       html1 =
-        render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user1})
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user1
+        })
 
       # user1 should see the event
       assert html1 =~ "Shared Event"
 
       # Test user2's view
       html2 =
-        render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user2})
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user2
+        })
 
       # user2 should also see the event
       assert html2 =~ "Shared Event"
@@ -195,7 +260,11 @@ defmodule YscWeb.UserEventsListLiveTest do
       _order1 = ticket_order_fixture(%{user: user, event: event1, tier: tier1})
       _order3 = ticket_order_fixture(%{user: user, event: event3, tier: tier3})
 
-      html = render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user})
+      html =
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user
+        })
 
       # All events should be present
       assert html =~ "First Event"
@@ -224,7 +293,11 @@ defmodule YscWeb.UserEventsListLiveTest do
       tier = ticket_tier_fixture(%{event_id: event.id})
       _order = ticket_order_fixture(%{user: user, event: event, tier: tier})
 
-      html = render_component(YscWeb.UserEventsListLive, %{id: "user-events", current_user: user})
+      html =
+        render_component(YscWeb.UserEventsListLive, %{
+          id: "user-events",
+          current_user: user
+        })
 
       # Should display formatted time (2:30 PM)
       assert html =~ "2:30 PM"

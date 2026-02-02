@@ -35,7 +35,10 @@ defmodule YscWeb.AgendaEditComponent do
           "
         >
           <div class="drag-handle hover:cursor-row-resize group h-full flex items-center">
-            <.icon name="hero-arrows-up-down" class="group-hover:bg-zinc-800 bg-zinc-500 transition" />
+            <.icon
+              name="hero-arrows-up-down"
+              class="group-hover:bg-zinc-800 bg-zinc-500 transition"
+            />
           </div>
 
           <.form
@@ -57,7 +60,9 @@ defmodule YscWeb.AgendaEditComponent do
                     placeholder="Title"
                     label="Title"
                     phx-mounted={!form.data.id && JS.focus()}
-                    phx-keydown={!form.data.id && JS.push("discard", target: @myself)}
+                    phx-keydown={
+                      !form.data.id && JS.push("discard", target: @myself)
+                    }
                     phx-key="escape"
                     phx-blur={JS.dispatch("submit", to: "##{form.id}")}
                     phx-target={@myself}
@@ -69,8 +74,12 @@ defmodule YscWeb.AgendaEditComponent do
                       field={form[:start_time]}
                       label="Start"
                       phx-key="escape"
-                      phx-keydown={!form.data.id && JS.push("discard", target: @myself)}
-                      phx-blur={form.data.id && JS.dispatch("submit", to: "##{form.id}")}
+                      phx-keydown={
+                        !form.data.id && JS.push("discard", target: @myself)
+                      }
+                      phx-blur={
+                        form.data.id && JS.dispatch("submit", to: "##{form.id}")
+                      }
                       phx-target={@myself}
                     />
 
@@ -78,9 +87,13 @@ defmodule YscWeb.AgendaEditComponent do
                       type="time"
                       field={form[:end_time]}
                       label="End"
-                      phx-keydown={!form.data.id && JS.push("discard", target: @myself)}
+                      phx-keydown={
+                        !form.data.id && JS.push("discard", target: @myself)
+                      }
                       phx-key="escape"
-                      phx-blur={form.data.id && JS.dispatch("submit", to: "##{form.id}")}
+                      phx-blur={
+                        form.data.id && JS.dispatch("submit", to: "##{form.id}")
+                      }
                       phx-target={@myself}
                     />
                   </div>
@@ -90,11 +103,15 @@ defmodule YscWeb.AgendaEditComponent do
                   <button
                     type="button"
                     phx-click={
-                      JS.push("delete", target: @myself, value: %{id: form.data.id}) |> hide("##{id}")
+                      JS.push("delete", target: @myself, value: %{id: form.data.id})
+                      |> hide("##{id}")
                     }
                     class="group rounded"
                   >
-                    <.icon class="group-hover:bg-red-400 bg-zinc-800 transition" name="hero-trash" />
+                    <.icon
+                      class="group-hover:bg-red-400 bg-zinc-800 transition"
+                      name="hero-trash"
+                    />
                   </button>
                 </div>
               </div>
@@ -103,7 +120,9 @@ defmodule YscWeb.AgendaEditComponent do
         </div>
       </div>
       <.button
-        phx-click={JS.push("new", value: %{at: -1, agenda_id: @agenda_id}, target: @myself)}
+        phx-click={
+          JS.push("new", value: %{at: -1, agenda_id: @agenda_id}, target: @myself)
+        }
         class="mt-4"
       >
         Add Slot
@@ -113,28 +132,47 @@ defmodule YscWeb.AgendaEditComponent do
   end
 
   def update(
-        %{event: %Ysc.MessagePassingEvents.AgendaItemAdded{agenda_item: agenda_item}},
+        %{
+          event: %Ysc.MessagePassingEvents.AgendaItemAdded{
+            agenda_item: agenda_item
+          }
+        },
         socket
       ) do
-    {:ok, stream_insert(socket, :agenda_items, to_change_form(agenda_item, %{}))}
+    {:ok,
+     stream_insert(socket, :agenda_items, to_change_form(agenda_item, %{}))}
   end
 
   def update(
-        %{event: %Ysc.MessagePassingEvents.AgendaItemDeleted{agenda_item: agenda_item}},
+        %{
+          event: %Ysc.MessagePassingEvents.AgendaItemDeleted{
+            agenda_item: agenda_item
+          }
+        },
         socket
       ) do
-    {:ok, stream_delete(socket, :agenda_items, to_change_form(agenda_item, %{}))}
+    {:ok,
+     stream_delete(socket, :agenda_items, to_change_form(agenda_item, %{}))}
   end
 
   def update(
-        %{event: %Ysc.MessagePassingEvents.AgendaItemUpdated{agenda_item: agenda_item}},
+        %{
+          event: %Ysc.MessagePassingEvents.AgendaItemUpdated{
+            agenda_item: agenda_item
+          }
+        },
         socket
       ) do
-    {:ok, stream_insert(socket, :agenda_items, to_change_form(agenda_item, %{}))}
+    {:ok,
+     stream_insert(socket, :agenda_items, to_change_form(agenda_item, %{}))}
   end
 
   def update(
-        %{event: %Ysc.MessagePassingEvents.AgendaItemRepositioned{agenda_item: agenda_item}},
+        %{
+          event: %Ysc.MessagePassingEvents.AgendaItemRepositioned{
+            agenda_item: agenda_item
+          }
+        },
         socket
       ) do
     {:ok,
@@ -152,7 +190,11 @@ defmodule YscWeb.AgendaEditComponent do
      |> stream(:agenda_items, agenda_forms)}
   end
 
-  def handle_event("validate", %{"agenda_item" => agenda_item_params} = params, socket) do
+  def handle_event(
+        "validate",
+        %{"agenda_item" => agenda_item_params} = params,
+        socket
+      ) do
     agenda_item = %AgendaItem{
       id: params["id"],
       agenda_id: socket.assigns[:agenda_id]
@@ -178,7 +220,12 @@ defmodule YscWeb.AgendaEditComponent do
         {:noreply, socket}
 
       {:error, changeset} ->
-        {:noreply, stream_insert(socket, :agenda_items, to_change_form(changeset, %{}, :insert))}
+        {:noreply,
+         stream_insert(
+           socket,
+           :agenda_items,
+           to_change_form(changeset, %{}, :insert)
+         )}
     end
   end
 
@@ -187,7 +234,8 @@ defmodule YscWeb.AgendaEditComponent do
 
     case Agendas.create_agenda_item(agenda.event_id, agenda, params) do
       {:ok, _new_agenda_item} ->
-        empty_form = to_change_form(build_agenda_item(socket.assigns.agenda_id), %{})
+        empty_form =
+          to_change_form(build_agenda_item(socket.assigns.agenda_id), %{})
 
         {
           :noreply,
@@ -195,25 +243,38 @@ defmodule YscWeb.AgendaEditComponent do
         }
 
       {:error, changeset} ->
-        {:noreply, stream_insert(socket, :agenda_items, to_change_form(changeset, %{}, :insert))}
+        {:noreply,
+         stream_insert(
+           socket,
+           :agenda_items,
+           to_change_form(changeset, %{}, :insert)
+         )}
     end
   end
 
   def handle_event("delete", %{"id" => nil}, socket) do
-    empty_form = to_change_form(build_agenda_item(socket.assigns.agenda_id), %{})
+    empty_form =
+      to_change_form(build_agenda_item(socket.assigns.agenda_id), %{})
+
     {:noreply, socket |> stream_delete(:agenda_items, empty_form)}
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
     agenda_item = Agendas.get_agenda_item!(id)
-    {:ok, _} = Agendas.delete_agenda_item(agenda_item.agenda.event_id, agenda_item)
+
+    {:ok, _} =
+      Agendas.delete_agenda_item(agenda_item.agenda.event_id, agenda_item)
 
     {:noreply, socket}
   end
 
   def handle_event("new", %{"at" => at}, socket) do
     agenda_item = build_agenda_item(socket.assigns.agenda_id)
-    {:noreply, stream_insert(socket, :agenda_items, to_change_form(agenda_item, %{}), at: at)}
+
+    {:noreply,
+     stream_insert(socket, :agenda_items, to_change_form(agenda_item, %{}),
+       at: at
+     )}
   end
 
   def handle_event(
@@ -225,11 +286,24 @@ defmodule YscWeb.AgendaEditComponent do
       new_agenda_id = params["to"]["agenda_id"]
       agenda_item = Agendas.get_agenda_item!(id)
       agenda = Agendas.get_agenda!(new_agenda_id)
-      Agendas.move_agenda_item_to_agenda(agenda.event_id, agenda_item, agenda, new_idx)
+
+      Agendas.move_agenda_item_to_agenda(
+        agenda.event_id,
+        agenda_item,
+        agenda,
+        new_idx
+      )
+
       {:noreply, socket}
     else
       agenda_item = Agendas.get_agenda_item!(id)
-      Agendas.update_agenda_item_position(agenda_item.agenda.event_id, agenda_item, new_idx)
+
+      Agendas.update_agenda_item_position(
+        agenda_item.agenda.event_id,
+        agenda_item,
+        new_idx
+      )
+
       {:noreply, socket}
     end
   end
@@ -241,7 +315,8 @@ defmodule YscWeb.AgendaEditComponent do
     if agenda_item.title == val do
       {:noreply, socket}
     else
-      {:noreply, stream_insert(socket, :agenda_items, to_change_form(agenda_item, %{}))}
+      {:noreply,
+       stream_insert(socket, :agenda_items, to_change_form(agenda_item, %{}))}
     end
   end
 

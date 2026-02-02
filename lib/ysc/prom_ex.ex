@@ -70,7 +70,8 @@ defmodule Ysc.PromEx do
       ),
       summary("ysc.tickets.payment_processed.duration.milliseconds",
         event_name: [:ysc, :tickets, :payment_processed],
-        description: "Duration of ticket order payment processing in milliseconds",
+        description:
+          "Duration of ticket order payment processing in milliseconds",
         buckets: [10, 50, 100, 250, 500, 1000, 2500, 5000],
         tags: [:event_id, :status],
         tag_values: &extract_payment_tags/1,
@@ -164,11 +165,16 @@ defmodule Ysc.PromEx do
   end
 
   # Helper functions to extract tag values from telemetry metadata
-  defp extract_ticket_order_tags(%{ticket_order_id: _id, event_id: event_id, user_id: user_id}) do
+  defp extract_ticket_order_tags(%{
+         ticket_order_id: _id,
+         event_id: event_id,
+         user_id: user_id
+       }) do
     %{event_id: to_string(event_id), user_id: to_string(user_id)}
   end
 
-  defp extract_ticket_order_tags(_), do: %{event_id: "unknown", user_id: "unknown"}
+  defp extract_ticket_order_tags(_),
+    do: %{event_id: "unknown", user_id: "unknown"}
 
   defp extract_payment_tags(%{event_id: event_id, status: status}) do
     %{event_id: to_string(event_id), status: to_string(status)}
@@ -184,13 +190,15 @@ defmodule Ysc.PromEx do
     %{event_id: "unknown", reason: to_string(reason)}
   end
 
-  defp extract_overbooking_tags(_), do: %{event_id: "unknown", reason: "unknown"}
+  defp extract_overbooking_tags(_),
+    do: %{event_id: "unknown", reason: "unknown"}
 
   defp extract_booking_tags(%{property: property, booking_mode: booking_mode}) do
     %{property: to_string(property), booking_mode: to_string(booking_mode)}
   end
 
-  defp extract_booking_tags(_), do: %{property: "unknown", booking_mode: "unknown"}
+  defp extract_booking_tags(_),
+    do: %{property: "unknown", booking_mode: "unknown"}
 
   defp extract_booking_payment_tags(%{
          property: property,
@@ -213,11 +221,15 @@ defmodule Ysc.PromEx do
 
   defp extract_webhook_tags(_), do: %{event_type: "unknown"}
 
-  defp extract_webhook_processing_tags(%{event_type: event_type, status: status}) do
+  defp extract_webhook_processing_tags(%{
+         event_type: event_type,
+         status: status
+       }) do
     %{event_type: to_string(event_type), status: to_string(status)}
   end
 
-  defp extract_webhook_processing_tags(_), do: %{event_type: "unknown", status: "unknown"}
+  defp extract_webhook_processing_tags(_),
+    do: %{event_type: "unknown", status: "unknown"}
 
   defp extract_ledger_payment_tags(%{entity_type: entity_type}) do
     %{entity_type: to_string(entity_type)}

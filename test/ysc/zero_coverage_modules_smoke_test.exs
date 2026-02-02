@@ -19,10 +19,16 @@ defmodule Ysc.ZeroCoverageModulesSmokeTest do
     end
 
     test "MembershipEligibility exposes expected values and validation" do
-      assert :citizen_of_scandinavia in Keyword.keys(MembershipEligibility.__enum_map__())
+      assert :citizen_of_scandinavia in Keyword.keys(
+               MembershipEligibility.__enum_map__()
+             )
+
       assert MembershipEligibility.valid_value?("spouse_of_member")
       refute MembershipEligibility.valid_value?("nope")
-      assert MembershipEligibility.cast("spouse_of_member") == {:ok, :spouse_of_member}
+
+      assert MembershipEligibility.cast("spouse_of_member") ==
+               {:ok, :spouse_of_member}
+
       assert MembershipEligibility.cast("nope") == :error
     end
 
@@ -35,13 +41,21 @@ defmodule Ysc.ZeroCoverageModulesSmokeTest do
     end
 
     test "UserApplicationReviewOutcome exposes expected values and validation" do
-      assert Keyword.keys(UserApplicationReviewOutcome.__enum_map__()) == [:approved, :rejected]
+      assert Keyword.keys(UserApplicationReviewOutcome.__enum_map__()) == [
+               :approved,
+               :rejected
+             ]
+
       assert UserApplicationReviewOutcome.valid_value?("approved")
       refute UserApplicationReviewOutcome.valid_value?("pending")
     end
 
     test "UserNoteCategory exposes expected values and validation" do
-      assert Keyword.keys(UserNoteCategory.__enum_map__()) == [:general, :violation]
+      assert Keyword.keys(UserNoteCategory.__enum_map__()) == [
+               :general,
+               :violation
+             ]
+
       assert UserNoteCategory.valid_value?("general")
       refute UserNoteCategory.valid_value?("other")
     end
@@ -53,7 +67,12 @@ defmodule Ysc.ZeroCoverageModulesSmokeTest do
     end
 
     test "SmsReceivedStatus exposes expected values and validation" do
-      assert Keyword.keys(SmsReceivedStatus.__enum_map__()) == [:delivered, :failed, :pending]
+      assert Keyword.keys(SmsReceivedStatus.__enum_map__()) == [
+               :delivered,
+               :failed,
+               :pending
+             ]
+
       assert SmsReceivedStatus.valid_value?("pending")
       refute SmsReceivedStatus.valid_value?("queued")
     end
@@ -92,7 +111,9 @@ defmodule Ysc.ZeroCoverageModulesSmokeTest do
 
       result = Timeline.inject_date_headers(images)
 
-      assert [%Timeline.Header{} = h1, i1, i2, %Timeline.Header{} = h2, i3] = result
+      assert [%Timeline.Header{} = h1, i1, i2, %Timeline.Header{} = h2, i3] =
+               result
+
       assert i1.id == "a"
       assert i2.id == "b"
       assert i3.id == "c"
@@ -112,7 +133,9 @@ defmodule Ysc.ZeroCoverageModulesSmokeTest do
       payment = %{type: :booking, booking: booking}
 
       assert PaymentDisplay.get_payment_icon(payment) == "hero-home"
-      assert PaymentDisplay.get_payment_icon_bg(payment) == "bg-blue-50 group-hover:bg-blue-600"
+
+      assert PaymentDisplay.get_payment_icon_bg(payment) ==
+               "bg-blue-50 group-hover:bg-blue-600"
 
       assert PaymentDisplay.get_payment_icon_color(payment) ==
                "text-blue-600 group-hover:text-white"
@@ -123,19 +146,39 @@ defmodule Ysc.ZeroCoverageModulesSmokeTest do
 
     test "handles ticket/membership/donation and fallback paths" do
       assert PaymentDisplay.get_payment_icon(%{type: :ticket}) == "hero-ticket"
-      assert PaymentDisplay.get_payment_icon(%{type: :membership}) == "hero-heart"
+
+      assert PaymentDisplay.get_payment_icon(%{type: :membership}) ==
+               "hero-heart"
+
       assert PaymentDisplay.get_payment_icon(%{type: :donation}) == "hero-gift"
       assert PaymentDisplay.get_payment_icon(%{}) == "hero-credit-card"
 
-      assert PaymentDisplay.get_payment_title(%{type: :ticket, event: %{title: "Gala"}}) == "Gala"
-      assert PaymentDisplay.get_payment_title(%{type: :ticket}) == "Event Tickets"
-      assert PaymentDisplay.get_payment_title(%{type: :membership}) == "Membership Payment"
+      assert PaymentDisplay.get_payment_title(%{
+               type: :ticket,
+               event: %{title: "Gala"}
+             }) == "Gala"
+
+      assert PaymentDisplay.get_payment_title(%{type: :ticket}) ==
+               "Event Tickets"
+
+      assert PaymentDisplay.get_payment_title(%{type: :membership}) ==
+               "Membership Payment"
+
       assert PaymentDisplay.get_payment_title(%{type: :donation}) == "Donation"
-      assert PaymentDisplay.get_payment_title(%{description: "Custom"}) == "Custom"
+
+      assert PaymentDisplay.get_payment_title(%{description: "Custom"}) ==
+               "Custom"
+
       assert PaymentDisplay.get_payment_title(%{}) == "Payment"
 
-      assert PaymentDisplay.get_payment_reference(%{ticket_order: %{reference_id: nil}}) == "—"
-      assert PaymentDisplay.get_payment_reference(%{payment: %{reference_id: "PM-9"}}) == "PM-9"
+      assert PaymentDisplay.get_payment_reference(%{
+               ticket_order: %{reference_id: nil}
+             }) == "—"
+
+      assert PaymentDisplay.get_payment_reference(%{
+               payment: %{reference_id: "PM-9"}
+             }) == "PM-9"
+
       assert PaymentDisplay.get_payment_reference(%{}) == "—"
     end
   end
@@ -154,7 +197,9 @@ defmodule Ysc.ZeroCoverageModulesSmokeTest do
 
       changeset = BankAccount.changeset(%BankAccount{}, attrs)
       assert changeset.valid?
-      assert Ecto.Changeset.get_change(changeset, :account_number_last_4) == "1234"
+
+      assert Ecto.Changeset.get_change(changeset, :account_number_last_4) ==
+               "1234"
     end
 
     test "rejects invalid routing numbers and invalid account numbers" do
@@ -199,7 +244,12 @@ defmodule Ysc.ZeroCoverageModulesSmokeTest do
 
   describe "Ysc.Media.Image (Flop.Schema derive)" do
     test "exports Flop schema metadata" do
-      assert Flop.Schema.filterable(%Ysc.Media.Image{}) == [:title, :alt_text, :user_id]
+      assert Flop.Schema.filterable(%Ysc.Media.Image{}) == [
+               :title,
+               :alt_text,
+               :user_id
+             ]
+
       assert Flop.Schema.sortable(%Ysc.Media.Image{}) == [:inserted_at]
     end
   end
@@ -237,10 +287,15 @@ defmodule Ysc.ZeroCoverageModulesSmokeTest do
         {:ok, %Stripe.Customer{id: "cus_123", email: "new@example.com"}}
       end)
 
-      assert {:ok, %Stripe.Customer{id: "cus_123"}} = Stripe.CustomerMock.retrieve("cus_123", [])
+      assert {:ok, %Stripe.Customer{id: "cus_123"}} =
+               Stripe.CustomerMock.retrieve("cus_123", [])
 
       assert {:ok, %Stripe.Customer{id: "cus_123", email: "new@example.com"}} =
-               Stripe.CustomerMock.update("cus_123", %{email: "new@example.com"}, [])
+               Stripe.CustomerMock.update(
+                 "cus_123",
+                 %{email: "new@example.com"},
+                 []
+               )
     end
   end
 end

@@ -232,7 +232,11 @@ defmodule Ysc.Tickets do
   """
   def list_user_tickets_for_event(user_id, event_id) do
     Ticket
-    |> where([t], t.user_id == ^user_id and t.event_id == ^event_id and t.status == :confirmed)
+    |> where(
+      [t],
+      t.user_id == ^user_id and t.event_id == ^event_id and
+        t.status == :confirmed
+    )
     |> order_by([t], desc: t.inserted_at)
     |> preload([:ticket_tier, :ticket_order])
     |> Repo.all()
@@ -277,7 +281,10 @@ defmodule Ysc.Tickets do
           |> Repo.update()
 
         # Cancel all associated tickets
-        tickets = Repo.all(from t in Ticket, where: t.ticket_order_id == ^ticket_order.id)
+        tickets =
+          Repo.all(
+            from t in Ticket, where: t.ticket_order_id == ^ticket_order.id
+          )
 
         Enum.each(tickets, fn ticket ->
           ticket
@@ -374,7 +381,10 @@ defmodule Ysc.Tickets do
                     |> Repo.aggregate(:count, :id)
 
                   if donation_tickets_count > 0 do
-                    case Money.div(ticket_order.total_amount, donation_tickets_count) do
+                    case Money.div(
+                           ticket_order.total_amount,
+                           donation_tickets_count
+                         ) do
                       {:ok, ticket_amount} ->
                         case Money.add(acc, ticket_amount) do
                           {:ok, new_total} -> new_total
@@ -471,7 +481,9 @@ defmodule Ysc.Tickets do
       Repo.transaction(fn ->
         # Cancel PaymentIntent in Stripe if it exists
         if ticket_order.payment_intent_id do
-          case Ysc.Tickets.StripeService.cancel_payment_intent(ticket_order.payment_intent_id) do
+          case Ysc.Tickets.StripeService.cancel_payment_intent(
+                 ticket_order.payment_intent_id
+               ) do
             :ok ->
               Logger.info("Canceled PaymentIntent for expired ticket order",
                 ticket_order_id: ticket_order.id,
@@ -511,7 +523,10 @@ defmodule Ysc.Tickets do
           end
 
         # Cancel all associated tickets
-        tickets = Repo.all(from t in Ticket, where: t.ticket_order_id == ^ticket_order.id)
+        tickets =
+          Repo.all(
+            from t in Ticket, where: t.ticket_order_id == ^ticket_order.id
+          )
 
         # Update each ticket and collect any errors
         ticket_update_results =
@@ -534,7 +549,8 @@ defmodule Ysc.Tickets do
           end)
 
         # Check if any ticket updates failed
-        failed_updates = Enum.filter(ticket_update_results, &match?({:error, _, _}, &1))
+        failed_updates =
+          Enum.filter(ticket_update_results, &match?({:error, _, _}, &1))
 
         if Enum.any?(failed_updates) do
           Logger.error("Failed to expire some tickets",
@@ -648,11 +664,13 @@ defmodule Ysc.Tickets do
     start_time = System.monotonic_time()
 
     result =
-      with {:ok, payment_intent} <- Stripe.PaymentIntent.retrieve(payment_intent_id, %{}),
+      with {:ok, payment_intent} <-
+             Stripe.PaymentIntent.retrieve(payment_intent_id, %{}),
            :ok <- validate_payment_intent(payment_intent, ticket_order),
            {:ok, {payment, _transaction, _entries}} <-
              process_ledger_payment(ticket_order, payment_intent),
-           {:ok, completed_order} <- complete_ticket_order(ticket_order, payment.id),
+           {:ok, completed_order} <-
+             complete_ticket_order(ticket_order, payment.id),
            :ok <- confirm_tickets(completed_order) do
         # Reload the completed order with all necessary associations for email
         reloaded_order = get_ticket_order(completed_order.id)
@@ -918,7 +936,9 @@ defmodule Ysc.Tickets do
     total_sessions = length(pending_orders)
 
     total_tickets =
-      Enum.reduce(pending_orders, 0, fn order, acc -> acc + length(order.tickets) end)
+      Enum.reduce(pending_orders, 0, fn order, acc ->
+        acc + length(order.tickets)
+      end)
 
     # Group by event
     event_stats =
@@ -932,7 +952,9 @@ defmodule Ysc.Tickets do
           event_title: event.title,
           pending_sessions: length(orders),
           pending_tickets:
-            Enum.reduce(orders, 0, fn order, acc -> acc + length(order.tickets) end)
+            Enum.reduce(orders, 0, fn order, acc ->
+              acc + length(order.tickets)
+            end)
         }
       end)
 
@@ -948,7 +970,9 @@ defmodule Ysc.Tickets do
           user_email: user.email,
           pending_sessions: length(orders),
           pending_tickets:
-            Enum.reduce(orders, 0, fn order, acc -> acc + length(order.tickets) end)
+            Enum.reduce(orders, 0, fn order, acc ->
+              acc + length(order.tickets)
+            end)
         }
       end)
 
@@ -1000,20 +1024,29 @@ defmodule Ysc.Tickets do
   defp get_available_tier_quantity(%TicketTier{quantity: nil}), do: :unlimited
   defp get_available_tier_quantity(%TicketTier{quantity: 0}), do: :unlimited
 
-  defp get_available_tier_quantity(%TicketTier{id: tier_id, quantity: total_quantity}) do
+  defp get_available_tier_quantity(%TicketTier{
+         id: tier_id,
+         quantity: total_quantity
+       }) do
     sold_count = count_sold_tickets_for_tier(tier_id)
     max(0, total_quantity - sold_count)
   end
 
   defp count_sold_tickets_for_tier(tier_id) do
     Ticket
-    |> where([t], t.ticket_tier_id == ^tier_id and t.status in [:confirmed, :pending])
+    |> where(
+      [t],
+      t.ticket_tier_id == ^tier_id and t.status in [:confirmed, :pending]
+    )
     |> Repo.aggregate(:count, :id)
   end
 
   defp within_event_capacity?(%Event{max_attendees: nil}, _), do: true
 
-  defp within_event_capacity?(%Event{max_attendees: max_attendees} = event, requested_quantity) do
+  defp within_event_capacity?(
+         %Event{max_attendees: max_attendees} = event,
+         requested_quantity
+       ) do
     current_attendees = count_confirmed_tickets_for_event(event.id)
     current_attendees + requested_quantity <= max_attendees
   end
@@ -1035,7 +1068,10 @@ defmodule Ysc.Tickets do
 
   defp process_ledger_payment(ticket_order, payment_intent) do
     # Use consolidated fee extraction from Stripe.WebhookHandler
-    stripe_fee = Ysc.Stripe.WebhookHandler.extract_stripe_fee_from_payment_intent(payment_intent)
+    stripe_fee =
+      Ysc.Stripe.WebhookHandler.extract_stripe_fee_from_payment_intent(
+        payment_intent
+      )
 
     # Load ticket order with tickets and ticket tiers to check for donations
     ticket_order_with_tickets =
@@ -1058,7 +1094,8 @@ defmodule Ysc.Tickets do
         external_payment_id: payment_intent.id,
         stripe_fee: stripe_fee,
         description: "Event tickets - Order #{ticket_order.reference_id}",
-        payment_method_id: extract_payment_method_id(payment_intent, ticket_order.user_id),
+        payment_method_id:
+          extract_payment_method_id(payment_intent, ticket_order.user_id),
         ticket_order_id: ticket_order.id
       })
     else
@@ -1072,7 +1109,8 @@ defmodule Ysc.Tickets do
         stripe_fee: stripe_fee,
         description: "Event tickets - Order #{ticket_order.reference_id}",
         property: nil,
-        payment_method_id: extract_payment_method_id(payment_intent, ticket_order.user_id)
+        payment_method_id:
+          extract_payment_method_id(payment_intent, ticket_order.user_id)
       })
     end
   end
@@ -1081,14 +1119,16 @@ defmodule Ysc.Tickets do
   # Returns {gross_event_amount, donation_amount, discount_amount}
   # gross_event_amount is the amount before discounts (for ledger tracking)
   def calculate_event_and_donation_amounts(ticket_order) do
-    if ticket_order && Ecto.assoc_loaded?(ticket_order.tickets) && ticket_order.tickets do
+    if ticket_order && Ecto.assoc_loaded?(ticket_order.tickets) &&
+         ticket_order.tickets do
       # Calculate non-donation ticket costs (regular event revenue) - gross amount before discounts
       gross_event_amount =
         ticket_order.tickets
         |> Enum.filter(fn t ->
           tier_type = t.ticket_tier.type
 
-          tier_type != "donation" && tier_type != :donation && tier_type != "free" &&
+          tier_type != "donation" && tier_type != :donation &&
+            tier_type != "free" &&
             tier_type != :free
         end)
         |> Enum.reduce(Money.new(0, :USD), fn ticket, acc ->
@@ -1138,14 +1178,18 @@ defmodule Ysc.Tickets do
     # Get all fulfilled reservations for this ticket order
     fulfilled_reservations =
       TicketReservation
-      |> where([tr], tr.ticket_order_id == ^ticket_order.id and tr.status == "fulfilled")
+      |> where(
+        [tr],
+        tr.ticket_order_id == ^ticket_order.id and tr.status == "fulfilled"
+      )
       |> preload([:ticket_tier])
       |> Repo.all()
 
     # Calculate total discount amount
     fulfilled_reservations
     |> Enum.reduce(Money.new(0, :USD), fn reservation, acc ->
-      if reservation.discount_percentage && Decimal.gt?(reservation.discount_percentage, 0) do
+      if reservation.discount_percentage &&
+           Decimal.gt?(reservation.discount_percentage, 0) do
         # Calculate original price for reserved tickets
         tier_price = reservation.ticket_tier.price
 
@@ -1157,7 +1201,8 @@ defmodule Ysc.Tickets do
             end
 
           # Apply discount percentage
-          discount_pct_decimal = Decimal.div(reservation.discount_percentage, Decimal.new(100))
+          discount_pct_decimal =
+            Decimal.div(reservation.discount_percentage, Decimal.new(100))
 
           discount_amount =
             case Money.mult(original_total, discount_pct_decimal) do
@@ -1196,9 +1241,13 @@ defmodule Ysc.Tickets do
             user = Ysc.Accounts.get_user!(user_id)
 
             # Sync the payment method to our database
-            case Ysc.Payments.sync_payment_method_from_stripe(user, stripe_payment_method) do
+            case Ysc.Payments.sync_payment_method_from_stripe(
+                   user,
+                   stripe_payment_method
+                 ) do
               {:ok, payment_method} ->
-                Logger.info("Successfully synced payment method for ticket payment",
+                Logger.info(
+                  "Successfully synced payment method for ticket payment",
                   payment_method_id: payment_method.id,
                   stripe_payment_method_id: payment_method_id,
                   user_id: user_id
@@ -1207,7 +1256,8 @@ defmodule Ysc.Tickets do
                 payment_method.id
 
               {:error, reason} ->
-                Logger.warning("Failed to sync payment method for ticket payment",
+                Logger.warning(
+                  "Failed to sync payment method for ticket payment",
                   stripe_payment_method_id: payment_method_id,
                   user_id: user_id,
                   error: inspect(reason)
@@ -1257,7 +1307,8 @@ defmodule Ysc.Tickets do
     tickets =
       Repo.all(
         from t in Ticket,
-          where: t.ticket_order_id == ^ticket_order.id and t.status != :confirmed
+          where:
+            t.ticket_order_id == ^ticket_order.id and t.status != :confirmed
       )
 
     tickets
@@ -1316,7 +1367,8 @@ defmodule Ysc.Tickets do
       event_data: inspect(event, limit: :infinity)
     )
 
-    result = Phoenix.PubSub.broadcast(Ysc.PubSub, topic_name, {__MODULE__, event})
+    result =
+      Phoenix.PubSub.broadcast(Ysc.PubSub, topic_name, {__MODULE__, event})
 
     Logger.info("PubSub broadcast result",
       user_id: user_id,
@@ -1342,7 +1394,10 @@ defmodule Ysc.Tickets do
 
   defp broadcast_ticket_availability_update(event_id) do
     # Broadcast a simple event to notify all viewers that ticket availability has changed
-    event = %Ysc.MessagePassingEvents.TicketAvailabilityUpdated{event_id: event_id}
+    event = %Ysc.MessagePassingEvents.TicketAvailabilityUpdated{
+      event_id: event_id
+    }
+
     broadcast_to_event(event_id, event)
   end
 
@@ -1387,8 +1442,15 @@ defmodule Ysc.Tickets do
     try do
       # Prepare email data
       Logger.info("Preparing email data for ticket order #{ticket_order.id}")
-      email_data = YscWeb.Emails.TicketPurchaseConfirmation.prepare_email_data(ticket_order)
-      Logger.info("Email data prepared successfully", email_data_keys: Map.keys(email_data))
+
+      email_data =
+        YscWeb.Emails.TicketPurchaseConfirmation.prepare_email_data(
+          ticket_order
+        )
+
+      Logger.info("Email data prepared successfully",
+        email_data_keys: Map.keys(email_data)
+      )
 
       # Generate idempotency key
       idempotency_key = "ticket_confirmation_#{ticket_order.id}"

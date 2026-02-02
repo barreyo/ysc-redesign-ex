@@ -95,6 +95,7 @@ defmodule Ysc.Accounts.FamilyMemberTest do
 
       changeset = FamilyMember.family_member_changeset(%FamilyMember{}, attrs)
       refute changeset.valid?
+
       assert "should be at most 160 character(s)" in errors_on(changeset).first_name
     end
 
@@ -107,6 +108,7 @@ defmodule Ysc.Accounts.FamilyMemberTest do
 
       changeset = FamilyMember.family_member_changeset(%FamilyMember{}, attrs)
       refute changeset.valid?
+
       assert "should be at most 160 character(s)" in errors_on(changeset).last_name
     end
 
@@ -247,7 +249,11 @@ defmodule Ysc.Accounts.FamilyMemberTest do
       }
 
       # opts parameter should be accepted but not used
-      changeset = FamilyMember.family_member_changeset(%FamilyMember{}, attrs, some: :option)
+      changeset =
+        FamilyMember.family_member_changeset(%FamilyMember{}, attrs,
+          some: :option
+        )
+
       assert changeset.valid?
     end
   end

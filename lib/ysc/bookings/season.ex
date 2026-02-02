@@ -126,7 +126,9 @@ defmodule Ysc.Bookings.Season do
       query =
         if season_id do
           from s in Ysc.Bookings.Season,
-            where: s.property == ^property and s.is_default == true and s.id != ^season_id
+            where:
+              s.property == ^property and s.is_default == true and
+                s.id != ^season_id
         else
           from s in Ysc.Bookings.Season,
             where: s.property == ^property and s.is_default == true
@@ -137,7 +139,11 @@ defmodule Ysc.Bookings.Season do
           changeset
 
         _existing ->
-          add_error(changeset, :is_default, "only one default season allowed per property")
+          add_error(
+            changeset,
+            :is_default,
+            "only one default season allowed per property"
+          )
       end
     else
       changeset
@@ -176,7 +182,10 @@ defmodule Ysc.Bookings.Season do
 
   # Internal function that queries all seasons for a property (used by cache)
   def list_all_for_property_db(property) when is_atom(property) do
-    from(s in __MODULE__, where: s.property == ^property, order_by: [asc: s.name])
+    from(s in __MODULE__,
+      where: s.property == ^property,
+      order_by: [asc: s.name]
+    )
     |> Repo.all()
   end
 

@@ -162,7 +162,10 @@ defmodule Ysc.Accounts.UserNotifier do
       UUID.uuid4(),
       "New Passkey Added to Your YSC Account",
       "passkey_added",
-      %{first_name: String.capitalize(user.first_name), device_name: passkey_nickname},
+      %{
+        first_name: String.capitalize(user.first_name),
+        device_name: passkey_nickname
+      },
       """
       ==============================
 

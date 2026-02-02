@@ -36,7 +36,10 @@ defmodule Ysc.Ledgers.RefundTest do
   end
 
   describe "changeset/2" do
-    test "creates valid changeset with all required fields", %{user: user, payment: payment} do
+    test "creates valid changeset with all required fields", %{
+      user: user,
+      payment: payment
+    } do
       attrs = %{
         external_provider: :stripe,
         external_refund_id: "re_test_123",
@@ -56,7 +59,10 @@ defmodule Ysc.Ledgers.RefundTest do
       assert changeset.changes.payment_id == payment.id
     end
 
-    test "generates reference_id when not provided", %{user: user, payment: payment} do
+    test "generates reference_id when not provided", %{
+      user: user,
+      payment: payment
+    } do
       attrs = %{
         external_provider: :stripe,
         external_refund_id: "re_test_123",
@@ -73,7 +79,10 @@ defmodule Ysc.Ledgers.RefundTest do
       assert String.starts_with?(changeset.changes.reference_id, "RFD-")
     end
 
-    test "uses provided reference_id when given", %{user: user, payment: payment} do
+    test "uses provided reference_id when given", %{
+      user: user,
+      payment: payment
+    } do
       attrs = %{
         reference_id: "RFD-CUSTOM-123",
         external_provider: :stripe,

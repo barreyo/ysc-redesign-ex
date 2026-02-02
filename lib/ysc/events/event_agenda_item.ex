@@ -12,7 +12,9 @@ defmodule Ysc.Events.AgendaItem do
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]
   schema "agenda_items" do
-    belongs_to :agenda, Ysc.Events.Agenda, foreign_key: :agenda_id, references: :id
+    belongs_to :agenda, Ysc.Events.Agenda,
+      foreign_key: :agenda_id,
+      references: :id
 
     field :position, :integer
 

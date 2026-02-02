@@ -13,7 +13,11 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id={@id} class="availability-calendar overflow-visible" data-phx-component={@id}>
+    <div
+      id={@id}
+      class="availability-calendar overflow-visible"
+      data-phx-component={@id}
+    >
       <div class="bg-white rounded-lg border border-zinc-200 p-6 overflow-visible">
         <div class="flex justify-between items-center mb-4">
           <div>
@@ -44,7 +48,11 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         </div>
 
         <div class="text-sm text-center mb-2">
-          <.link phx-click="today" phx-target={@myself} class="text-zinc-700 hover:text-zinc-500">
+          <.link
+            phx-click="today"
+            phx-target={@myself}
+            class="text-zinc-700 hover:text-zinc-500"
+          >
             Today
           </.link>
         </div>
@@ -62,7 +70,10 @@ defmodule YscWeb.Components.AvailabilityCalendar do
           phx-target={@myself}
           data-component-id={@id}
         >
-          <div :for={day <- Enum.flat_map(@current.week_rows, & &1)} class="relative overflow-visible">
+          <div
+            :for={day <- Enum.flat_map(@current.week_rows, & &1)}
+            class="relative overflow-visible"
+          >
             <div
               :if={
                 date_disabled?(day, assigns) && !other_month?(day, @current.date) &&
@@ -78,7 +89,10 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                 disabled={true}
                 class={day_classes(day, assigns)}
               >
-                <time class="text-sm font-medium" datetime={Calendar.strftime(day, "%Y-%m-%d")}>
+                <time
+                  class="text-sm font-medium"
+                  datetime={Calendar.strftime(day, "%Y-%m-%d")}
+                >
                   <%= Calendar.strftime(day, "%d") %>
                 </time>
               </button>
@@ -102,20 +116,31 @@ defmodule YscWeb.Components.AvailabilityCalendar do
               phx-target={@myself}
               phx-click="pick-date"
               phx-value-date={Calendar.strftime(day, "%Y-%m-%d")}
-              disabled={date_disabled?(day, assigns) && !selected_start?(day, @checkin_date)}
+              disabled={
+                date_disabled?(day, assigns) && !selected_start?(day, @checkin_date)
+              }
               class={day_classes(day, assigns)}
             >
-              <time class="text-sm font-medium" datetime={Calendar.strftime(day, "%Y-%m-%d")}>
+              <time
+                class="text-sm font-medium"
+                datetime={Calendar.strftime(day, "%Y-%m-%d")}
+              >
                 <%= Calendar.strftime(day, "%d") %>
               </time>
               <div
                 :if={
-                  (!date_disabled?(day, assigns) || selected_start?(day, @checkin_date)) &&
+                  (!date_disabled?(day, assigns) ||
+                     selected_start?(day, @checkin_date)) &&
                     !other_month?(day, @current.date)
                 }
                 class="text-xs mt-1"
               >
-                <%= availability_display(day, @selected_booking_mode, @availability, assigns) %>
+                <%= availability_display(
+                  day,
+                  @selected_booking_mode,
+                  @availability,
+                  assigns
+                ) %>
               </div>
             </button>
           </div>
@@ -188,7 +213,9 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     month_start_minus_30 = Date.add(visible_month_start, -30)
 
     start_date =
-      if Date.compare(month_start_minus_30, today) == :lt, do: today, else: month_start_minus_30
+      if Date.compare(month_start_minus_30, today) == :lt,
+        do: today,
+        else: month_start_minus_30
 
     end_date = Date.add(visible_month_end, 30)
 
@@ -200,17 +227,29 @@ defmodule YscWeb.Components.AvailabilityCalendar do
       cond do
         checkin_date && checkout_date ->
           {
-            if(Date.compare(start_date, checkin_date) == :gt, do: checkin_date, else: start_date)
+            if(Date.compare(start_date, checkin_date) == :gt,
+              do: checkin_date,
+              else: start_date
+            )
             |> Date.add(-30),
-            if(Date.compare(end_date, checkout_date) == :lt, do: checkout_date, else: end_date)
+            if(Date.compare(end_date, checkout_date) == :lt,
+              do: checkout_date,
+              else: end_date
+            )
             |> Date.add(30)
           }
 
         checkin_date ->
           {
-            if(Date.compare(start_date, checkin_date) == :gt, do: checkin_date, else: start_date)
+            if(Date.compare(start_date, checkin_date) == :gt,
+              do: checkin_date,
+              else: start_date
+            )
             |> Date.add(-30),
-            if(Date.compare(end_date, checkin_date) == :lt, do: checkin_date, else: end_date)
+            if(Date.compare(end_date, checkin_date) == :lt,
+              do: checkin_date,
+              else: end_date
+            )
             |> Date.add(30)
           }
 
@@ -376,8 +415,11 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
     date =
       case Date.from_iso8601(date_string) do
-        {:ok, d} -> d
-        _ -> if date_string != "", do: Date.from_iso8601!(date_string), else: nil
+        {:ok, d} ->
+          d
+
+        _ ->
+          if date_string != "", do: Date.from_iso8601!(date_string), else: nil
       end
 
     if is_nil(date) do
@@ -427,11 +469,16 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         assigns.state == :set_end && assigns.hover_checkout_date &&
           day == assigns.hover_checkout_date
 
-      is_range = selected_range?(day, assigns.checkin_date, assigns.checkout_date)
+      is_range =
+        selected_range?(day, assigns.checkin_date, assigns.checkout_date)
 
       is_hover_range =
         assigns.state == :set_end &&
-          in_hover_range?(day, assigns.checkin_date, assigns.hover_checkout_date)
+          in_hover_range?(
+            day,
+            assigns.checkin_date,
+            assigns.hover_checkout_date
+          )
 
       cond do
         is_start ->
@@ -455,10 +502,14 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
           # Determine styles for blocks
           morning_style =
-            if morning_blocked, do: get_unavailable_style(yesterday, assigns), else: :available
+            if morning_blocked,
+              do: get_unavailable_style(yesterday, assigns),
+              else: :available
 
           afternoon_style =
-            if afternoon_blocked, do: get_unavailable_style(day, assigns), else: :available
+            if afternoon_blocked,
+              do: get_unavailable_style(day, assigns),
+              else: :available
 
           classes =
             cond do
@@ -496,7 +547,9 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                 case morning_style do
                   :gray ->
                     # If yesterday was gray (past/scope), and today is available, use spot-based or green
-                    bg_class = if spot_bg_class, do: spot_bg_class, else: "bg-green-50"
+                    bg_class =
+                      if spot_bg_class, do: spot_bg_class, else: "bg-green-50"
+
                     "#{bg_class} text-zinc-900 border border-green-200 hover:opacity-80"
 
                   :blackout ->
@@ -522,7 +575,9 @@ defmodule YscWeb.Components.AvailabilityCalendar do
                     end
 
                   _ ->
-                    bg_class = if spot_bg_class, do: spot_bg_class, else: "bg-green-50"
+                    bg_class =
+                      if spot_bg_class, do: spot_bg_class, else: "bg-green-50"
+
                     "#{bg_class} text-zinc-900 border border-green-200 hover:opacity-80"
                 end
 
@@ -562,7 +617,12 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         :gray
 
       assigns[:property] && assigns[:today] &&
-          !date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) ->
+          !date_selectable_cached?(
+            assigns.property,
+            day,
+            assigns.today,
+            assigns.seasons
+          ) ->
         :gray
 
       true ->
@@ -585,7 +645,12 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     else
       # Season check
       if assigns[:property] && assigns[:today] &&
-           !date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) do
+           !date_selectable_cached?(
+             assigns.property,
+             day,
+             assigns.today,
+             assigns.seasons
+           ) do
         true
       else
         # Availability Check
@@ -607,7 +672,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
               # Unavailable for day booking if full or bought out OR not enough spots for selected guests
               # Only applies to Clear Lake
               !day_info.can_book_day ||
-                (assigns[:guests_count] && day_info.spots_available < assigns.guests_count)
+                (assigns[:guests_count] &&
+                   day_info.spots_available < assigns.guests_count)
 
             assigns.selected_booking_mode == :room ->
               # Unavailable for room booking if buyout exists
@@ -709,7 +775,12 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         {:boundary, "Too far in future"}
 
       assigns[:property] && assigns[:today] &&
-          !date_selectable_cached?(assigns.property, day, assigns.today, assigns.seasons) ->
+          !date_selectable_cached?(
+            assigns.property,
+            day,
+            assigns.today,
+            assigns.seasons
+          ) ->
         {:boundary, "Season closed"}
 
       true ->
@@ -753,13 +824,19 @@ defmodule YscWeb.Components.AvailabilityCalendar do
         (!yesterday_info || !yesterday_info.is_blacked_out)
 
     is_blackout_end =
-      day_info && day_info.is_blacked_out && (yesterday_info && yesterday_info.is_blacked_out) &&
+      day_info && day_info.is_blacked_out &&
+        (yesterday_info && yesterday_info.is_blacked_out) &&
         !afternoon_blocked
 
     {is_blackout_start, is_blackout_end, morning_blocked, afternoon_blocked}
   end
 
-  defp get_blackout_reason(is_blackout_start, is_blackout_end, morning_blocked, afternoon_blocked) do
+  defp get_blackout_reason(
+         is_blackout_start,
+         is_blackout_end,
+         morning_blocked,
+         afternoon_blocked
+       ) do
     cond do
       is_blackout_start && !morning_blocked && afternoon_blocked ->
         "Check-in allowed"
@@ -809,7 +886,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
 
         assigns.selected_booking_mode == :day &&
             (!day_info.can_book_day ||
-               (assigns[:guests_count] && day_info.spots_available < assigns.guests_count)) ->
+               (assigns[:guests_count] &&
+                  day_info.spots_available < assigns.guests_count)) ->
           :bookings
 
         assigns.selected_booking_mode == :buyout && !day_info.can_book_buyout ->
@@ -826,7 +904,15 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     end
   end
 
-  defp check_other_rules(day, checkin_date, state, property, _availability, _mode, seasons) do
+  defp check_other_rules(
+         day,
+         checkin_date,
+         state,
+         property,
+         _availability,
+         _mode,
+         seasons
+       ) do
     # Saturday check-in rule (Tahoe only)
     if saturday_checkin?(day, property, state) do
       true
@@ -881,7 +967,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   defp valid_date_range?(checkin_date, checkout_date, assigns) do
     # Validate that every night in the range is available
     # Range is checkin..(checkout-1)
-    nights = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+    nights =
+      Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
     all_available =
       Enum.all?(nights, fn night ->
@@ -919,7 +1006,10 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     # Reusing simplified logic: just reload if month changed
     today = socket.assigns.today
     start_date = Date.beginning_of_month(date) |> Date.add(-30)
-    start_date = if Date.compare(start_date, today) == :lt, do: today, else: start_date
+
+    start_date =
+      if Date.compare(start_date, today) == :lt, do: today, else: start_date
+
     end_date = Date.end_of_month(date) |> Date.add(30)
 
     property = socket.assigns[:property] || :clear_lake
@@ -939,7 +1029,9 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     socket |> assign(:availability, new_availability)
   end
 
-  defp prev_month_date(date), do: date |> Date.beginning_of_month() |> Date.add(-1)
+  defp prev_month_date(date),
+    do: date |> Date.beginning_of_month() |> Date.add(-1)
+
   defp next_month_date(date), do: date |> Date.end_of_month() |> Date.add(1)
 
   defp today?(day), do: day == Date.utc_today()
@@ -951,10 +1043,14 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   defp selected_end?(day, end_d), do: end_d && day == end_d
 
   defp selected_range?(day, start, end_d),
-    do: start && end_d && Date.compare(day, start) != :lt && Date.compare(day, end_d) != :gt
+    do:
+      start && end_d && Date.compare(day, start) != :lt &&
+        Date.compare(day, end_d) != :gt
 
   defp in_hover_range?(day, start, hover),
-    do: start && hover && Date.compare(day, start) != :lt && Date.compare(day, hover) != :gt
+    do:
+      start && hover && Date.compare(day, start) != :lt &&
+        Date.compare(day, hover) != :gt
 
   defp date_selectable_cached?(property, date, today, seasons) do
     season =
@@ -1103,7 +1199,8 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   defp get_clear_lake_spot_background(day, assigns) do
     # Only apply spot-based background for Clear Lake day bookings
     # Tahoe doesn't use spot-based backgrounds (only buyout or room mode)
-    if assigns[:property] == :clear_lake && assigns[:selected_booking_mode] == :day do
+    if assigns[:property] == :clear_lake &&
+         assigns[:selected_booking_mode] == :day do
       info = Map.get(assigns.availability, day)
 
       if info && info.spots_available do
@@ -1146,7 +1243,11 @@ defmodule YscWeb.Components.AvailabilityCalendar do
   end
 
   defp week_rows(date) do
-    first = date |> Date.beginning_of_month() |> Date.beginning_of_week(@week_start_at)
+    first =
+      date
+      |> Date.beginning_of_month()
+      |> Date.beginning_of_week(@week_start_at)
+
     last = date |> Date.end_of_month() |> Date.end_of_week(@week_start_at)
     Date.range(first, last) |> Enum.map(& &1) |> Enum.chunk_every(7)
   end

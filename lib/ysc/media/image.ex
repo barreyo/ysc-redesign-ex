@@ -1,6 +1,11 @@
 import EctoEnum
 
-defenum(ImageProcessingState, ["unprocessed", "processing", "completed", "failed"])
+defenum(ImageProcessingState, [
+  "unprocessed",
+  "processing",
+  "completed",
+  "failed"
+])
 
 defmodule Ysc.Media.Image do
   @moduledoc """
@@ -36,7 +41,9 @@ defmodule Ysc.Media.Image do
 
     field :processing_state, ImageProcessingState
 
-    belongs_to :uploader, Ysc.Accounts.User, foreign_key: :user_id, references: :id
+    belongs_to :uploader, Ysc.Accounts.User,
+      foreign_key: :user_id,
+      references: :id
 
     field :upload_data, :map
 

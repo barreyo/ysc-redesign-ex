@@ -123,7 +123,10 @@ defmodule YscWeb.AdminUserDetailsLiveTest do
         view
         |> element("a[href$='/details/application']")
         |> render_click()
-        |> follow_redirect(conn, ~p"/admin/users/#{user.id}/details/application")
+        |> follow_redirect(
+          conn,
+          ~p"/admin/users/#{user.id}/details/application"
+        )
 
       assert application_html =~ "Application"
     end
@@ -202,10 +205,14 @@ defmodule YscWeb.AdminUserDetailsLiveTest do
       assert html =~ "YSC.org Admin"
     end
 
-    test "displays current user info in navigation", %{conn: conn, user: admin_user} do
+    test "displays current user info in navigation", %{
+      conn: conn,
+      user: admin_user
+    } do
       viewed_user = user_fixture()
 
-      {:ok, _view, html} = live(conn, ~p"/admin/users/#{viewed_user.id}/details")
+      {:ok, _view, html} =
+        live(conn, ~p"/admin/users/#{viewed_user.id}/details")
 
       # Admin user info should be displayed
       assert html =~ admin_user.email
@@ -280,13 +287,15 @@ defmodule YscWeb.AdminUserDetailsLiveTest do
         })
         |> Repo.update!()
 
-      {:ok, _view, html} = live(conn, ~p"/admin/users/#{user.id}/details/membership")
+      {:ok, _view, html} =
+        live(conn, ~p"/admin/users/#{user.id}/details/membership")
 
       refute html =~ "Create membership (paid elsewhere)"
       assert html =~ "Lifetime Membership"
     end
 
-    test "submitting create paid membership creates subscription and updates UI", %{conn: conn} do
+    test "submitting create paid membership creates subscription and updates UI",
+         %{conn: conn} do
       user = user_fixture()
       membership_plans = Application.get_env(:ysc, :membership_plans, [])
       single_plan = Enum.find(membership_plans, &(&1.id == :single))
@@ -297,7 +306,11 @@ defmodule YscWeb.AdminUserDetailsLiveTest do
       callback = fn _user, _plan -> {:ok, fake_stripe_sub} end
 
       try do
-        Application.put_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback, callback)
+        Application.put_env(
+          :ysc,
+          :create_subscription_paid_out_of_band_stripe_callback,
+          callback
+        )
 
         {:ok, view, _html} = live(conn, ~p"/admin/users/#{user.id}/details")
 
@@ -305,7 +318,10 @@ defmodule YscWeb.AdminUserDetailsLiveTest do
           view
           |> element("a[href$='/details/membership']")
           |> render_click()
-          |> follow_redirect(conn, ~p"/admin/users/#{user.id}/details/membership")
+          |> follow_redirect(
+            conn,
+            ~p"/admin/users/#{user.id}/details/membership"
+          )
 
         assert has_element?(view, "#create-paid-membership-form")
 
@@ -319,18 +335,27 @@ defmodule YscWeb.AdminUserDetailsLiveTest do
         assert render(view) =~ "Current Membership"
         assert render(view) =~ single_plan.name
       after
-        Application.delete_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback)
+        Application.delete_env(
+          :ysc,
+          :create_subscription_paid_out_of_band_stripe_callback
+        )
       end
     end
 
-    test "shows error when create paid membership fails (callback returns error)", %{conn: conn} do
+    test "shows error when create paid membership fails (callback returns error)",
+         %{conn: conn} do
       user = user_fixture()
       callback = fn _user, _plan -> {:error, :stripe_api_error} end
 
       try do
-        Application.put_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback, callback)
+        Application.put_env(
+          :ysc,
+          :create_subscription_paid_out_of_band_stripe_callback,
+          callback
+        )
 
-        {:ok, view, _html} = live(conn, ~p"/admin/users/#{user.id}/details/membership")
+        {:ok, view, _html} =
+          live(conn, ~p"/admin/users/#{user.id}/details/membership")
 
         view
         |> form("#create-paid-membership-form", %{
@@ -340,7 +365,10 @@ defmodule YscWeb.AdminUserDetailsLiveTest do
 
         assert render(view) =~ "Failed to create subscription"
       after
-        Application.delete_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback)
+        Application.delete_env(
+          :ysc,
+          :create_subscription_paid_out_of_band_stripe_callback
+        )
       end
     end
   end

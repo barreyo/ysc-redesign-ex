@@ -52,7 +52,9 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
       # Submit invalid password (too short)
       result =
         view
-        |> form("#password_form", user: %{password: "short", password_confirmation: "short"})
+        |> form("#password_form",
+          user: %{password: "short", password_confirmation: "short"}
+        )
         |> render_change()
 
       assert result =~ "should be at least 12 character"
@@ -146,7 +148,11 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
       # Password should be updated (verify by trying to authenticate with new password)
       :timer.sleep(100)
       updated_user = Repo.reload!(user)
-      assert Accounts.get_user_by_email_and_password(updated_user.email, new_password) != nil
+
+      assert Accounts.get_user_by_email_and_password(
+               updated_user.email,
+               new_password
+             ) != nil
     end
 
     test "shows error with incorrect password", %{conn: conn} do
@@ -174,7 +180,9 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
       assert result =~ "Invalid password"
     end
 
-    test "sends password changed notification after successful change", %{conn: conn} do
+    test "sends password changed notification after successful change", %{
+      conn: conn
+    } do
       user = user_fixture()
       conn = log_in_user(conn, user)
 
@@ -205,7 +213,9 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
       {:ok, view, _html} = live(conn, ~p"/users/settings/security")
 
       # Count tokens before
-      tokens_before = Accounts.UserToken.by_user_and_contexts_query(user, :all) |> Repo.all()
+      tokens_before =
+        Accounts.UserToken.by_user_and_contexts_query(user, :all) |> Repo.all()
+
       refute tokens_before == []
 
       # Change password
@@ -216,13 +226,17 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
         }
       })
 
-      render_submit(view, "reauth_with_password", %{password: valid_user_password()})
+      render_submit(view, "reauth_with_password", %{
+        password: valid_user_password()
+      })
 
       # Give database time to update
       :timer.sleep(50)
 
       # All tokens should be deleted
-      tokens_after = Accounts.UserToken.by_user_and_contexts_query(user, :all) |> Repo.all()
+      tokens_after =
+        Accounts.UserToken.by_user_and_contexts_query(user, :all) |> Repo.all()
+
       assert tokens_after == []
     end
   end
@@ -302,7 +316,11 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
       # Password should be updated
       :timer.sleep(100)
       updated_user = Repo.reload!(user)
-      assert Accounts.get_user_by_email_and_password(updated_user.email, new_password) != nil
+
+      assert Accounts.get_user_by_email_and_password(
+               updated_user.email,
+               new_password
+             ) != nil
     end
 
     test "handles passkey authentication error", %{conn: conn} do
@@ -339,7 +357,10 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
       {:ok, user: user}
     end
 
-    test "shows only passkey option for users without password", %{conn: conn, user: user} do
+    test "shows only passkey option for users without password", %{
+      conn: conn,
+      user: user
+    } do
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/users/settings/security")
@@ -361,7 +382,10 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
       assert render(view) =~ "Use your device&#39;s fingerprint"
     end
 
-    test "can set password using passkey authentication", %{conn: conn, user: user} do
+    test "can set password using passkey authentication", %{
+      conn: conn,
+      user: user
+    } do
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/users/settings/security")
@@ -394,10 +418,17 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
       updated_user = Repo.reload!(user)
       assert updated_user.hashed_password != nil
       assert updated_user.password_set_at != nil
-      assert Accounts.get_user_by_email_and_password(updated_user.email, new_password) != nil
+
+      assert Accounts.get_user_by_email_and_password(
+               updated_user.email,
+               new_password
+             ) != nil
     end
 
-    test "marks password_set_at timestamp when setting password", %{conn: conn, user: user} do
+    test "marks password_set_at timestamp when setting password", %{
+      conn: conn,
+      user: user
+    } do
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/users/settings/security")
@@ -428,10 +459,18 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
       # password_set_at should be set
       updated_user = Repo.reload!(user)
       assert updated_user.password_set_at != nil
-      assert DateTime.diff(DateTime.utc_now(), updated_user.password_set_at, :second) < 5
+
+      assert DateTime.diff(
+               DateTime.utc_now(),
+               updated_user.password_set_at,
+               :second
+             ) < 5
     end
 
-    test "updates UI after setting password for first time", %{conn: conn, user: user} do
+    test "updates UI after setting password for first time", %{
+      conn: conn,
+      user: user
+    } do
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/users/settings/security")
@@ -513,7 +552,9 @@ defmodule YscWeb.UserSecurityPasswordChangeTest do
         }
       })
 
-      render_submit(view, "reauth_with_password", %{password: valid_user_password()})
+      render_submit(view, "reauth_with_password", %{
+        password: valid_user_password()
+      })
 
       # All reauth state should be cleared
     end

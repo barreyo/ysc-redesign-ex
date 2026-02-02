@@ -51,7 +51,9 @@ defmodule YscWeb.Workers.EmailNotifierTest do
       )
 
       # Verify idempotency record created
-      assert Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency, idempotency_key: "idemp_123")
+      assert Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency,
+               idempotency_key: "idemp_123"
+             )
     end
 
     test "handles legacy args without category", %{user: user} do
@@ -89,7 +91,9 @@ defmodule YscWeb.Workers.EmailNotifierTest do
       assert_email_sent(subject: "Legacy Subject")
     end
 
-    test "skips email if user notification preference is disabled", %{user: user} do
+    test "skips email if user notification preference is disabled", %{
+      user: user
+    } do
       # Disable notification for this category (bookings)
       # Assuming "booking_confirmation" maps to :bookings category and user has it enabled by default
       {:ok, user} =
@@ -190,7 +194,8 @@ defmodule YscWeb.Workers.EmailNotifierTest do
     test "raises error for invalid template", %{user: user} do
       assert {:error,
               %RuntimeError{
-                message: "Template module not found for template: non_existent_template"
+                message:
+                  "Template module not found for template: non_existent_template"
               }} =
                perform_job(EmailNotifier, %{
                  "recipient" => user.email,
@@ -204,7 +209,8 @@ defmodule YscWeb.Workers.EmailNotifierTest do
                })
     end
 
-    test "idempotency: duplicate job returns success but sends only one email", %{user: user} do
+    test "idempotency: duplicate job returns success but sends only one email",
+         %{user: user} do
       params = %{
         first_name: "John",
         booking: %{

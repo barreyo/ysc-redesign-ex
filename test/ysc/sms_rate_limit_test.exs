@@ -86,7 +86,9 @@ defmodule Ysc.SmsRateLimitTest do
       end)
 
       # 6th SMS should be blocked
-      assert {:error, :rate_limit_exceeded, reason} = SmsRateLimit.check_rate_limit(phone_number)
+      assert {:error, :rate_limit_exceeded, reason} =
+               SmsRateLimit.check_rate_limit(phone_number)
+
       assert reason =~ "maximum 5 SMS per minute"
     end
 
@@ -125,7 +127,9 @@ defmodule Ysc.SmsRateLimitTest do
       Cachex.put(:ysc_cache, cache_key, timestamps, ttl: 60 * 60 * 1000)
 
       # 21st SMS should be blocked by per-hour limit (20 already sent)
-      assert {:error, :rate_limit_exceeded, reason} = SmsRateLimit.check_rate_limit(phone_number)
+      assert {:error, :rate_limit_exceeded, reason} =
+               SmsRateLimit.check_rate_limit(phone_number)
+
       assert reason =~ "maximum 20 SMS per hour"
     end
 
@@ -139,7 +143,9 @@ defmodule Ysc.SmsRateLimitTest do
       end)
 
       # Should be blocked by per-minute limit, not per-hour
-      assert {:error, :rate_limit_exceeded, reason} = SmsRateLimit.check_rate_limit(phone_number)
+      assert {:error, :rate_limit_exceeded, reason} =
+               SmsRateLimit.check_rate_limit(phone_number)
+
       assert reason =~ "per minute"
     end
 
@@ -157,7 +163,8 @@ defmodule Ysc.SmsRateLimitTest do
       assert {:ok, :allowed} = SmsRateLimit.check_rate_limit(phone2)
 
       # Phone1 should be blocked
-      assert {:error, :rate_limit_exceeded, _} = SmsRateLimit.check_rate_limit(phone1)
+      assert {:error, :rate_limit_exceeded, _} =
+               SmsRateLimit.check_rate_limit(phone1)
     end
 
     test "filters out timestamps older than 1 hour" do
@@ -405,7 +412,8 @@ defmodule Ysc.SmsRateLimitTest do
       end)
 
       # 6th should be blocked
-      assert {:error, :rate_limit_exceeded, _} = SmsRateLimit.check_rate_limit(phone_number)
+      assert {:error, :rate_limit_exceeded, _} =
+               SmsRateLimit.check_rate_limit(phone_number)
     end
 
     test "status reflects current state accurately" do

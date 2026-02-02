@@ -16,7 +16,10 @@ defmodule Ysc.Accounts.UserNotifierTest do
       assert job.args["recipient"] == user.email
       assert job.args["subject"] == "New Passkey Added to Your YSC Account"
       assert job.args["template"] == "passkey_added"
-      assert job.args["params"]["first_name"] == String.capitalize(user.first_name)
+
+      assert job.args["params"]["first_name"] ==
+               String.capitalize(user.first_name)
+
       assert job.args["params"]["device_name"] == device_name
       assert job.args["user_id"] == user.id
     end
@@ -32,7 +35,10 @@ defmodule Ysc.Accounts.UserNotifierTest do
       assert job.args["recipient"] == user.email
       assert job.args["subject"] == "Your YSC Password Has Been Changed"
       assert job.args["template"] == "password_changed"
-      assert job.args["params"]["first_name"] == String.capitalize(user.first_name)
+
+      assert job.args["params"]["first_name"] ==
+               String.capitalize(user.first_name)
+
       assert job.args["user_id"] == user.id
     end
   end
@@ -43,13 +49,21 @@ defmodule Ysc.Accounts.UserNotifierTest do
       old_email = user.email
       new_email = "new_email@example.com"
 
-      job = UserNotifier.deliver_email_changed_notification(user, old_email, new_email)
+      job =
+        UserNotifier.deliver_email_changed_notification(
+          user,
+          old_email,
+          new_email
+        )
 
       assert job
       assert job.args["recipient"] == old_email
       assert job.args["subject"] == "Your YSC Email Has Been Changed"
       assert job.args["template"] == "email_changed"
-      assert job.args["params"]["first_name"] == String.capitalize(user.first_name)
+
+      assert job.args["params"]["first_name"] ==
+               String.capitalize(user.first_name)
+
       assert job.args["params"]["new_email"] == new_email
       assert job.args["user_id"] == user.id
     end

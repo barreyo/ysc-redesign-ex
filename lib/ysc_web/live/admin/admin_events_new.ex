@@ -59,13 +59,21 @@ defmodule YscWeb.AdminEventsNewLive do
 
           <div class="pl-4 space-x-1 flex flex-row">
             <div :if={@event.state in [:draft, :scheduled]}>
-              <.button color="blue" phx-click="publish-event" phx-disable-with="Publishing...">
+              <.button
+                color="blue"
+                phx-click="publish-event"
+                phx-disable-with="Publishing..."
+              >
                 <.icon name="hero-document-arrow-up" class="w-5 h-5 -mt-1 me-1" />Publish
               </.button>
             </div>
 
             <div :if={@event.state in [:published]}>
-              <.button color="red" phx-click="unpublish-event" phx-disable-with="Unpublishing...">
+              <.button
+                color="red"
+                phx-click="unpublish-event"
+                phx-disable-with="Unpublishing..."
+              >
                 <.icon name="hero-document-arrow-down" class="w-5 h-5 -mt-1 me-1" />Unpublish
               </.button>
             </div>
@@ -86,7 +94,9 @@ defmodule YscWeb.AdminEventsNewLive do
               }
             >
               <:button_block>
-                <.icon name="hero-clock" class="w-5 h-5 me-1" /><%= schedule_button_text(@event.state) %>
+                <.icon name="hero-clock" class="w-5 h-5 me-1" /><%= schedule_button_text(
+                  @event.state
+                ) %>
                 <.icon name="hero-chevron-down" class="ms-2" />
               </:button_block>
 
@@ -115,13 +125,21 @@ defmodule YscWeb.AdminEventsNewLive do
                     :if={@event.state == :published}
                     class="block py-2 px-3 transition ease-in-out duration-200 hover:bg-zinc-100"
                   >
-                    <button type="button" class="w-full text-left px-1" phx-click="cancel-event">
+                    <button
+                      type="button"
+                      class="w-full text-left px-1"
+                      phx-click="cancel-event"
+                    >
                       <.icon name="hero-minus-circle" class="me-1 -mt-1 w-5 h-5" />Cancel Event
                     </button>
                   </li>
 
                   <li class="block py-2 px-3 transition text-red-600 ease-in-out duration-200 hover:bg-zinc-100">
-                    <button type="button" class="w-full text-left px-1" phx-click="delete-event">
+                    <button
+                      type="button"
+                      class="w-full text-left px-1"
+                      phx-click="delete-event"
+                    >
                       <.icon name="hero-trash" class="w-5 h-5 -mt-1" />
                       <span>Delete Event</span>
                     </button>
@@ -153,7 +171,8 @@ defmodule YscWeb.AdminEventsNewLive do
                   navigate={~p"/admin/events/#{@event.id}/tickets"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
-                    @live_action == :tickets && "text-blue-600 border-blue-600 active",
+                    @live_action == :tickets &&
+                      "text-blue-600 border-blue-600 active",
                     @live_action != :tickets &&
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
@@ -169,10 +188,16 @@ defmodule YscWeb.AdminEventsNewLive do
           <div class="border max-w-3xl rounded border-zinc-200 py-6 px-4 space-y-4">
             <h2 class="text-xl font-bold">Cover Image</h2>
 
-            <div :if={@form[:image_id].value != nil && @form[:image_id].value != ""} class="w-full">
+            <div
+              :if={@form[:image_id].value != nil && @form[:image_id].value != ""}
+              class="w-full"
+            >
               <button class="group relative w-full" phx-click="clear-cover-image">
                 <div class="absolute flex items-center justify-center opacity-0 w-full h-full z-10 m-auto left-0 right-0 group-hover:opacity-100 transition duration-200 ease-in-out">
-                  <.icon name="hero-x-circle" class="w-20 h-20 text-red-500 fill-red-500" />
+                  <.icon
+                    name="hero-x-circle"
+                    class="w-20 h-20 text-red-500 fill-red-500"
+                  />
                 </div>
                 <div class="w-full group-hover:opacity-50 transition duration-200 ease-in-out">
                   <.live_component
@@ -202,7 +227,11 @@ defmodule YscWeb.AdminEventsNewLive do
             method="post"
             class="space-y-6 max-w-3xl"
           >
-            <.input type="hidden" field={@form[:organizer_id]} value={@current_user.id} />
+            <.input
+              type="hidden"
+              field={@form[:organizer_id]}
+              value={@current_user.id}
+            />
             <.input type="hidden" field={@form[:image_id]} />
 
             <div class="border rounded border-zinc-200 py-6 px-4 space-y-4">
@@ -252,7 +281,13 @@ defmodule YscWeb.AdminEventsNewLive do
                   field={@form[:start_time]}
                   label="Start Time*"
                 />
-                <.input type="time" id="end_time" step="60" field={@form[:end_time]} label="End Time" />
+                <.input
+                  type="time"
+                  id="end_time"
+                  step="60"
+                  field={@form[:end_time]}
+                  label="End Time"
+                />
               </div>
 
               <h3 class="text-lg pt-4 font-medium">Location</h3>
@@ -263,10 +298,25 @@ defmodule YscWeb.AdminEventsNewLive do
                   label="Location Name"
                   phx-debounce="300"
                 />
-                <.input type="text" field={@form[:address]} label="Address" phx-debounce="300" />
+                <.input
+                  type="text"
+                  field={@form[:address]}
+                  label="Address"
+                  phx-debounce="300"
+                />
                 <div class="flex flex-row space-x-4">
-                  <.input type="number" step="any" field={@form[:latitude]} label="Latitude" />
-                  <.input type="number" step="any" field={@form[:longitude]} label="Longitude" />
+                  <.input
+                    type="number"
+                    step="any"
+                    field={@form[:latitude]}
+                    label="Latitude"
+                  />
+                  <.input
+                    type="number"
+                    step="any"
+                    field={@form[:longitude]}
+                    label="Longitude"
+                  />
                 </div>
                 <div class="space-y-2">
                   <.live_component
@@ -322,7 +372,11 @@ defmodule YscWeb.AdminEventsNewLive do
                 </p>
               </div>
 
-              <.button type="button" phx-click="add-agenda" phx-disable-with="Adding...">
+              <.button
+                type="button"
+                phx-click="add-agenda"
+                phx-disable-with="Adding..."
+              >
                 <.icon name="hero-plus" class="-mt-0.5" /> Add Agenda
               </.button>
 
@@ -350,7 +404,11 @@ defmodule YscWeb.AdminEventsNewLive do
                         />
                       </div>
 
-                      <.link phx-click="delete-agenda" phx-value-id={agenda.id} alt="delete agenda">
+                      <.link
+                        phx-click="delete-agenda"
+                        phx-value-id={agenda.id}
+                        alt="delete agenda"
+                      >
                         <.icon
                           name="hero-trash"
                           class="px-2 py-2 hover:bg-red-600 rounded transition duration-200"
@@ -495,7 +553,11 @@ defmodule YscWeb.AdminEventsNewLive do
   @impl true
   def handle_event("delete-event", _, socket) do
     Events.delete_event(socket.assigns.event)
-    {:noreply, socket |> put_flash(:info, "Event deleted.") |> push_navigate(to: "/admin/events")}
+
+    {:noreply,
+     socket
+     |> put_flash(:info, "Event deleted.")
+     |> push_navigate(to: "/admin/events")}
   end
 
   @impl true
@@ -503,7 +565,9 @@ defmodule YscWeb.AdminEventsNewLive do
     Events.publish_event(socket.assigns.event)
 
     {:noreply,
-     socket |> put_flash(:info, "Event published.") |> push_navigate(to: "/admin/events")}
+     socket
+     |> put_flash(:info, "Event published.")
+     |> push_navigate(to: "/admin/events")}
   end
 
   @impl true
@@ -514,7 +578,9 @@ defmodule YscWeb.AdminEventsNewLive do
     case Events.update_event(current_event, %{image_id: nil}) do
       {:ok, event} ->
         event_changeset = Event.changeset(event, %{"image_id" => nil})
-        {:noreply, assign_form(socket, event_changeset) |> assign(:event, event)}
+
+        {:noreply,
+         assign_form(socket, event_changeset) |> assign(:event, event)}
 
       {:error, _} ->
         # If update fails, reload and try again
@@ -523,12 +589,18 @@ defmodule YscWeb.AdminEventsNewLive do
         case Events.update_event(reloaded_event, %{image_id: nil}) do
           {:ok, event} ->
             event_changeset = Event.changeset(event, %{"image_id" => nil})
-            {:noreply, assign_form(socket, event_changeset) |> assign(:event, event)}
+
+            {:noreply,
+             assign_form(socket, event_changeset) |> assign(:event, event)}
 
           {:error, _} ->
             # If it still fails, just reload the event
-            event_changeset = Event.changeset(reloaded_event, %{"image_id" => nil})
-            {:noreply, assign_form(socket, event_changeset) |> assign(:event, reloaded_event)}
+            event_changeset =
+              Event.changeset(reloaded_event, %{"image_id" => nil})
+
+            {:noreply,
+             assign_form(socket, event_changeset)
+             |> assign(:event, reloaded_event)}
         end
     end
   end
@@ -554,7 +626,11 @@ defmodule YscWeb.AdminEventsNewLive do
   end
 
   @impl true
-  def handle_event("reposition", %{"id" => id, "new" => new_idx, "old" => _old_idx}, socket) do
+  def handle_event(
+        "reposition",
+        %{"id" => id, "new" => new_idx, "old" => _old_idx},
+        socket
+      ) do
     agenda = Agendas.get_agenda!(id)
     Agendas.update_agenda_position(socket.assigns.event.id, agenda, new_idx)
     {:noreply, socket}
@@ -595,7 +671,8 @@ defmodule YscWeb.AdminEventsNewLive do
     current_event = Events.get_event!(socket.assigns[:event].id)
 
     event_changeset =
-      Event.changeset(current_event, event_params) |> Map.put(:action, :validate)
+      Event.changeset(current_event, event_params)
+      |> Map.put(:action, :validate)
 
     {updated_event, updated_changeset} =
       if event_changeset.valid? do
@@ -603,7 +680,8 @@ defmodule YscWeb.AdminEventsNewLive do
           {:ok, updated_event} ->
             # Update succeeded, rebuild changeset with updated event
             updated_changeset =
-              Event.changeset(updated_event, event_params) |> Map.put(:action, :validate)
+              Event.changeset(updated_event, event_params)
+              |> Map.put(:action, :validate)
 
             {updated_event, updated_changeset}
 
@@ -618,7 +696,9 @@ defmodule YscWeb.AdminEventsNewLive do
     {:noreply,
      assign_form(socket, updated_changeset)
      |> assign(:event, updated_event)
-     |> assign(description_length: String.length(event_params["description"] || ""))
+     |> assign(
+       description_length: String.length(event_params["description"] || "")
+     )
      |> assign(:event_title, event_params["title"])
      |> assign(:page_title, event_params["title"])
      |> assign(:start_date, event_params["start_date"])
@@ -636,7 +716,9 @@ defmodule YscWeb.AdminEventsNewLive do
       if changeset.valid? do
         case Events.update_event(current_event, %{"raw_details" => raw_body}) do
           {:ok, updated_event} ->
-            updated_changeset = Event.changeset(updated_event, %{"raw_details" => raw_body})
+            updated_changeset =
+              Event.changeset(updated_event, %{"raw_details" => raw_body})
+
             {updated_event, updated_changeset}
 
           {:error, _} ->
@@ -647,10 +729,15 @@ defmodule YscWeb.AdminEventsNewLive do
         {current_event, changeset}
       end
 
-    {:noreply, assign_form(socket, updated_changeset) |> assign(:event, updated_event)}
+    {:noreply,
+     assign_form(socket, updated_changeset) |> assign(:event, updated_event)}
   end
 
-  def handle_event("map-new-marker", %{"lat" => latitude, "long" => longitude}, socket) do
+  def handle_event(
+        "map-new-marker",
+        %{"lat" => latitude, "long" => longitude},
+        socket
+      ) do
     # Reload event to ensure we have the latest lock_version
     current_event = Events.get_event!(socket.assigns[:event].id)
 
@@ -659,7 +746,10 @@ defmodule YscWeb.AdminEventsNewLive do
 
     updated_event =
       if changeset.valid? do
-        case Events.update_event(current_event, %{latitude: latitude, longitude: longitude}) do
+        case Events.update_event(current_event, %{
+               latitude: latitude,
+               longitude: longitude
+             }) do
           {:ok, event} -> event
           {:error, _} -> current_event
         end
@@ -679,12 +769,18 @@ defmodule YscWeb.AdminEventsNewLive do
 
     # Create changeset with the new unlimited_capacity value
     # The handle_unlimited_capacity function will set max_attendees accordingly
-    changeset = Event.changeset(socket.assigns[:event], %{"unlimited_capacity" => new_unlimited})
+    changeset =
+      Event.changeset(socket.assigns[:event], %{
+        "unlimited_capacity" => new_unlimited
+      })
 
     if changeset.valid? do
       # Extract the processed max_attendees value from the changeset
       new_max_attendees = Ecto.Changeset.get_field(changeset, :max_attendees)
-      Events.update_event(socket.assigns[:event], %{"max_attendees" => new_max_attendees})
+
+      Events.update_event(socket.assigns[:event], %{
+        "max_attendees" => new_max_attendees
+      })
     end
 
     {:noreply, assign(socket, :capacity_form, to_form(changeset))}
@@ -702,7 +798,8 @@ defmodule YscWeb.AdminEventsNewLive do
       end
 
     changeset =
-      Event.changeset(socket.assigns[:event], capacity_params) |> Map.put(:action, :validate)
+      Event.changeset(socket.assigns[:event], capacity_params)
+      |> Map.put(:action, :validate)
 
     if changeset.valid? do
       Events.update_event(socket.assigns[:event], capacity_params)
@@ -767,7 +864,8 @@ defmodule YscWeb.AdminEventsNewLive do
 
   @impl true
   def handle_info(
-        {YscWeb.Agendas, %Ysc.MessagePassingEvents.AgendaRepositioned{agenda: agenda}},
+        {YscWeb.Agendas,
+         %Ysc.MessagePassingEvents.AgendaRepositioned{agenda: agenda}},
         socket
       ) do
     {:noreply,
@@ -776,13 +874,23 @@ defmodule YscWeb.AdminEventsNewLive do
   end
 
   @impl true
-  def handle_info({Ysc.Agendas, %_event{agenda_item: agenda_item} = event}, socket) do
-    send_update(YscWeb.AgendaEditComponent, id: agenda_item.agenda_id, event: event)
+  def handle_info(
+        {Ysc.Agendas, %_event{agenda_item: agenda_item} = event},
+        socket
+      ) do
+    send_update(YscWeb.AgendaEditComponent,
+      id: agenda_item.agenda_id,
+      event: event
+    )
+
     {:noreply, socket}
   end
 
   @impl true
-  def handle_info({Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event}}, socket) do
+  def handle_info(
+        {Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event}},
+        socket
+      ) do
     if event.id == socket.assigns[:event].id do
       changeset = Event.changeset(event, %{})
 
@@ -803,11 +911,14 @@ defmodule YscWeb.AdminEventsNewLive do
 
   @impl true
   def handle_info(
-        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketTierAdded{ticket_tier: ticket_tier}},
         socket
       ) do
     if ticket_tier.event_id == socket.assigns[:event].id do
-      ticket_tiers = Events.list_ticket_tiers_for_event(socket.assigns[:event].id)
+      ticket_tiers =
+        Events.list_ticket_tiers_for_event(socket.assigns[:event].id)
+
       tickets = Events.list_tickets_for_event(socket.assigns[:event].id)
 
       {:noreply,
@@ -821,11 +932,14 @@ defmodule YscWeb.AdminEventsNewLive do
 
   @impl true
   def handle_info(
-        {Ysc.Events, %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
+        {Ysc.Events,
+         %Ysc.MessagePassingEvents.TicketTierDeleted{ticket_tier: ticket_tier}},
         socket
       ) do
     if ticket_tier.event_id == socket.assigns[:event].id do
-      ticket_tiers = Events.list_ticket_tiers_for_event(socket.assigns[:event].id)
+      ticket_tiers =
+        Events.list_ticket_tiers_for_event(socket.assigns[:event].id)
+
       tickets = Events.list_tickets_for_event(socket.assigns[:event].id)
 
       {:noreply,
@@ -868,13 +982,16 @@ defmodule YscWeb.AdminEventsNewLive do
         current_event
       end
 
-    {:noreply, socket |> assign_form(changeset) |> assign(:event, updated_event)}
+    {:noreply,
+     socket |> assign_form(changeset) |> assign(:event, updated_event)}
   end
 
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: _reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationCreated{
+           ticket_reservation: _reservation
+         }},
         socket
       ) do
     # Component handles this, but we need to catch it to prevent crashes
@@ -884,7 +1001,9 @@ defmodule YscWeb.AdminEventsNewLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: _reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationFulfilled{
+           ticket_reservation: _reservation
+         }},
         socket
       ) do
     # Component handles this, but we need to catch it to prevent crashes
@@ -894,7 +1013,9 @@ defmodule YscWeb.AdminEventsNewLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: _reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationCancelled{
+           ticket_reservation: _reservation
+         }},
         socket
       ) do
     # Component handles this, but we need to catch it to prevent crashes
@@ -925,7 +1046,11 @@ defmodule YscWeb.AdminEventsNewLive do
     capacity_form = to_form(changeset, as: "event")
 
     if changeset.valid? do
-      assign(socket, form: form, capacity_form: capacity_form, check_errors: false)
+      assign(socket,
+        form: form,
+        capacity_form: capacity_form,
+        check_errors: false
+      )
     else
       assign(socket, form: form, capacity_form: capacity_form)
     end

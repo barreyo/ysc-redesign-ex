@@ -29,7 +29,12 @@ defmodule YscWeb.Workers.FileExportCleanUpTest do
 
   describe "maybe_delete_file/2" do
     test "deletes file when older than 1 hour" do
-      path = Path.join(System.tmp_dir!(), "ysc-export-#{System.unique_integer([:positive])}")
+      path =
+        Path.join(
+          System.tmp_dir!(),
+          "ysc-export-#{System.unique_integer([:positive])}"
+        )
+
       File.write!(path, "x")
 
       old = Timex.shift(Timex.now(), hours: -2)
@@ -38,7 +43,12 @@ defmodule YscWeb.Workers.FileExportCleanUpTest do
     end
 
     test "does not delete recent file" do
-      path = Path.join(System.tmp_dir!(), "ysc-export-#{System.unique_integer([:positive])}")
+      path =
+        Path.join(
+          System.tmp_dir!(),
+          "ysc-export-#{System.unique_integer([:positive])}"
+        )
+
       File.write!(path, "x")
 
       recent = Timex.shift(Timex.now(), minutes: -10)
@@ -49,7 +59,12 @@ defmodule YscWeb.Workers.FileExportCleanUpTest do
 
     test "returns 0 when deletion fails" do
       # Non-existent file -> File.rm/1 returns {:error, :enoent}
-      path = Path.join(System.tmp_dir!(), "missing-#{System.unique_integer([:positive])}")
+      path =
+        Path.join(
+          System.tmp_dir!(),
+          "missing-#{System.unique_integer([:positive])}"
+        )
+
       old = Timex.shift(Timex.now(), hours: -2)
       assert FileExportCleanUp.maybe_delete_file(path, old) == 0
     end

@@ -35,7 +35,10 @@ defmodule YscWeb.AuthController do
   def callback(%{assigns: %{ueberauth_failure: _fails}} = conn, _params) do
     # User cancelled or OAuth provider returned an error
     conn
-    |> put_flash(:error, "Authentication was cancelled or failed. Please try again.")
+    |> put_flash(
+      :error,
+      "Authentication was cancelled or failed. Please try again."
+    )
     |> redirect(to: ~p"/users/log-in")
   end
 
@@ -47,7 +50,10 @@ defmodule YscWeb.AuthController do
       handle_oauth_success(conn, email, auth.provider)
     else
       conn
-      |> put_flash(:error, "Unable to retrieve email from your account. Please contact support.")
+      |> put_flash(
+        :error,
+        "Unable to retrieve email from your account. Please contact support."
+      )
       |> redirect(to: ~p"/users/log-in")
     end
   end

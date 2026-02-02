@@ -34,7 +34,8 @@ defmodule Ysc.Bookings.RefundPolicyTest do
     test "creates valid changeset with optional fields" do
       attrs = %{
         name: "Flexible Refund Policy",
-        description: "Generous refund policy with full refunds up to 14 days before check-in",
+        description:
+          "Generous refund policy with full refunds up to 14 days before check-in",
         property: :clear_lake,
         booking_mode: :day,
         is_active: false
@@ -257,7 +258,10 @@ defmodule Ysc.Bookings.RefundPolicyTest do
       retrieved = Repo.get(RefundPolicy, policy.id)
 
       assert retrieved.name == "Standard Refund Policy"
-      assert retrieved.description == "Standard refund terms for Tahoe room bookings"
+
+      assert retrieved.description ==
+               "Standard refund terms for Tahoe room bookings"
+
       assert retrieved.property == :tahoe
       assert retrieved.booking_mode == :room
       assert retrieved.is_active == true
@@ -398,7 +402,11 @@ defmodule Ysc.Bookings.RefundPolicyTest do
 
       assert retrieved.booking_mode == :buyout
       assert length(retrieved.rules) == 1
-      assert Decimal.equal?(hd(retrieved.rules).refund_percentage, Decimal.new("0.0"))
+
+      assert Decimal.equal?(
+               hd(retrieved.rules).refund_percentage,
+               Decimal.new("0.0")
+             )
     end
   end
 

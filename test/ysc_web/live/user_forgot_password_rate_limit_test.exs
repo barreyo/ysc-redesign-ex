@@ -5,19 +5,28 @@ defmodule YscWeb.UserForgotPasswordRateLimitTest do
 
   describe "forgot password identifier rate limiting" do
     setup do
-      Application.put_env(:ysc, Ysc.AuthRateLimit, ip_limit: 10_000, identifier_limit: 2)
+      Application.put_env(:ysc, Ysc.AuthRateLimit,
+        ip_limit: 10_000,
+        identifier_limit: 2
+      )
 
       on_exit(fn ->
-        Application.put_env(:ysc, Ysc.AuthRateLimit, ip_limit: 10_000, identifier_limit: 10_000)
+        Application.put_env(:ysc, Ysc.AuthRateLimit,
+          ip_limit: 10_000,
+          identifier_limit: 10_000
+        )
       end)
 
       :ok
     end
 
-    test "shows error and redirects when identifier limit exceeded for same email", %{
-      conn: conn
-    } do
-      email = "rate_limit_forgot_#{System.unique_integer([:positive])}@example.com"
+    test "shows error and redirects when identifier limit exceeded for same email",
+         %{
+           conn: conn
+         } do
+      email =
+        "rate_limit_forgot_#{System.unique_integer([:positive])}@example.com"
+
       # First submit: allowed, redirects to /
       {:ok, lv1, _html} = live(conn, ~p"/users/reset-password")
 
@@ -45,7 +54,8 @@ defmodule YscWeb.UserForgotPasswordRateLimitTest do
         |> render_submit()
         |> follow_redirect(conn, ~p"/users/reset-password")
 
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "Too many attempts"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
+               "Too many attempts"
     end
   end
 end

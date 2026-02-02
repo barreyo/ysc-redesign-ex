@@ -41,7 +41,11 @@ defmodule Ysc.Events.DateTimeFormatter do
     |> Enum.join(" to ")
   end
 
-  def format_datetime(%{start_date: start_date, start_time: start_time, end_date: end_date}) do
+  def format_datetime(%{
+        start_date: start_date,
+        start_time: start_time,
+        end_date: end_date
+      }) do
     format_datetime(%{
       start_date: start_date,
       start_time: start_time,
@@ -65,7 +69,9 @@ defmodule Ysc.Events.DateTimeFormatter do
 
   defp format_date_time(date, nil), do: format_date(date)
   defp format_date_time(nil, time), do: format_time(time)
-  defp format_date_time(date, time), do: "#{format_date(date)} at #{format_time(time)}"
+
+  defp format_date_time(date, time),
+    do: "#{format_date(date)} at #{format_time(time)}"
 
   defp format_date(nil), do: nil
   defp format_date(date), do: Timex.format!(date, "{Mshort} {D}, {YYYY}")

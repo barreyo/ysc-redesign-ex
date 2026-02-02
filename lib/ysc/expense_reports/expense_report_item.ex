@@ -11,7 +11,9 @@ defmodule Ysc.ExpenseReports.ExpenseReportItem do
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]
   schema "expense_report_items" do
-    belongs_to :expense_report, ExpenseReport, foreign_key: :expense_report_id, references: :id
+    belongs_to :expense_report, ExpenseReport,
+      foreign_key: :expense_report_id,
+      references: :id
 
     field :date, :date
     field :vendor, :string
@@ -27,7 +29,14 @@ defmodule Ysc.ExpenseReports.ExpenseReportItem do
   """
   def changeset(expense_report_item, attrs) do
     expense_report_item
-    |> cast(attrs, [:expense_report_id, :date, :vendor, :description, :amount, :receipt_s3_path])
+    |> cast(attrs, [
+      :expense_report_id,
+      :date,
+      :vendor,
+      :description,
+      :amount,
+      :receipt_s3_path
+    ])
     |> prepare_changes(&parse_money_fields/1)
     # expense_report_id is not required when creating through parent association (cast_assoc)
     # It will be automatically set when the parent expense_report is inserted

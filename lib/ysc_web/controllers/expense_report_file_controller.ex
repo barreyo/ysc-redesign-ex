@@ -40,7 +40,8 @@ defmodule YscWeb.ExpenseReportFileController do
         handle_decoded_path(conn, user, s3_path)
 
       :error ->
-        Logger.warning("Invalid base64 encoded path in expense report file request",
+        Logger.warning(
+          "Invalid base64 encoded path in expense report file request",
           user_id: user.id,
           encoded_path: encoded_path
         )
@@ -55,10 +56,16 @@ defmodule YscWeb.ExpenseReportFileController do
   defp handle_decoded_path(conn, user, s3_path) do
     case ExpenseReports.can_access_file?(user, s3_path) do
       {:ok, expense_report} ->
-        generate_and_redirect_to_presigned_url(conn, user, s3_path, expense_report)
+        generate_and_redirect_to_presigned_url(
+          conn,
+          user,
+          s3_path,
+          expense_report
+        )
 
       {:error, :not_found} ->
-        Logger.warning("User attempted to access file not found in any expense report",
+        Logger.warning(
+          "User attempted to access file not found in any expense report",
           user_id: user.id,
           s3_path: s3_path
         )
@@ -69,7 +76,8 @@ defmodule YscWeb.ExpenseReportFileController do
         |> render(:"404")
 
       {:error, :unauthorized} ->
-        Logger.warning("User attempted to access file from expense report they don't own",
+        Logger.warning(
+          "User attempted to access file from expense report they don't own",
           user_id: user.id,
           s3_path: s3_path
         )
@@ -81,7 +89,12 @@ defmodule YscWeb.ExpenseReportFileController do
     end
   end
 
-  defp generate_and_redirect_to_presigned_url(conn, user, s3_path, expense_report) do
+  defp generate_and_redirect_to_presigned_url(
+         conn,
+         user,
+         s3_path,
+         expense_report
+       ) do
     bucket_name = S3Config.expense_reports_bucket_name()
     expires_in = 3600
     normalized_path = normalize_s3_path_for_presigned_url(s3_path)
@@ -94,7 +107,8 @@ defmodule YscWeb.ExpenseReportFileController do
         Logger.debug("Generated presigned URL for expense report file",
           user_id: user.id,
           s3_path: normalized_path,
-          expense_report_id: if(expense_report, do: expense_report.id, else: "unsaved"),
+          expense_report_id:
+            if(expense_report, do: expense_report.id, else: "unsaved"),
           expires_in: expires_in
         )
 

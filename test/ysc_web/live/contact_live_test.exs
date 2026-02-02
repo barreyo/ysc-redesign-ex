@@ -52,7 +52,13 @@ defmodule YscWeb.ContactLiveTest do
     end
 
     test "pre-fills name and email for authenticated users", %{conn: conn} do
-      user = user_fixture(%{first_name: "John", last_name: "Doe", email: "john@example.com"})
+      user =
+        user_fixture(%{
+          first_name: "John",
+          last_name: "Doe",
+          email: "john@example.com"
+        })
+
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} = live(conn, ~p"/contact")
@@ -63,7 +69,9 @@ defmodule YscWeb.ContactLiveTest do
       assert html =~ "john@example.com"
     end
 
-    test "does not show name and email fields for authenticated users", %{conn: conn} do
+    test "does not show name and email fields for authenticated users", %{
+      conn: conn
+    } do
       user = user_fixture()
       conn = log_in_user(conn, user)
 

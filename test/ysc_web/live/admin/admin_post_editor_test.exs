@@ -257,7 +257,10 @@ defmodule YscWeb.AdminPostEditorLiveTest do
       assert settings_html =~ "Featured Image"
     end
 
-    test "displays featured image section in settings", %{conn: conn, user: user} do
+    test "displays featured image section in settings", %{
+      conn: conn,
+      user: user
+    } do
       {:ok, post} =
         Posts.create_post(
           %{

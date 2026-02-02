@@ -47,7 +47,8 @@ defmodule YscWeb.AdminMediaLive do
                 "whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors",
                 if(@selected_image_version == :optimized,
                   do: "border-blue-500 text-blue-600",
-                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                  else:
+                    "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
                 )
               ]}
             >
@@ -65,7 +66,8 @@ defmodule YscWeb.AdminMediaLive do
                 "whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors",
                 if(@selected_image_version == :thumbnail,
                   do: "border-blue-500 text-blue-600",
-                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                  else:
+                    "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
                 )
               ]}
             >
@@ -83,7 +85,8 @@ defmodule YscWeb.AdminMediaLive do
                 "whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors",
                 if(@selected_image_version == :raw,
                   do: "border-blue-500 text-blue-600",
-                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                  else:
+                    "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
                 )
               ]}
             >
@@ -132,7 +135,10 @@ defmodule YscWeb.AdminMediaLive do
           <% else %>
             <div class="w-full h-64 bg-zinc-100 rounded flex items-center justify-center">
               <div class="text-center">
-                <.icon name="hero-photo" class="w-12 h-12 text-zinc-400 mx-auto mb-2" />
+                <.icon
+                  name="hero-photo"
+                  class="w-12 h-12 text-zinc-400 mx-auto mb-2"
+                />
                 <p class="text-sm text-zinc-500">
                   <%= String.capitalize(Atom.to_string(@selected_image_version)) %> version not available
                 </p>
@@ -213,9 +219,10 @@ defmodule YscWeb.AdminMediaLive do
                     <%!-- Phoenix.Component.upload_errors/2 returns a list of error atoms --%>
                     <%= for err <- upload_errors(@uploads.media_uploads, entry) do %>
                       <p class="alert alert-danger text-sm text-red-600 font-semibold mt-1">
-                        <.icon name="hero-exclamation-circle" class="-mt-0.5 h-5 w-5" /> <%= error_to_string(
-                          err
-                        ) %>
+                        <.icon
+                          name="hero-exclamation-circle"
+                          class="-mt-0.5 h-5 w-5"
+                        /> <%= error_to_string(err) %>
                       </p>
                     <% end %>
                   </article>
@@ -235,9 +242,13 @@ defmodule YscWeb.AdminMediaLive do
                 :if={length(@uploads.media_uploads.entries) == 0}
                 class="flex flex-col items-center justify-center pt-5 pb-6"
               >
-                <.icon name="hero-cloud-arrow-up" class="w-8 h-10 mb-4 text-zinc-500" />
+                <.icon
+                  name="hero-cloud-arrow-up"
+                  class="w-8 h-10 mb-4 text-zinc-500"
+                />
                 <p class="mb-2 text-sm text-zinc-500">
-                  <span class="font-semibold">Click to upload</span> or drag and drop
+                  <span class="font-semibold">Click to upload</span>
+                  or drag and drop
                 </p>
                 <p class="text-xs text-zinc-500">
                   SVG, PNG, JPG, JPEG or GIF
@@ -265,13 +276,18 @@ defmodule YscWeb.AdminMediaLive do
             Media Library
           </h1>
           <p :if={@media_count > 0} class="text-sm text-zinc-600 mt-1">
-            <%= @media_count %> <%= if @media_count == 1, do: "image", else: "images" %>
+            <%= @media_count %> <%= if @media_count == 1,
+              do: "image",
+              else: "images" %>
           </p>
         </div>
 
         <div class="flex items-center gap-4">
           <.button phx-click={JS.navigate(~p"/admin/media/upload")}>
-            <.icon name="hero-photo" class="w-5 h-5 -mt-1" /><span class="ms-1">New Image</span>
+            <.icon name="hero-photo" class="w-5 h-5 -mt-1" />
+            <span class="ms-1">
+              New Image
+            </span>
           </.button>
         </div>
       </div>
@@ -320,7 +336,9 @@ defmodule YscWeb.AdminMediaLive do
           <div class="flex flex-col items-center">
             <.icon name="hero-photo" class="w-16 h-16 text-zinc-300 mb-4" />
             <p class="text-lg font-medium text-zinc-700 mb-2">No images yet</p>
-            <p class="text-sm text-zinc-500 mb-6">Upload your first image to get started</p>
+            <p class="text-sm text-zinc-500 mb-6">
+              Upload your first image to get started
+            </p>
             <.button phx-click={JS.navigate(~p"/admin/media/upload")}>
               <.icon name="hero-cloud-arrow-up" class="w-5 h-5 -mt-1" />
               <span class="ms-1">
@@ -361,7 +379,8 @@ defmodule YscWeb.AdminMediaLive do
      |> assign(:image_uploader, image_uploader)
      |> assign(:selected_image_version, :optimized)
      |> assign(:active_page, :media)
-     |> stream(:images, [], dom_id: &get_dom_id/1), temporary_assigns: [form: nil]}
+     |> stream(:images, [], dom_id: &get_dom_id/1),
+     temporary_assigns: [form: nil]}
   end
 
   @impl true
@@ -396,7 +415,10 @@ defmodule YscWeb.AdminMediaLive do
   @impl true
   def handle_params(params, uri, socket) do
     require Logger
-    Logger.debug("handle_params called with params: #{inspect(params)}, uri: #{inspect(uri)}")
+
+    Logger.debug(
+      "handle_params called with params: #{inspect(params)}, uri: #{inspect(uri)}"
+    )
 
     # Parse query parameters from URI to get year param
     query_params = parse_query_params_from_uri(params, uri)
@@ -411,22 +433,31 @@ defmodule YscWeb.AdminMediaLive do
     # But only load if stream is empty or year has changed
     socket =
       if year_param do
-        year = if is_binary(year_param), do: String.to_integer(year_param), else: year_param
+        year =
+          if is_binary(year_param),
+            do: String.to_integer(year_param),
+            else: year_param
 
-        Logger.debug("Processing year: #{year}, current: #{socket.assigns.selected_year}")
+        Logger.debug(
+          "Processing year: #{year}, current: #{socket.assigns.selected_year}"
+        )
 
         # Only reload if year changed OR if stream is empty (e.g., on edit route mount)
         stream_empty = Enum.empty?(socket.assigns.streams.images.inserts)
         year_changed = year != socket.assigns.selected_year
 
         if year_changed || stream_empty do
-          start_date = DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
-          end_date = DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
+          start_date =
+            DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
+
+          end_date =
+            DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
 
           images =
             Repo.all(
               from i in Media.Image,
-                where: i.inserted_at >= ^start_date and i.inserted_at <= ^end_date,
+                where:
+                  i.inserted_at >= ^start_date and i.inserted_at <= ^end_date,
                 order_by: [desc: i.inserted_at, desc: i.id],
                 limit: ^socket.assigns.per_page
             )
@@ -434,7 +465,11 @@ defmodule YscWeb.AdminMediaLive do
           Logger.debug("Loaded #{length(images)} images for year #{year}")
 
           stream_items = Timeline.inject_date_headers(images)
-          new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+
+          new_years =
+            Enum.map(images, fn image -> image.inserted_at.year end)
+            |> MapSet.new()
+
           years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
 
           socket
@@ -456,7 +491,11 @@ defmodule YscWeb.AdminMediaLive do
         if has_year_filter || stream_empty do
           images = Media.list_images_cursor(limit: socket.assigns.per_page)
           stream_items = Timeline.inject_date_headers(images)
-          new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+
+          new_years =
+            Enum.map(images, fn image -> image.inserted_at.year end)
+            |> MapSet.new()
+
           years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
 
           socket
@@ -563,7 +602,10 @@ defmodule YscWeb.AdminMediaLive do
             uploader
           )
 
-        %{id: new_image.id} |> YscWeb.Workers.ImageProcessor.new() |> Oban.insert()
+        %{id: new_image.id}
+        |> YscWeb.Workers.ImageProcessor.new()
+        |> Oban.insert()
+
         {:ok, new_image}
       end)
 
@@ -597,7 +639,9 @@ defmodule YscWeb.AdminMediaLive do
 
     {:noreply,
      socket
-     |> assign(form: to_form(Map.put(form_data, :action, :validate), as: "image"))}
+     |> assign(
+       form: to_form(Map.put(form_data, :action, :validate), as: "image")
+     )}
   end
 
   def handle_event("save-image", %{"image" => image_params}, socket) do
@@ -639,7 +683,10 @@ defmodule YscWeb.AdminMediaLive do
   def handle_event("filter_by_year", %{"year" => ""}, socket) do
     images = Media.list_images_cursor(limit: socket.assigns.per_page)
     stream_items = Timeline.inject_date_headers(images)
-    new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+
+    new_years =
+      Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+
     years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
 
     {:noreply,
@@ -665,7 +712,10 @@ defmodule YscWeb.AdminMediaLive do
       )
 
     stream_items = Timeline.inject_date_headers(images)
-    new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+
+    new_years =
+      Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+
     years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
 
     {:noreply,
@@ -692,7 +742,9 @@ defmodule YscWeb.AdminMediaLive do
       # Get the last image's inserted_at as cursor (skip headers)
       last_image_date =
         socket.assigns.streams.images.inserts
-        |> Enum.filter(fn {_id, _at, item, _meta} -> match?(%Media.Image{}, item) end)
+        |> Enum.filter(fn {_id, _at, item, _meta} ->
+          match?(%Media.Image{}, item)
+        end)
         |> List.last()
         |> case do
           nil -> nil
@@ -708,8 +760,12 @@ defmodule YscWeb.AdminMediaLive do
           # If a year filter is active, load images from that year only
           if socket.assigns.selected_year do
             year = socket.assigns.selected_year
-            start_date = DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
-            end_date = DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
+
+            start_date =
+              DateTime.new!(Date.new!(year, 1, 1), ~T[00:00:00], "Etc/UTC")
+
+            end_date =
+              DateTime.new!(Date.new!(year, 12, 31), ~T[23:59:59], "Etc/UTC")
 
             images =
               Repo.all(
@@ -721,7 +777,10 @@ defmodule YscWeb.AdminMediaLive do
                   limit: ^socket.assigns.per_page
               )
 
-            Logger.debug("Load-more: loaded #{length(images)} images for year #{year}")
+            Logger.debug(
+              "Load-more: loaded #{length(images)} images for year #{year}"
+            )
+
             images
           else
             images =
@@ -730,11 +789,17 @@ defmodule YscWeb.AdminMediaLive do
                 limit: socket.assigns.per_page
               )
 
-            Logger.debug("Load-more: loaded #{length(images)} images (no year filter)")
+            Logger.debug(
+              "Load-more: loaded #{length(images)} images (no year filter)"
+            )
+
             images
           end
         else
-          Logger.warning("Load-more: no last_image_date found, cannot load more")
+          Logger.warning(
+            "Load-more: no last_image_date found, cannot load more"
+          )
+
           []
         end
 
@@ -747,7 +812,9 @@ defmodule YscWeb.AdminMediaLive do
           # Get the last image (not header) to determine if we need a new header
           last_existing_image_date =
             socket.assigns.streams.images.inserts
-            |> Enum.filter(fn {_id, _at, item, _meta} -> match?(%Media.Image{}, item) end)
+            |> Enum.filter(fn {_id, _at, item, _meta} ->
+              match?(%Media.Image{}, item)
+            end)
             |> List.last()
             |> case do
               nil -> nil
@@ -784,7 +851,8 @@ defmodule YscWeb.AdminMediaLive do
 
             # Extract years from new images and update
             new_years =
-              Enum.map(new_images, fn image -> image.inserted_at.year end) |> MapSet.new()
+              Enum.map(new_images, fn image -> image.inserted_at.year end)
+              |> MapSet.new()
 
             existing_years = Map.get(socket.assigns, :years_set, MapSet.new())
             updated_years = MapSet.union(existing_years, new_years)
@@ -794,12 +862,18 @@ defmodule YscWeb.AdminMediaLive do
             # Only stream if we have items
             {:noreply,
              socket
-             |> assign(:end_of_timeline?, length(new_images) < socket.assigns.per_page)
+             |> assign(
+               :end_of_timeline?,
+               length(new_images) < socket.assigns.per_page
+             )
              |> assign(:years_set, updated_years)
              |> update_years_from_stream()
              |> stream(:images, stream_items, at: -1, dom_id: &get_dom_id/1)}
           else
-            Logger.warning("Load-more: new_images list is empty, marking end_of_timeline")
+            Logger.warning(
+              "Load-more: new_images list is empty, marking end_of_timeline"
+            )
+
             {:noreply, assign(socket, :end_of_timeline?, true)}
           end
       end
@@ -813,11 +887,18 @@ defmodule YscWeb.AdminMediaLive do
     year_int = if is_binary(year), do: String.to_integer(year), else: year
 
     # Load images starting from this year using cursor-based pagination
-    images = Media.list_images_cursor(start_at_year: year_int, limit: socket.assigns.per_page)
+    images =
+      Media.list_images_cursor(
+        start_at_year: year_int,
+        limit: socket.assigns.per_page
+      )
+
     stream_items = Timeline.inject_date_headers(images)
 
     # Extract years from loaded images
-    new_years = Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+    new_years =
+      Enum.map(images, fn image -> image.inserted_at.year end) |> MapSet.new()
+
     years_list = new_years |> MapSet.to_list() |> Enum.sort(:desc)
 
     # Update URL with year parameter
@@ -872,7 +953,10 @@ defmodule YscWeb.AdminMediaLive do
   end
 
   defp error_to_string(:too_large), do: "Too large"
-  defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
+
+  defp error_to_string(:not_accepted),
+    do: "You have selected an unacceptable file type"
+
   defp error_to_string(:too_many_files), do: "You have selected too many files"
 
   defp error_to_string(:external_client_failure) do
@@ -899,7 +983,9 @@ defmodule YscWeb.AdminMediaLive do
   defp get_image_version_path(_, _), do: nil
 
   # Helper functions for image display (similar to GalleryComponent)
-  defp get_blur_hash(%Media.Image{blur_hash: nil}), do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+  defp get_blur_hash(%Media.Image{blur_hash: nil}),
+    do: "LEHV6nWB2yk8pyo0adR*.7kCMdnj"
+
   defp get_blur_hash(%Media.Image{blur_hash: blur_hash}), do: blur_hash
 
   defp get_image_path(%Media.Image{thumbnail_path: nil} = image),
@@ -908,8 +994,11 @@ defmodule YscWeb.AdminMediaLive do
   defp get_image_path(%Media.Image{optimized_image_path: nil} = image),
     do: image.raw_image_path
 
-  defp get_image_path(%Media.Image{thumbnail_path: thumbnail_path}), do: thumbnail_path
-  defp get_image_path(%Media.Image{optimized_image_path: optimized_path}), do: optimized_path
+  defp get_image_path(%Media.Image{thumbnail_path: thumbnail_path}),
+    do: thumbnail_path
+
+  defp get_image_path(%Media.Image{optimized_image_path: optimized_path}),
+    do: optimized_path
 
   # Get DOM ID for stream items (headers or images)
   defp get_dom_id(%Timeline.Header{} = header), do: header.id
@@ -928,7 +1017,9 @@ defmodule YscWeb.AdminMediaLive do
     year =
       case assigns[:url_year_param] do
         nil ->
-          if assigns[:selected_year], do: to_string(assigns[:selected_year]), else: nil
+          if assigns[:selected_year],
+            do: to_string(assigns[:selected_year]),
+            else: nil
 
         year_str when is_binary(year_str) ->
           # Decode if encoded, then we'll encode it properly
@@ -943,7 +1034,9 @@ defmodule YscWeb.AdminMediaLive do
       end
 
     query_params = []
-    query_params = if year, do: [{"year", year} | query_params], else: query_params
+
+    query_params =
+      if year, do: [{"year", year} | query_params], else: query_params
 
     base_path = ~p"/admin/media"
 
@@ -978,7 +1071,9 @@ defmodule YscWeb.AdminMediaLive do
       end
 
     query_params = []
-    query_params = if year, do: [{"year", year} | query_params], else: query_params
+
+    query_params =
+      if year, do: [{"year", year} | query_params], else: query_params
 
     base_path = ~p"/admin/media/upload/#{image_id}"
 
@@ -994,7 +1089,9 @@ defmodule YscWeb.AdminMediaLive do
   defp update_years_from_stream(socket) do
     years =
       socket.assigns.streams.images.inserts
-      |> Enum.filter(fn {_id, _at, item, _meta} -> match?(%Media.Image{}, item) end)
+      |> Enum.filter(fn {_id, _at, item, _meta} ->
+        match?(%Media.Image{}, item)
+      end)
       |> Enum.map(fn {_id, _at, image, _meta} -> image.inserted_at.year end)
       |> MapSet.new()
       |> MapSet.to_list()
@@ -1010,7 +1107,9 @@ defmodule YscWeb.AdminMediaLive do
     # Extract unique years from streamed images (excluding headers)
     years =
       assigns.streams.images.inserts
-      |> Enum.filter(fn {_id, _at, item, _meta} -> match?(%Media.Image{}, item) end)
+      |> Enum.filter(fn {_id, _at, item, _meta} ->
+        match?(%Media.Image{}, item)
+      end)
       |> Enum.map(fn {_id, _at, image, _meta} -> image.inserted_at.year end)
       |> Enum.uniq()
       |> Enum.sort(:desc)
@@ -1034,7 +1133,9 @@ defmodule YscWeb.AdminMediaLive do
         <%!-- RENDER IMAGE --%>
         <%= if match?(%Media.Image{}, item) do %>
           <button
-            phx-click={JS.navigate(build_image_edit_url_with_state(assigns, item.id))}
+            phx-click={
+              JS.navigate(build_image_edit_url_with_state(assigns, item.id))
+            }
             id={id}
             class="mb-4 group relative w-full rounded-lg aspect-square border border-zinc-200 cursor-pointer hover:border-zinc-400 hover:shadow-md transition-all duration-200 overflow-hidden"
           >

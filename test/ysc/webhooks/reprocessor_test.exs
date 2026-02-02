@@ -29,7 +29,8 @@ defmodule Ysc.Webhooks.ReprocessorTest do
     end
 
     test "returns error if webhook not found" do
-      assert {:error, :not_found} = Reprocessor.reprocess_webhook(Ecto.ULID.generate())
+      assert {:error, :not_found} =
+               Reprocessor.reprocess_webhook(Ecto.ULID.generate())
     end
 
     test "returns error if webhook is not failed" do
@@ -42,7 +43,8 @@ defmodule Ysc.Webhooks.ReprocessorTest do
           state: :pending
         })
 
-      assert {:error, {:not_failed, :pending}} = Reprocessor.reprocess_webhook(webhook.id)
+      assert {:error, {:not_failed, :pending}} =
+               Reprocessor.reprocess_webhook(webhook.id)
     end
   end
 
@@ -148,7 +150,11 @@ defmodule Ysc.Webhooks.ReprocessorTest do
           state: :failed
         })
 
-      result = Reprocessor.reprocess_all_failed_webhooks(dry_run: true, event_type: unique_type)
+      result =
+        Reprocessor.reprocess_all_failed_webhooks(
+          dry_run: true,
+          event_type: unique_type
+        )
 
       assert result.total_found == 1
       assert result.summary =~ "Dry run"

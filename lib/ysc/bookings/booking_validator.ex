@@ -96,7 +96,11 @@ defmodule Ysc.Bookings.BookingValidator do
       alias Ysc.Bookings.SeasonHelpers
 
       validation_errors =
-        SeasonHelpers.validate_advance_booking_limit(property, checkin_date, checkout_date)
+        SeasonHelpers.validate_advance_booking_limit(
+          property,
+          checkin_date,
+          checkout_date
+        )
 
       if Map.has_key?(validation_errors, :advance_booking_limit) do
         Ecto.Changeset.add_error(
@@ -219,7 +223,8 @@ defmodule Ysc.Bookings.BookingValidator do
         overlapping_count = Repo.aggregate(overlapping_query, :count, :id)
 
         if overlapping_count > 1 do
-          error_message = build_overlapping_booking_error_message(membership_type)
+          error_message =
+            build_overlapping_booking_error_message(membership_type)
 
           Ecto.Changeset.add_error(
             changeset,
@@ -250,7 +255,8 @@ defmodule Ysc.Bookings.BookingValidator do
         active_count = Repo.aggregate(active_bookings_query, :count, :id)
 
         if active_count > 0 do
-          error_message = build_overlapping_booking_error_message(membership_type)
+          error_message =
+            build_overlapping_booking_error_message(membership_type)
 
           Ecto.Changeset.add_error(
             changeset,
@@ -266,7 +272,8 @@ defmodule Ysc.Bookings.BookingValidator do
     end
   end
 
-  defp validate_single_active_booking(changeset, _user, _property), do: changeset
+  defp validate_single_active_booking(changeset, _user, _property),
+    do: changeset
 
   # Prevent buyout bookings if user has any active or future bookings
   defp validate_buyout_no_active_bookings(changeset, user, :tahoe) do
@@ -303,7 +310,8 @@ defmodule Ysc.Bookings.BookingValidator do
     end
   end
 
-  defp validate_buyout_no_active_bookings(changeset, _user, _property), do: changeset
+  defp validate_buyout_no_active_bookings(changeset, _user, _property),
+    do: changeset
 
   defp get_primary_user_for_booking(user) do
     if Ysc.Accounts.sub_account?(user) do
@@ -394,7 +402,8 @@ defmodule Ysc.Bookings.BookingValidator do
       total_rooms = existing_room_count + new_room_count
 
       if total_rooms > max_rooms do
-        error_message = build_room_limit_error_message(membership_type, max_rooms)
+        error_message =
+          build_room_limit_error_message(membership_type, max_rooms)
 
         Ecto.Changeset.add_error(
           changeset,
@@ -409,7 +418,8 @@ defmodule Ysc.Bookings.BookingValidator do
     end
   end
 
-  defp validate_membership_room_limits(changeset, _user, _property), do: changeset
+  defp validate_membership_room_limits(changeset, _user, _property),
+    do: changeset
 
   # Clear Lake: Maximum 12 guests per day
   defp validate_clear_lake_guest_limits(changeset, :clear_lake) do
@@ -432,7 +442,8 @@ defmodule Ysc.Bookings.BookingValidator do
         # This matches the logic in get_clear_lake_daily_availability
         date_range =
           if Date.compare(checkout_date, checkin_date) == :gt do
-            Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+            Date.range(checkin_date, Date.add(checkout_date, -1))
+            |> Enum.to_list()
           else
             []
           end
@@ -579,7 +590,10 @@ defmodule Ysc.Bookings.BookingValidator do
       [item | _] ->
         membership_plans = Application.get_env(:ysc, :membership_plans, [])
 
-        case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
+        case Enum.find(
+               membership_plans,
+               &(&1.stripe_price_id == item.stripe_price_id)
+             ) do
           %{id: id} -> id
           _ -> :none
         end

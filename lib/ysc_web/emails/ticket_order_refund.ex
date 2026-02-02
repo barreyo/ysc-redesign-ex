@@ -55,11 +55,13 @@ defmodule YscWeb.Emails.TicketOrderRefund do
 
     # Validate required associations
     if is_nil(ticket_order.user) do
-      raise ArgumentError, "Ticket order missing user association: #{ticket_order.id}"
+      raise ArgumentError,
+            "Ticket order missing user association: #{ticket_order.id}"
     end
 
     if is_nil(ticket_order.event) do
-      raise ArgumentError, "Ticket order missing event association: #{ticket_order.id}"
+      raise ArgumentError,
+            "Ticket order missing event association: #{ticket_order.id}"
     end
 
     # Format dates and times
@@ -137,7 +139,9 @@ defmodule YscWeb.Emails.TicketOrderRefund do
         else
           # Regular tier pricing
           price = tier.price || Money.new(0, :USD)
-          {format_money(price), format_money(calculate_tier_total(price, quantity))}
+
+          {format_money(price),
+           format_money(calculate_tier_total(price, quantity))}
         end
 
       %{
@@ -196,7 +200,11 @@ defmodule YscWeb.Emails.TicketOrderRefund do
       this_tier_count = length(this_tier_tickets)
 
       total_donation_count =
-        Enum.sum(Enum.map(donation_tickets_by_tier, fn {_tid, tickets} -> length(tickets) end))
+        Enum.sum(
+          Enum.map(donation_tickets_by_tier, fn {_tid, tickets} ->
+            length(tickets)
+          end)
+        )
 
       if total_donation_count > 0 && Money.positive?(donation_total) do
         per_ticket_amount =
@@ -240,7 +248,9 @@ defmodule YscWeb.Emails.TicketOrderRefund do
 
       {date, time} ->
         # Convert DateTime to Date if needed
-        date_only = if is_struct(date, DateTime), do: DateTime.to_date(date), else: date
+        date_only =
+          if is_struct(date, DateTime), do: DateTime.to_date(date), else: date
+
         datetime = DateTime.new!(date_only, time, "Etc/UTC")
         # Convert to PST
         pst_datetime = DateTime.shift_zone!(datetime, "America/Los_Angeles")
@@ -257,7 +267,11 @@ defmodule YscWeb.Emails.TicketOrderRefund do
   end
 
   defp format_money(%Money{} = money) do
-    Money.to_string!(money, separator: ".", delimiter: ",", fractional_digits: 2)
+    Money.to_string!(money,
+      separator: ".",
+      delimiter: ",",
+      fractional_digits: 2
+    )
   end
 
   defp format_money(_), do: "$0.00"

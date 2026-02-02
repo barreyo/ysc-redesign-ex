@@ -16,7 +16,13 @@ defmodule YscWeb.Emails.MembershipPaymentConfirmation do
     "Welcome to YSC – Your Membership is Active! 🎉"
   end
 
-  def prepare_email_data(user, membership_type, amount, payment_date, opts \\ []) do
+  def prepare_email_data(
+        user,
+        membership_type,
+        amount,
+        payment_date,
+        opts \\ []
+      ) do
     if is_nil(user) do
       raise ArgumentError, "User cannot be nil"
     end

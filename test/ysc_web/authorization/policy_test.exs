@@ -64,7 +64,8 @@ defmodule YscWeb.Authorization.PolicyTest do
       member = user_fixture(%{role: "member"})
       other_user = user_fixture()
 
-      assert {:error, :unauthorized} = Policy.authorize(:user_read, member, other_user)
+      assert {:error, :unauthorized} =
+               Policy.authorize(:user_read, member, other_user)
     end
 
     test "admin can update any user" do
@@ -117,7 +118,9 @@ defmodule YscWeb.Authorization.PolicyTest do
 
     test "member cannot create images" do
       member = user_fixture(%{role: "member"})
-      assert {:error, :unauthorized} = Policy.authorize(:media_image_create, member)
+
+      assert {:error, :unauthorized} =
+               Policy.authorize(:media_image_create, member)
     end
 
     test "anyone can read images" do

@@ -41,7 +41,12 @@ defmodule Ysc.Tickets.WebhookHandlerTest do
         {:ok, %{id: payment_intent_id, status: "succeeded", metadata: %{}}}
       end)
 
-      result = WebhookHandler.handle_webhook_event("payment_intent.succeeded", event_data)
+      result =
+        WebhookHandler.handle_webhook_event(
+          "payment_intent.succeeded",
+          event_data
+        )
+
       assert :ok == result
     end
 
@@ -51,10 +56,20 @@ defmodule Ysc.Tickets.WebhookHandlerTest do
 
       # Mock StripeService calls - return metadata without ticket_order_id to avoid ULID cast error
       expect(Ysc.StripeMock, :retrieve_payment_intent, fn _id, _opts ->
-        {:ok, %{id: payment_intent_id, status: "requires_payment_method", metadata: %{}}}
+        {:ok,
+         %{
+           id: payment_intent_id,
+           status: "requires_payment_method",
+           metadata: %{}
+         }}
       end)
 
-      result = WebhookHandler.handle_webhook_event("payment_intent.payment_failed", event_data)
+      result =
+        WebhookHandler.handle_webhook_event(
+          "payment_intent.payment_failed",
+          event_data
+        )
+
       assert :ok == result
     end
 
@@ -67,7 +82,12 @@ defmodule Ysc.Tickets.WebhookHandlerTest do
         {:ok, %{id: payment_intent_id, status: "canceled", metadata: %{}}}
       end)
 
-      result = WebhookHandler.handle_webhook_event("payment_intent.canceled", event_data)
+      result =
+        WebhookHandler.handle_webhook_event(
+          "payment_intent.canceled",
+          event_data
+        )
+
       assert :ok == result
     end
 
@@ -93,7 +113,12 @@ defmodule Ysc.Tickets.WebhookHandlerTest do
 
       # The handler should return :ok even if processing fails
       # This prevents webhook retries for non-retryable errors
-      result = WebhookHandler.handle_webhook_event("payment_intent.succeeded", event_data)
+      result =
+        WebhookHandler.handle_webhook_event(
+          "payment_intent.succeeded",
+          event_data
+        )
+
       assert :ok == result
     end
   end

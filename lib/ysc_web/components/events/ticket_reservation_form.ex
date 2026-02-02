@@ -19,7 +19,9 @@ defmodule YscWeb.AdminEventsLive.TicketReservationForm do
         <% else %>
           Reserve Tickets
         <% end %>
-        <:subtitle>Reserve tickets from a ticket tier for a specific user</:subtitle>
+        <:subtitle>
+          Reserve tickets from a ticket tier for a specific user
+        </:subtitle>
       </.header>
 
       <.simple_form
@@ -113,8 +115,14 @@ defmodule YscWeb.AdminEventsLive.TicketReservationForm do
           Optional discount percentage (e.g., 50 for 50% off)
         </p>
 
-        <.input type="datetime-local" label="Expires At (Optional)" field={@form[:expires_at]} />
-        <p class="text-sm text-zinc-500 mt-1">Leave empty for reservations that don't expire</p>
+        <.input
+          type="datetime-local"
+          label="Expires At (Optional)"
+          field={@form[:expires_at]}
+        />
+        <p class="text-sm text-zinc-500 mt-1">
+          Leave empty for reservations that don't expire
+        </p>
 
         <.input
           type="textarea"
@@ -132,7 +140,10 @@ defmodule YscWeb.AdminEventsLive.TicketReservationForm do
   end
 
   @impl true
-  def update(%{ticket_tier: ticket_tier, current_user: current_user} = assigns, socket) do
+  def update(
+        %{ticket_tier: ticket_tier, current_user: current_user} = assigns,
+        socket
+      ) do
     changeset =
       Events.TicketReservation.changeset(%Events.TicketReservation{}, %{
         ticket_tier_id: ticket_tier.id,
@@ -153,7 +164,8 @@ defmodule YscWeb.AdminEventsLive.TicketReservationForm do
   @impl true
   def update(assigns, socket) do
     ticket_tier_id =
-      assigns[:ticket_tier_id] || (assigns[:ticket_tier] && assigns[:ticket_tier].id)
+      assigns[:ticket_tier_id] ||
+        (assigns[:ticket_tier] && assigns[:ticket_tier].id)
 
     changeset =
       Events.TicketReservation.changeset(%Events.TicketReservation{}, %{
@@ -173,7 +185,11 @@ defmodule YscWeb.AdminEventsLive.TicketReservationForm do
   end
 
   @impl true
-  def handle_event("validate", %{"ticket_reservation" => reservation_params}, socket) do
+  def handle_event(
+        "validate",
+        %{"ticket_reservation" => reservation_params},
+        socket
+      ) do
     # Preserve user_id if a user has been selected
     reservation_params =
       if socket.assigns[:selected_user] do
@@ -254,7 +270,11 @@ defmodule YscWeb.AdminEventsLive.TicketReservationForm do
   end
 
   @impl true
-  def handle_event("save", %{"ticket_reservation" => reservation_params}, socket) do
+  def handle_event(
+        "save",
+        %{"ticket_reservation" => reservation_params},
+        socket
+      ) do
     ticket_tier_id =
       socket.assigns[:ticket_tier_id] ||
         (socket.assigns[:ticket_tier] && socket.assigns[:ticket_tier].id)
@@ -282,7 +302,8 @@ defmodule YscWeb.AdminEventsLive.TicketReservationForm do
             socket.assigns[:event_id] ->
               socket.assigns[:event_id]
 
-            socket.assigns[:ticket_tier] && socket.assigns[:ticket_tier].event_id ->
+            socket.assigns[:ticket_tier] &&
+                socket.assigns[:ticket_tier].event_id ->
               socket.assigns[:ticket_tier].event_id
 
             reservation.ticket_tier_id ->

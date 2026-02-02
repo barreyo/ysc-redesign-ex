@@ -29,7 +29,10 @@ defmodule YscWeb.ContactLive do
           </div>
 
           <div class="not-prose">
-            <div :if={@logged_in?} class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div
+              :if={@logged_in?}
+              class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+            >
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-blue-200">
                   <.user_avatar_image
@@ -56,7 +59,12 @@ defmodule YscWeb.ContactLive do
               phx-submit="save"
             >
               <.input :if={!@logged_in?} field={@form[:name]} label="Name" />
-              <.input :if={!@logged_in?} field={@form[:email]} type="email" label="Email" />
+              <.input
+                :if={!@logged_in?}
+                field={@form[:email]}
+                type="email"
+                label="Email"
+              />
               <.input
                 field={@form[:subject]}
                 type="select"
@@ -71,7 +79,12 @@ defmodule YscWeb.ContactLive do
                   {"Other", "Other"}
                 ]}
               />
-              <.input field={@form[:message]} type="textarea" label="Message" rows="6" />
+              <.input
+                field={@form[:message]}
+                type="textarea"
+                label="Message"
+                rows="6"
+              />
 
               <div :if={!@logged_in?} class="w-full flex mb-4">
                 <Turnstile.widget theme="light" />
@@ -95,10 +108,15 @@ defmodule YscWeb.ContactLive do
               class="p-5 border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:border-blue-300 transition-all duration-200"
             >
               <div class="flex items-start gap-3">
-                <.icon name="hero-home-modern" class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+                <.icon
+                  name="hero-home-modern"
+                  class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5"
+                />
                 <div>
                   <h3 class="font-bold text-zinc-900 mb-1">Tahoe Cabin</h3>
-                  <p class="text-sm text-zinc-600">Questions about bookings or stays.</p>
+                  <p class="text-sm text-zinc-600">
+                    Questions about bookings or stays.
+                  </p>
                   <p class="text-sm text-blue-600 mt-2">tahoe@ysc.org</p>
                 </div>
               </div>
@@ -109,10 +127,15 @@ defmodule YscWeb.ContactLive do
               class="p-5 border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:border-blue-300 transition-all duration-200"
             >
               <div class="flex items-start gap-3">
-                <.icon name="hero-home" class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+                <.icon
+                  name="hero-home"
+                  class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5"
+                />
                 <div>
                   <h3 class="font-bold text-zinc-900 mb-1">Clear Lake Cabin</h3>
-                  <p class="text-sm text-zinc-600">Questions about bookings or stays.</p>
+                  <p class="text-sm text-zinc-600">
+                    Questions about bookings or stays.
+                  </p>
                   <p class="text-sm text-blue-600 mt-2">cl@ysc.org</p>
                 </div>
               </div>
@@ -123,10 +146,15 @@ defmodule YscWeb.ContactLive do
               class="p-5 border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:border-blue-300 transition-all duration-200"
             >
               <div class="flex items-start gap-3">
-                <.icon name="hero-user-group" class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+                <.icon
+                  name="hero-user-group"
+                  class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5"
+                />
                 <div>
                   <h3 class="font-bold text-zinc-900 mb-1">Volunteer</h3>
-                  <p class="text-sm text-zinc-600">Join the team or suggest events.</p>
+                  <p class="text-sm text-zinc-600">
+                    Join the team or suggest events.
+                  </p>
                   <p class="text-sm text-blue-600 mt-2">volunteer@ysc.org</p>
                 </div>
               </div>
@@ -137,10 +165,15 @@ defmodule YscWeb.ContactLive do
               class="p-5 border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:border-blue-300 transition-all duration-200"
             >
               <div class="flex items-start gap-3">
-                <.icon name="hero-users" class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+                <.icon
+                  name="hero-users"
+                  class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5"
+                />
                 <div>
                   <h3 class="font-bold text-zinc-900 mb-1">Board of Directors</h3>
-                  <p class="text-sm text-zinc-600">Get in touch with the current Board.</p>
+                  <p class="text-sm text-zinc-600">
+                    Get in touch with the current Board.
+                  </p>
                   <p class="text-sm text-blue-600 mt-2">board@ysc.org</p>
                 </div>
               </div>
@@ -151,10 +184,15 @@ defmodule YscWeb.ContactLive do
               class="p-5 border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:border-blue-300 transition-all duration-200"
             >
               <div class="flex items-start gap-3">
-                <.icon name="hero-envelope" class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+                <.icon
+                  name="hero-envelope"
+                  class="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5"
+                />
                 <div>
                   <h3 class="font-bold text-zinc-900 mb-1">General Inquiry</h3>
-                  <p class="text-sm text-zinc-600">For general questions and inquiries.</p>
+                  <p class="text-sm text-zinc-600">
+                    For general questions and inquiries.
+                  </p>
                   <p class="text-sm text-blue-600 mt-2">info@ysc.org</p>
                 </div>
               </div>
@@ -165,7 +203,10 @@ defmodule YscWeb.ContactLive do
             <h2>Other Ways to Connect</h2>
             <div class="not-prose space-y-4 mt-6">
               <div class="flex items-start gap-4">
-                <.icon name="hero-phone" class="w-6 h-6 text-zinc-400 flex-shrink-0 mt-0.5" />
+                <.icon
+                  name="hero-phone"
+                  class="w-6 h-6 text-zinc-400 flex-shrink-0 mt-0.5"
+                />
                 <div>
                   <p class="font-semibold text-zinc-900 mb-1">Phone</p>
                   <a
@@ -177,7 +218,10 @@ defmodule YscWeb.ContactLive do
                 </div>
               </div>
               <div class="flex items-start gap-4">
-                <.icon name="hero-map-pin" class="w-6 h-6 text-zinc-400 flex-shrink-0 mt-0.5" />
+                <.icon
+                  name="hero-map-pin"
+                  class="w-6 h-6 text-zinc-400 flex-shrink-0 mt-0.5"
+                />
                 <div>
                   <p class="font-semibold text-zinc-900 mb-1">Mailing Address</p>
                   <p class="text-zinc-600 leading-relaxed">
@@ -208,7 +252,11 @@ defmodule YscWeb.ContactLive do
         base_params
       end
 
-    changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, params_with_subject)
+    changeset =
+      Ysc.Forms.ContactForm.changeset(
+        %Ysc.Forms.ContactForm{},
+        params_with_subject
+      )
 
     {:ok,
      socket
@@ -228,7 +276,9 @@ defmodule YscWeb.ContactLive do
       |> add_user_info(socket.assigns[:current_user])
       |> add_user_id(socket.assigns[:current_user])
 
-    changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, params)
+    changeset =
+      Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, params)
+
     {:noreply, assign_form(socket, changeset)}
   end
 
@@ -239,7 +289,8 @@ defmodule YscWeb.ContactLive do
       |> add_user_info(socket.assigns[:current_user])
       |> add_user_id(socket.assigns[:current_user])
 
-    changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, params)
+    changeset =
+      Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, params)
 
     if socket.assigns.logged_in? do
       case Ysc.Forms.create_contact_form(changeset) do

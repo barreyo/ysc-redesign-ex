@@ -261,7 +261,10 @@ defmodule YscWeb.AdminDashboardLive do
                 :if={Enum.empty?(@pending_users)}
                 class="text-center py-10 border-2 border-dashed border-zinc-100 rounded"
               >
-                <.icon name="hero-check-circle" class="w-8 h-8 text-zinc-200 mx-auto mb-2" />
+                <.icon
+                  name="hero-check-circle"
+                  class="w-8 h-8 text-zinc-200 mx-auto mb-2"
+                />
                 <p class="text-sm text-zinc-400">No pending applications</p>
               </div>
 
@@ -311,7 +314,10 @@ defmodule YscWeb.AdminDashboardLive do
                         <%= get_membership_type_display(user) %>
                       </p>
                     </div>
-                    <.button phx-click="navigate-to-review" phx-value-user-id={user.id}>
+                    <.button
+                      phx-click="navigate-to-review"
+                      phx-value-user-id={user.id}
+                    >
                       <%= get_review_button_text(user) %>
                     </.button>
                   </div>
@@ -327,7 +333,10 @@ defmodule YscWeb.AdminDashboardLive do
                 :if={Enum.empty?(@latest_comments)}
                 class="text-center py-10 border-2 border-dashed border-zinc-100 rounded"
               >
-                <.icon name="hero-chat-bubble-left-right" class="w-8 h-8 text-zinc-200 mx-auto mb-2" />
+                <.icon
+                  name="hero-chat-bubble-left-right"
+                  class="w-8 h-8 text-zinc-200 mx-auto mb-2"
+                />
                 <p class="text-sm text-zinc-400">No new comments to moderate</p>
               </div>
               <ul :if={not Enum.empty?(@latest_comments)} class="space-y-4">
@@ -338,7 +347,9 @@ defmodule YscWeb.AdminDashboardLive do
                   <div class="flex justify-between items-start mb-2">
                     <div class="flex-1">
                       <.link
-                        navigate={~p"/posts/#{comment.post.url_name || comment.post.id}"}
+                        navigate={
+                          ~p"/posts/#{comment.post.url_name || comment.post.id}"
+                        }
                         class="text-sm font-semibold text-zinc-800 hover:text-blue-600"
                       >
                         <%= comment.post.title %>
@@ -385,12 +396,17 @@ defmodule YscWeb.AdminDashboardLive do
                 :if={Enum.empty?(@events_with_tickets)}
                 class="text-center py-10 border-2 border-dashed border-zinc-100 rounded"
               >
-                <.icon name="hero-calendar" class="w-8 h-8 text-zinc-200 mx-auto mb-2" />
+                <.icon
+                  name="hero-calendar"
+                  class="w-8 h-8 text-zinc-200 mx-auto mb-2"
+                />
                 <p class="text-sm text-zinc-400">No upcoming events</p>
               </div>
 
               <div :if={not Enum.empty?(@events_with_tickets)} class="space-y-10">
-                <div :for={%{event: event, ticket_tiers: tiers} <- @events_with_tickets}>
+                <div :for={
+                  %{event: event, ticket_tiers: tiers} <- @events_with_tickets
+                }>
                   <div class="flex justify-between items-start mb-4 group">
                     <.link
                       navigate={~p"/events/#{event.id}"}
@@ -494,15 +510,17 @@ defmodule YscWeb.AdminDashboardLive do
     pending_users = Accounts.get_pending_approval_users()
 
     # Optimize revenue calculations by fetching accounts once and combining queries
-    {current_revenue, revenue_change_text, revenue_change_direction, last_month_revenue,
-     last_year_month_revenue, revenue_bookings, revenue_events, revenue_membership,
-     revenue_mix_bookings_percent, revenue_mix_events_percent, revenue_mix_membership_percent} =
+    {current_revenue, revenue_change_text, revenue_change_direction,
+     last_month_revenue, last_year_month_revenue, revenue_bookings,
+     revenue_events, revenue_membership, revenue_mix_bookings_percent,
+     revenue_mix_events_percent, revenue_mix_membership_percent} =
       calculate_all_revenue_stats()
 
     next_event_date = get_next_event_date(events_with_tickets)
 
     {applications_this_month, applications_this_year, applications_last_month,
-     applications_last_year, applications_month_change, applications_year_change} =
+     applications_last_year, applications_month_change,
+     applications_year_change} =
       get_application_statistics()
 
     {active_guests_count, active_guests_sample} = get_active_guests()
@@ -656,7 +674,8 @@ defmodule YscWeb.AdminDashboardLive do
       end
 
     {applications_this_month, applications_this_year, applications_last_month,
-     applications_last_year, applications_month_change, applications_year_change}
+     applications_last_year, applications_month_change,
+     applications_year_change}
   end
 
   defp get_status_pillar_color(user) do
@@ -1050,9 +1069,9 @@ defmodule YscWeb.AdminDashboardLive do
         {"First month", :stable}
       end
 
-    {current_revenue, revenue_change_text, revenue_change_direction, prev_revenue,
-     last_year_revenue, bookings_revenue, events_revenue, membership_revenue, bookings_percent,
-     events_percent, membership_percent}
+    {current_revenue, revenue_change_text, revenue_change_direction,
+     prev_revenue, last_year_revenue, bookings_revenue, events_revenue,
+     membership_revenue, bookings_percent, events_percent, membership_percent}
   end
 
   defp format_money(money) do

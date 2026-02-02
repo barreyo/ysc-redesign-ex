@@ -39,7 +39,10 @@ defmodule Ysc.Agendas do
     Repo.delete(agenda)
     |> case do
       {:ok, _} ->
-        broadcast(event.id, %Ysc.MessagePassingEvents.AgendaDeleted{agenda: agenda})
+        broadcast(event.id, %Ysc.MessagePassingEvents.AgendaDeleted{
+          agenda: agenda
+        })
+
         {:ok, agenda}
 
       {:error, _} ->
@@ -71,7 +74,10 @@ defmodule Ysc.Agendas do
     |> case do
       {:ok, _} ->
         new_agenda = %{agenda | position: new_index}
-        broadcast(event_id, %Ysc.MessagePassingEvents.AgendaRepositioned{agenda: new_agenda})
+
+        broadcast(event_id, %Ysc.MessagePassingEvents.AgendaRepositioned{
+          agenda: new_agenda
+        })
 
         :ok
 
@@ -84,7 +90,11 @@ defmodule Ysc.Agendas do
     %AgendaItem{} = agenda_item
 
     Ecto.Multi.new()
-    |> multi_reposition(:new, agenda_item, {Agenda, agenda_item.agenda_id}, new_index,
+    |> multi_reposition(
+      :new,
+      agenda_item,
+      {Agenda, agenda_item.agenda_id},
+      new_index,
       agenda_id: agenda_item.agenda_id
     )
     |> Repo.transaction()
@@ -112,7 +122,11 @@ defmodule Ysc.Agendas do
         where: a.agenda_id == ^agenda.id,
         where:
           a.position >
-            subquery(from og in AgendaItem, where: og.id == ^agenda_item.id, select: og.position),
+            subquery(
+              from og in AgendaItem,
+                where: og.id == ^agenda_item.id,
+                select: og.position
+            ),
         update: [inc: [position: -1]]
       )
     end)
@@ -133,7 +147,9 @@ defmodule Ysc.Agendas do
         update: [set: [agenda_id: ^agenda.id, position: ^pos_at_end]]
       )
     end)
-    |> multi_reposition(:new, agenda_item, agenda, at_index, agenda_id: agenda.id)
+    |> multi_reposition(:new, agenda_item, agenda, at_index,
+      agenda_id: agenda.id
+    )
     |> Repo.transaction()
     |> case do
       {:ok, _} ->
@@ -165,7 +181,10 @@ defmodule Ysc.Agendas do
     |> Repo.update()
     |> case do
       {:ok, agenda_item} ->
-        broadcast(event_id, %Ysc.MessagePassingEvents.AgendaItemUpdated{agenda_item: agenda_item})
+        broadcast(event_id, %Ysc.MessagePassingEvents.AgendaItemUpdated{
+          agenda_item: agenda_item
+        })
+
         {:ok, agenda_item}
 
       {:error, changeset} ->
@@ -179,7 +198,10 @@ defmodule Ysc.Agendas do
     |> Repo.update()
     |> case do
       {:ok, agenda} ->
-        broadcast(event_id, %Ysc.MessagePassingEvents.AgendaUpdated{agenda: agenda})
+        broadcast(event_id, %Ysc.MessagePassingEvents.AgendaUpdated{
+          agenda: agenda
+        })
+
         {:ok, agenda}
 
       {:error, changeset} ->
@@ -213,7 +235,10 @@ defmodule Ysc.Agendas do
     |> Repo.transaction()
     |> case do
       {:ok, %{agenda_item: agenda_item}} ->
-        broadcast(event_id, %Ysc.MessagePassingEvents.AgendaItemAdded{agenda_item: agenda_item})
+        broadcast(event_id, %Ysc.MessagePassingEvents.AgendaItemAdded{
+          agenda_item: agenda_item
+        })
+
         {:ok, agenda_item}
 
       {:error, _failed_op, failed_val, _changes_so_far} ->
@@ -248,7 +273,11 @@ defmodule Ysc.Agendas do
     |> case do
       {:ok, %{agenda: agenda}} ->
         agenda = Repo.preload(agenda, :agenda_items)
-        broadcast(event.id, %Ysc.MessagePassingEvents.AgendaAdded{agenda: agenda})
+
+        broadcast(event.id, %Ysc.MessagePassingEvents.AgendaAdded{
+          agenda: agenda
+        })
+
         {:ok, agenda}
 
       {:error, _failed_op, failed_val, _changes_so_far} ->
@@ -269,7 +298,8 @@ defmodule Ysc.Agendas do
          where_query
        )
        when is_integer(new_idx) do
-    old_position = from(og in type, where: og.id == ^struct.id, select: og.position)
+    old_position =
+      from(og in type, where: og.id == ^struct.id, select: og.position)
 
     multi
     |> Ecto.Multi.run({:index, name}, fn repo, _changes ->
@@ -279,9 +309,14 @@ defmodule Ysc.Agendas do
 
       query =
         case where_query do
-          [event_id: event_id] -> from(t in base_query, where: t.event_id == ^event_id)
-          [agenda_id: agenda_id] -> from(t in base_query, where: t.agenda_id == ^agenda_id)
-          _ -> base_query
+          [event_id: event_id] ->
+            from(t in base_query, where: t.event_id == ^event_id)
+
+          [agenda_id: agenda_id] ->
+            from(t in base_query, where: t.agenda_id == ^agenda_id)
+
+          _ ->
+            base_query
         end
 
       case repo.one(query) do
@@ -289,39 +324,62 @@ defmodule Ysc.Agendas do
         count -> {:ok, count - 1}
       end
     end)
-    |> multi_update_all({:dec_positions, name}, fn %{{:index, ^name} => computed_index} ->
+    |> multi_update_all({:dec_positions, name}, fn %{
+                                                     {:index, ^name} =>
+                                                       computed_index
+                                                   } ->
       # Build query with where conditions from keyword list
       # Handle common cases: event_id and agenda_id
       base_query =
         from(t in type,
           where: t.id != ^struct.id,
-          where: t.position > subquery(old_position) and t.position <= ^computed_index,
+          where:
+            t.position > subquery(old_position) and
+              t.position <= ^computed_index,
           update: [inc: [position: -1]]
         )
 
       case where_query do
-        [event_id: event_id] -> from(t in base_query, where: t.event_id == ^event_id)
-        [agenda_id: agenda_id] -> from(t in base_query, where: t.agenda_id == ^agenda_id)
-        _ -> base_query
+        [event_id: event_id] ->
+          from(t in base_query, where: t.event_id == ^event_id)
+
+        [agenda_id: agenda_id] ->
+          from(t in base_query, where: t.agenda_id == ^agenda_id)
+
+        _ ->
+          base_query
       end
     end)
-    |> multi_update_all({:inc_positions, name}, fn %{{:index, ^name} => computed_index} ->
+    |> multi_update_all({:inc_positions, name}, fn %{
+                                                     {:index, ^name} =>
+                                                       computed_index
+                                                   } ->
       # Build query with where conditions from keyword list
       # Handle common cases: event_id and agenda_id
       base_query =
         from(t in type,
           where: t.id != ^struct.id,
-          where: t.position < subquery(old_position) and t.position >= ^computed_index,
+          where:
+            t.position < subquery(old_position) and
+              t.position >= ^computed_index,
           update: [inc: [position: 1]]
         )
 
       case where_query do
-        [event_id: event_id] -> from(t in base_query, where: t.event_id == ^event_id)
-        [agenda_id: agenda_id] -> from(t in base_query, where: t.agenda_id == ^agenda_id)
-        _ -> base_query
+        [event_id: event_id] ->
+          from(t in base_query, where: t.event_id == ^event_id)
+
+        [agenda_id: agenda_id] ->
+          from(t in base_query, where: t.agenda_id == ^agenda_id)
+
+        _ ->
+          base_query
       end
     end)
-    |> multi_update_all({:position, name}, fn %{{:index, ^name} => computed_index} ->
+    |> multi_update_all({:position, name}, fn %{
+                                                {:index, ^name} =>
+                                                  computed_index
+                                              } ->
       from(t in type,
         where: t.id == ^struct.id,
         update: [set: [position: ^computed_index]]

@@ -96,14 +96,20 @@ defmodule YscWeb.Workers.BookingCheckoutReminderWorkerTest do
     test "schedules reminder for future checkout date", %{booking: booking} do
       future_date = Date.add(Date.utc_today(), 7)
 
-      result = BookingCheckoutReminderWorker.schedule_reminder(booking.id, future_date)
+      result =
+        BookingCheckoutReminderWorker.schedule_reminder(booking.id, future_date)
+
       assert result == :ok
     end
 
-    test "sends immediately if checkout is less than 1 day away", %{booking: booking} do
+    test "sends immediately if checkout is less than 1 day away", %{
+      booking: booking
+    } do
       today = Date.utc_today()
 
-      result = BookingCheckoutReminderWorker.schedule_reminder(booking.id, today)
+      result =
+        BookingCheckoutReminderWorker.schedule_reminder(booking.id, today)
+
       assert result == :ok
     end
   end

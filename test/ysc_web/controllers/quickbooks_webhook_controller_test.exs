@@ -20,7 +20,12 @@ defmodule YscWeb.QuickbooksWebhookControllerTest do
 
   setup do
     # Set up webhook verifier token for tests
-    Application.put_env(:ysc, :quickbooks_webhook_verifier_token, "test_verifier_token")
+    Application.put_env(
+      :ysc,
+      :quickbooks_webhook_verifier_token,
+      "test_verifier_token"
+    )
+
     # Configure the QuickBooks client to use the mock
     Application.put_env(:ysc, :quickbooks_client, ClientMock)
 
@@ -32,7 +37,9 @@ defmodule YscWeb.QuickbooksWebhookControllerTest do
   end
 
   describe "webhook/2" do
-    test "creates webhook event for valid BillPayment Create notification", %{conn: conn} do
+    test "creates webhook event for valid BillPayment Create notification", %{
+      conn: conn
+    } do
       payload =
         build_quickbooks_webhook_payload(
           realm_id: "123456789",
@@ -58,7 +65,13 @@ defmodule YscWeb.QuickbooksWebhookControllerTest do
 
       # Verify webhook event was created
       event_id = "123456789:BillPayment:bp_123:Create"
-      webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("quickbooks", event_id)
+
+      webhook_event =
+        Webhooks.get_webhook_event_by_provider_and_event_id(
+          "quickbooks",
+          event_id
+        )
+
       assert webhook_event != nil
       assert webhook_event.provider == :quickbooks
       assert webhook_event.event_type == "BillPayment.Create"
@@ -67,7 +80,9 @@ defmodule YscWeb.QuickbooksWebhookControllerTest do
       assert webhook_event.state in [:pending, :processing, :processed, :failed]
     end
 
-    test "creates webhook event for valid BillPayment Update notification", %{conn: conn} do
+    test "creates webhook event for valid BillPayment Update notification", %{
+      conn: conn
+    } do
       payload =
         build_quickbooks_webhook_payload(
           realm_id: "123456789",
@@ -92,7 +107,13 @@ defmodule YscWeb.QuickbooksWebhookControllerTest do
 
       # Verify webhook event was created
       event_id = "123456789:BillPayment:bp_456:Update"
-      webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("quickbooks", event_id)
+
+      webhook_event =
+        Webhooks.get_webhook_event_by_provider_and_event_id(
+          "quickbooks",
+          event_id
+        )
+
       assert webhook_event != nil
       assert webhook_event.event_type == "BillPayment.Update"
     end
@@ -116,7 +137,13 @@ defmodule YscWeb.QuickbooksWebhookControllerTest do
 
       # Verify no webhook event was created for non-BillPayment
       event_id = "123456789:Invoice:inv_123:Create"
-      webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("quickbooks", event_id)
+
+      webhook_event =
+        Webhooks.get_webhook_event_by_provider_and_event_id(
+          "quickbooks",
+          event_id
+        )
+
       assert webhook_event == nil
     end
 
@@ -139,7 +166,13 @@ defmodule YscWeb.QuickbooksWebhookControllerTest do
 
       # Verify no webhook event was created for Delete operation
       event_id = "123456789:BillPayment:bp_123:Delete"
-      webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("quickbooks", event_id)
+
+      webhook_event =
+        Webhooks.get_webhook_event_by_provider_and_event_id(
+          "quickbooks",
+          event_id
+        )
+
       assert webhook_event == nil
     end
 
@@ -296,7 +329,13 @@ defmodule YscWeb.QuickbooksWebhookControllerTest do
       assert conn.status == 200
 
       event_id = "123456789:BillPayment:bp_123:Create"
-      webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("quickbooks", event_id)
+
+      webhook_event =
+        Webhooks.get_webhook_event_by_provider_and_event_id(
+          "quickbooks",
+          event_id
+        )
+
       assert webhook_event.payload == payload
     end
 
@@ -347,7 +386,13 @@ defmodule YscWeb.QuickbooksWebhookControllerTest do
 
       # Should process the first notification
       event_id = "123456789:BillPayment:bp_first:Create"
-      webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("quickbooks", event_id)
+
+      webhook_event =
+        Webhooks.get_webhook_event_by_provider_and_event_id(
+          "quickbooks",
+          event_id
+        )
+
       assert webhook_event != nil
     end
   end

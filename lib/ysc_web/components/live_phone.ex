@@ -28,7 +28,8 @@ defmodule LivePhone do
   @impl true
   def update(assigns, socket) do
     current_country =
-      assigns[:country] || socket.assigns[:country] || hd(assigns[:preferred] || ["US"])
+      assigns[:country] || socket.assigns[:country] ||
+        hd(assigns[:preferred] || ["US"])
 
     masks =
       if assigns[:apply_format?] do
@@ -80,7 +81,12 @@ defmodule LivePhone do
       <input type="hidden" name={@name} value={assigns[:formatted_value]} />
 
       <%= if @opened? do %>
-        <.country_list country={@country} preferred={@preferred} id={@id} target={@myself} />
+        <.country_list
+          country={@country}
+          preferred={@preferred}
+          id={@id}
+          target={@myself}
+        />
       <% end %>
     </div>
     """
@@ -94,7 +100,8 @@ defmodule LivePhone do
       case value do
         empty when is_empty(empty) ->
           case socket.assigns do
-            %{form: form, field: field} when not is_nil(form) and not is_nil(field) ->
+            %{form: form, field: field}
+            when not is_nil(form) and not is_nil(field) ->
               input_value(form, field)
 
             %{value: assigns_value} when not is_nil(assigns_value) ->
@@ -138,9 +145,15 @@ defmodule LivePhone do
         metadata = ExPhoneNumber.Metadata.get_for_region_code(country)
 
         national_significant_number =
-          ExPhoneNumber.Model.PhoneNumber.get_national_significant_number(phone_number)
+          ExPhoneNumber.Model.PhoneNumber.get_national_significant_number(
+            phone_number
+          )
 
-        ExPhoneNumber.Formatting.format_nsn(national_significant_number, metadata, :international)
+        ExPhoneNumber.Formatting.format_nsn(
+          national_significant_number,
+          metadata,
+          :international
+        )
 
       _ ->
         ""
@@ -227,8 +240,11 @@ defmodule LivePhone do
     metadata
     |> Map.from_struct()
     |> Enum.map(fn
-      {_, %ExPhoneNumber.Metadata.PhoneNumberDescription{} = desc} -> desc.example_number
-      _other -> nil
+      {_, %ExPhoneNumber.Metadata.PhoneNumberDescription{} = desc} ->
+        desc.example_number
+
+      _other ->
+        nil
     end)
     |> Enum.filter(& &1)
 
@@ -253,7 +269,9 @@ defmodule LivePhone do
   end
 
   @spec assign_country(Socket.t(), Country.t() | String.t()) :: Socket.t()
-  defp assign_country(socket, %Country{code: country}), do: assign_country(socket, country)
+  defp assign_country(socket, %Country{code: country}),
+    do: assign_country(socket, country)
+
   defp assign_country(socket, country), do: assign(socket, :country, country)
 
   defp country_selector(assigns) do
@@ -292,7 +310,10 @@ defmodule LivePhone do
         assigns
       end
 
-    assigns = assign_new(assigns, :countries, fn -> Country.list(assigns[:preferred]) end)
+    assigns =
+      assign_new(assigns, :countries, fn ->
+        Country.list(assigns[:preferred])
+      end)
 
     assigns =
       assign_new(assigns, :last_preferred, fn ->
@@ -308,7 +329,11 @@ defmodule LivePhone do
       role="listbox"
     >
       <%= for country <- @countries do %>
-        <.country_list_item country={country} current_country={@country} target={@target} />
+        <.country_list_item
+          country={country}
+          current_country={@country}
+          target={@target}
+        />
 
         <%= if country == @last_preferred do %>
           <li
@@ -327,9 +352,14 @@ defmodule LivePhone do
     selected? = assigns[:country].code == assigns[:current_country]
     assigns = assign(assigns, :selected?, selected?)
 
-    class = ["live_phone-country-item flex text-sm cursor-pointer m-0 px-1 py-1 hover:bg-white"]
+    class = [
+      "live_phone-country-item flex text-sm cursor-pointer m-0 px-1 py-1 hover:bg-white"
+    ]
+
     class = if assigns[:selected?], do: ["bg-white" | class], else: class
-    class = if assigns[:country].preferred, do: ["preferred" | class], else: class
+
+    class =
+      if assigns[:country].preferred, do: ["preferred" | class], else: class
 
     assigns = assign(assigns, :class, class)
 

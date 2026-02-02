@@ -60,11 +60,24 @@ defmodule YscWeb.NewsListLiveTest do
       author = user_fixture()
 
       # Create regular posts
-      create_post(author, %{title: "Regular Post 1", state: :published, featured_post: false})
-      create_post(author, %{title: "Regular Post 2", state: :published, featured_post: false})
+      create_post(author, %{
+        title: "Regular Post 1",
+        state: :published,
+        featured_post: false
+      })
+
+      create_post(author, %{
+        title: "Regular Post 2",
+        state: :published,
+        featured_post: false
+      })
 
       # Create featured post
-      create_post(author, %{title: "Featured Article", state: :published, featured_post: true})
+      create_post(author, %{
+        title: "Featured Article",
+        state: :published,
+        featured_post: true
+      })
 
       html = render_component(YscWeb.NewsListLive, %{id: "news-list"})
 
@@ -93,7 +106,12 @@ defmodule YscWeb.NewsListLiveTest do
 
     test "displays post link with url_name" do
       author = user_fixture()
-      create_post(author, %{title: "Test Article", url_name: "test-article", state: :published})
+
+      create_post(author, %{
+        title: "Test Article",
+        url_name: "test-article",
+        state: :published
+      })
 
       html = render_component(YscWeb.NewsListLive, %{id: "news-list"})
 

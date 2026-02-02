@@ -42,7 +42,13 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookHandlerTest do
       # the job was processed by checking that the handler returned :ok
       # and the webhook event state was updated
       updated_webhook = Repo.get!(Ysc.Webhooks.WebhookEvent, webhook_event.id)
-      assert updated_webhook.state in [:processed, :failed, :pending, :processing]
+
+      assert updated_webhook.state in [
+               :processed,
+               :failed,
+               :pending,
+               :processing
+             ]
     end
 
     test "enqueues BillPayment processing job for Update operation" do
@@ -65,7 +71,13 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookHandlerTest do
       # the job was processed by checking that the handler returned :ok
       # and the webhook event state was updated
       updated_webhook = Repo.get!(Ysc.Webhooks.WebhookEvent, webhook_event.id)
-      assert updated_webhook.state in [:processed, :failed, :pending, :processing]
+
+      assert updated_webhook.state in [
+               :processed,
+               :failed,
+               :pending,
+               :processing
+             ]
     end
 
     test "skips non-BillPayment entities" do
@@ -80,7 +92,9 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookHandlerTest do
       assert :ok = QuickbooksWebhookHandler.handle_webhook_event(webhook_event)
 
       # Verify no job was enqueued
-      refute_enqueued(worker: YscWeb.Workers.QuickbooksBillPaymentProcessorWorker)
+      refute_enqueued(
+        worker: YscWeb.Workers.QuickbooksBillPaymentProcessorWorker
+      )
     end
 
     test "skips non-Create/Update operations" do
@@ -95,7 +109,9 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookHandlerTest do
       assert :ok = QuickbooksWebhookHandler.handle_webhook_event(webhook_event)
 
       # Verify no job was enqueued
-      refute_enqueued(worker: YscWeb.Workers.QuickbooksBillPaymentProcessorWorker)
+      refute_enqueued(
+        worker: YscWeb.Workers.QuickbooksBillPaymentProcessorWorker
+      )
     end
 
     test "handles webhook with no entities" do
@@ -121,7 +137,9 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookHandlerTest do
       assert :ok = QuickbooksWebhookHandler.handle_webhook_event(webhook_event)
 
       # Verify no job was enqueued
-      refute_enqueued(worker: YscWeb.Workers.QuickbooksBillPaymentProcessorWorker)
+      refute_enqueued(
+        worker: YscWeb.Workers.QuickbooksBillPaymentProcessorWorker
+      )
     end
 
     test "handles webhook with no event notifications" do
@@ -138,7 +156,9 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookHandlerTest do
       assert :ok = QuickbooksWebhookHandler.handle_webhook_event(webhook_event)
 
       # Verify no job was enqueued
-      refute_enqueued(worker: YscWeb.Workers.QuickbooksBillPaymentProcessorWorker)
+      refute_enqueued(
+        worker: YscWeb.Workers.QuickbooksBillPaymentProcessorWorker
+      )
     end
 
     test "handles job enqueue failure gracefully" do

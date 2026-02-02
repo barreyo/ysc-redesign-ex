@@ -102,7 +102,8 @@ defmodule YscWeb.S3.SimpleS3Upload do
     |> Base.encode16(case: :lower)
   end
 
-  defp signing_key(%{} = config, %DateTime{} = expires_at, service) when service in ["s3"] do
+  defp signing_key(%{} = config, %DateTime{} = expires_at, service)
+       when service in ["s3"] do
     amz_date = short_date(expires_at)
     %{secret_access_key: secret, region: region} = config
 

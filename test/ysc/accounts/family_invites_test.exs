@@ -13,7 +13,8 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
   defp create_user_with_lifetime_membership(attrs \\ %{}) do
     user_fixture(attrs)
     |> Ecto.Changeset.change(
-      lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+      lifetime_membership_awarded_at:
+        DateTime.truncate(DateTime.utc_now(), :second)
     )
     |> Repo.update!()
   end
@@ -78,7 +79,8 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
         user_fixture()
         |> Ecto.Changeset.change(
           state: :pending_approval,
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Repo.update!()
 
@@ -168,7 +170,9 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
           created_by_user_id: primary_user.id
         })
         |> Ecto.Changeset.change(
-          expires_at: DateTime.add(DateTime.utc_now(), -1, :day) |> DateTime.truncate(:second)
+          expires_at:
+            DateTime.add(DateTime.utc_now(), -1, :day)
+            |> DateTime.truncate(:second)
         )
         |> Repo.insert!()
 
@@ -176,7 +180,9 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
       :timer.sleep(100)
 
       # Should be able to create a new invite since the old one is expired
-      assert {:ok, new_invite} = FamilyInvites.create_invite(primary_user, email)
+      assert {:ok, new_invite} =
+               FamilyInvites.create_invite(primary_user, email)
+
       assert new_invite.id != expired_invite.id
     end
 
@@ -311,7 +317,9 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
       expired_invite =
         invite
         |> Ecto.Changeset.change(
-          expires_at: DateTime.add(DateTime.utc_now(), -1, :day) |> DateTime.truncate(:second)
+          expires_at:
+            DateTime.add(DateTime.utc_now(), -1, :day)
+            |> DateTime.truncate(:second)
         )
         |> Repo.update!()
 
@@ -452,12 +460,19 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
       primary_user = create_user_with_lifetime_membership()
 
       # Create multiple invites
-      {:ok, invite1} = FamilyInvites.create_invite(primary_user, unique_user_email())
+      {:ok, invite1} =
+        FamilyInvites.create_invite(primary_user, unique_user_email())
+
       # Ensure different timestamps - need at least 1 second for database timestamp precision
       :timer.sleep(1000)
-      {:ok, invite2} = FamilyInvites.create_invite(primary_user, unique_user_email())
+
+      {:ok, invite2} =
+        FamilyInvites.create_invite(primary_user, unique_user_email())
+
       :timer.sleep(1000)
-      {:ok, invite3} = FamilyInvites.create_invite(primary_user, unique_user_email())
+
+      {:ok, invite3} =
+        FamilyInvites.create_invite(primary_user, unique_user_email())
 
       invites = FamilyInvites.list_invites(primary_user)
 
@@ -481,8 +496,11 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
       primary_user1 = create_user_with_lifetime_membership()
       primary_user2 = create_user_with_lifetime_membership()
 
-      {:ok, _invite1} = FamilyInvites.create_invite(primary_user1, unique_user_email())
-      {:ok, _invite2} = FamilyInvites.create_invite(primary_user2, unique_user_email())
+      {:ok, _invite1} =
+        FamilyInvites.create_invite(primary_user1, unique_user_email())
+
+      {:ok, _invite2} =
+        FamilyInvites.create_invite(primary_user2, unique_user_email())
 
       invites = FamilyInvites.list_invites(primary_user1)
 
@@ -498,7 +516,9 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
 
       {:ok, invite} = FamilyInvites.create_invite(primary_user, email)
 
-      assert {:ok, deleted_invite} = FamilyInvites.revoke_invite(invite.id, primary_user)
+      assert {:ok, deleted_invite} =
+               FamilyInvites.revoke_invite(invite.id, primary_user)
+
       assert deleted_invite.id == invite.id
 
       # Verify invite is deleted
@@ -510,7 +530,8 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
       # Use a valid ULID format that doesn't exist
       fake_id = Ecto.ULID.generate()
 
-      assert {:error, :not_found} = FamilyInvites.revoke_invite(fake_id, primary_user)
+      assert {:error, :not_found} =
+               FamilyInvites.revoke_invite(fake_id, primary_user)
     end
 
     test "returns error when user is not the primary user" do
@@ -565,7 +586,8 @@ defmodule Ysc.Accounts.FamilyInvitesTest do
         user_fixture()
         |> Ecto.Changeset.change(
           state: :pending_approval,
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Repo.update!()
 

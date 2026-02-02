@@ -211,7 +211,10 @@ defmodule YscWeb.UserAuth do
     else
       socket =
         socket
-        |> Phoenix.LiveView.put_flash(:error, "You must sign in to access this page.")
+        |> Phoenix.LiveView.put_flash(
+          :error,
+          "You must sign in to access this page."
+        )
         |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
 
       {:halt, socket}
@@ -227,7 +230,10 @@ defmodule YscWeb.UserAuth do
     else
       socket =
         socket
-        |> Phoenix.LiveView.put_flash(:error, "You do not have permission to access this page")
+        |> Phoenix.LiveView.put_flash(
+          :error,
+          "You do not have permission to access this page"
+        )
         |> Phoenix.LiveView.redirect(to: ~p"/")
 
       {:halt, socket}
@@ -263,13 +269,19 @@ defmodule YscWeb.UserAuth do
     end
   end
 
-  def on_mount(:redirect_if_user_is_authenticated_and_pending_approval, _params, session, socket) do
+  def on_mount(
+        :redirect_if_user_is_authenticated_and_pending_approval,
+        _params,
+        session,
+        socket
+      ) do
     socket = mount_current_user(socket, session)
     socket = mount_current_membership(socket, session)
 
     if socket.assigns.current_user do
       if socket.assigns.current_user.state == "pending_approval" do
-        {:halt, Phoenix.LiveView.redirect(socket, to: not_approved_path(socket))}
+        {:halt,
+         Phoenix.LiveView.redirect(socket, to: not_approved_path(socket))}
       else
         {:cont, socket}
       end
@@ -360,7 +372,10 @@ defmodule YscWeb.UserAuth do
   defp put_token_in_session(conn, token) do
     conn
     |> put_session(:user_token, token)
-    |> put_session(:live_socket_id, "users_sessions:#{Base.url_encode64(token)}")
+    |> put_session(
+      :live_socket_id,
+      "users_sessions:#{Base.url_encode64(token)}"
+    )
   end
 
   defp maybe_store_return_to(%{method: "GET"} = conn) do
@@ -495,7 +510,10 @@ defmodule YscWeb.UserAuth do
       [item | _] ->
         membership_plans = Application.get_env(:ysc, :membership_plans, [])
 
-        case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
+        case Enum.find(
+               membership_plans,
+               &(&1.stripe_price_id == item.stripe_price_id)
+             ) do
           %{id: plan_id} when not is_nil(plan_id) -> plan_id
           _ -> nil
         end
@@ -505,7 +523,9 @@ defmodule YscWeb.UserAuth do
     end
   end
 
-  def get_membership_plan_type(%{plan: %{id: plan_id}}) when not is_nil(plan_id), do: plan_id
+  def get_membership_plan_type(%{plan: %{id: plan_id}})
+      when not is_nil(plan_id), do: plan_id
+
   def get_membership_plan_type(_), do: nil
 
   @doc """
@@ -528,11 +548,14 @@ defmodule YscWeb.UserAuth do
   def get_membership_renewal_date(nil), do: nil
   def get_membership_renewal_date(%{type: :lifetime}), do: nil
 
-  def get_membership_renewal_date(%Ysc.Subscriptions.Subscription{} = subscription),
-    do: subscription.current_period_end
+  def get_membership_renewal_date(
+        %Ysc.Subscriptions.Subscription{} = subscription
+      ),
+      do: subscription.current_period_end
 
-  def get_membership_renewal_date(%{renewal_date: renewal_date}) when not is_nil(renewal_date),
-    do: renewal_date
+  def get_membership_renewal_date(%{renewal_date: renewal_date})
+      when not is_nil(renewal_date),
+      do: renewal_date
 
   def get_membership_renewal_date(_), do: nil
 
@@ -553,9 +576,13 @@ defmodule YscWeb.UserAuth do
       "Family Membership"
   """
   def get_membership_plan_display_name(nil), do: "No Membership"
-  def get_membership_plan_display_name(%{type: :lifetime}), do: "Lifetime Membership"
 
-  def get_membership_plan_display_name(%Ysc.Subscriptions.Subscription{} = subscription) do
+  def get_membership_plan_display_name(%{type: :lifetime}),
+    do: "Lifetime Membership"
+
+  def get_membership_plan_display_name(
+        %Ysc.Subscriptions.Subscription{} = subscription
+      ) do
     case get_membership_plan_type(subscription) do
       nil ->
         "Active Membership"
@@ -569,7 +596,8 @@ defmodule YscWeb.UserAuth do
     end
   end
 
-  def get_membership_plan_display_name(%{plan: %{id: plan_id}}) when not is_nil(plan_id) do
+  def get_membership_plan_display_name(%{plan: %{id: plan_id}})
+      when not is_nil(plan_id) do
     plan_id
     |> Atom.to_string()
     |> String.split("_")

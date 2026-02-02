@@ -68,9 +68,10 @@ defmodule YscWeb.TahoeBookingLive do
 
     # For initial static render, defer heavy operations until socket is connected
     # This ensures fast time-to-paint for the initial HTML response
-    {user_with_subs, active_bookings, can_book, booking_error_title, booking_disabled_reason,
-     active_tab, membership_type, restricted_min_date, restricted_max_date, dates_restricted,
-     buyout_refund_policy, room_refund_policy} =
+    {user_with_subs, active_bookings, can_book, booking_error_title,
+     booking_disabled_reason, active_tab, membership_type, restricted_min_date,
+     restricted_max_date, dates_restricted, buyout_refund_policy,
+     room_refund_policy} =
       if connected?(socket) do
         # Load user with subscriptions and subscription_items FIRST (to avoid multiple fetches)
         # This user_with_subs will be reused by check_booking_eligibility and get_membership_type
@@ -159,8 +160,9 @@ defmodule YscWeb.TahoeBookingLive do
 
         room_refund_policy = Bookings.get_active_refund_policy(:tahoe, :room)
 
-        {user_with_subs, active_bookings, can_book, booking_error_title, booking_disabled_reason,
-         active_tab, membership_type, restricted_min_date, restricted_max_date, dates_restricted,
+        {user_with_subs, active_bookings, can_book, booking_error_title,
+         booking_disabled_reason, active_tab, membership_type,
+         restricted_min_date, restricted_max_date, dates_restricted,
          buyout_refund_policy, room_refund_policy}
       else
         # Static render: use minimal data for fast initial paint
@@ -177,8 +179,9 @@ defmodule YscWeb.TahoeBookingLive do
         buyout_refund_policy = nil
         room_refund_policy = nil
 
-        {user_with_subs, active_bookings, can_book, booking_error_title, booking_disabled_reason,
-         active_tab, membership_type, restricted_min_date, restricted_max_date, dates_restricted,
+        {user_with_subs, active_bookings, can_book, booking_error_title,
+         booking_disabled_reason, active_tab, membership_type,
+         restricted_min_date, restricted_max_date, dates_restricted,
          buyout_refund_policy, room_refund_policy}
       end
 
@@ -522,7 +525,8 @@ defmodule YscWeb.TahoeBookingLive do
       to_form(
         %{
           "checkin_date" => date_to_datetime_string(parsed_params.checkin_date),
-          "checkout_date" => date_to_datetime_string(parsed_params.checkout_date)
+          "checkout_date" =>
+            date_to_datetime_string(parsed_params.checkout_date)
         },
         as: "booking_dates"
       )
@@ -547,7 +551,8 @@ defmodule YscWeb.TahoeBookingLive do
       date_form: date_form,
       date_validation_errors: %{},
       active_bookings: active_bookings,
-      booking_step: if(parsed_params.booking_mode, do: :details, else: :mode_selection),
+      booking_step:
+        if(parsed_params.booking_mode, do: :details, else: :mode_selection),
       info_tab:
         parsed_params.requested_info_tab || socket.assigns[:info_tab] ||
           :general,
@@ -709,7 +714,9 @@ defmodule YscWeb.TahoeBookingLive do
     <div
       id="tahoe-booking-page"
       phx-hook={if assigns[:scroll_to_section], do: "ScrollToSection", else: nil}
-      data-section={if assigns[:scroll_to_section], do: assigns.scroll_to_section, else: nil}
+      data-section={
+        if assigns[:scroll_to_section], do: assigns.scroll_to_section, else: nil
+      }
     >
       <!-- Hero Section with Carousel (For logged-in users) -->
       <section
@@ -723,7 +730,10 @@ defmodule YscWeb.TahoeBookingLive do
             alt="Tahoe Cabin Exterior"
             class="h-full w-full object-cover"
           />
-          <div class="absolute inset-0 z-[5] bg-black/30 pointer-events-none" aria-hidden="true">
+          <div
+            class="absolute inset-0 z-[5] bg-black/30 pointer-events-none"
+            aria-hidden="true"
+          >
           </div>
         </div>
         <!-- Title Text Section -->
@@ -752,7 +762,10 @@ defmodule YscWeb.TahoeBookingLive do
             alt="Tahoe Cabin Exterior"
             class="h-full w-full object-cover"
           />
-          <div class="absolute inset-0 z-[5] bg-black/30 pointer-events-none" aria-hidden="true">
+          <div
+            class="absolute inset-0 z-[5] bg-black/30 pointer-events-none"
+            aria-hidden="true"
+          >
           </div>
         </div>
         <!-- Title Text Section -->
@@ -866,24 +879,39 @@ defmodule YscWeb.TahoeBookingLive do
                     navigate={~p"/bookings/#{booking.id}/receipt"}
                     class="inline-block mt-4 text-sm font-semibold text-blue-600 hover:underline"
                   >
-                    View Booking<.icon name="hero-arrow-right-solid" class="w-4 h-4 ms-1" />
+                    View Booking<.icon
+                      name="hero-arrow-right-solid"
+                      class="w-4 h-4 ms-1"
+                    />
                   </.link>
                 </div>
               <% end %>
             </div>
           </div>
           <!-- Booking Form -->
-          <div :if={@can_book} class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          <div
+            :if={@can_book}
+            class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start"
+          >
             <!-- Left Column: Selection Area (2 columns on large screens) -->
             <div class="lg:col-span-2 space-y-8">
               <!-- Booking Eligibility Banner -->
-              <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded p-4">
+              <div
+                :if={!@can_book}
+                class="bg-amber-50 border border-amber-200 rounded p-4"
+              >
                 <div class="flex items-start">
                   <div class="flex-shrink-0">
-                    <.icon name="hero-exclamation-triangle-solid" class="h-5 w-5 text-amber-600" />
+                    <.icon
+                      name="hero-exclamation-triangle-solid"
+                      class="h-5 w-5 text-amber-600"
+                    />
                   </div>
                   <div class="ms-2 flex-1">
-                    <h3 :if={@booking_error_title} class="text-sm font-semibold text-amber-900">
+                    <h3
+                      :if={@booking_error_title}
+                      class="text-sm font-semibold text-amber-900"
+                    >
                       <%= @booking_error_title %>
                     </h3>
                     <div class="mt-2 text-sm text-amber-800">
@@ -892,7 +920,8 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                 </div>
               </div>
-              <div :if={!@can_book} class="relative opacity-60 pointer-events-none"></div>
+              <div :if={!@can_book} class="relative opacity-60 pointer-events-none">
+              </div>
               <!-- Step 1: Booking Mode Selection -->
               <section class="bg-zinc-50 p-6 rounded border border-zinc-200">
                 <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
@@ -906,14 +935,18 @@ defmodule YscWeb.TahoeBookingLive do
                 </p>
                 <fieldset>
                   <form phx-change="booking-mode-changed">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" role="radiogroup">
+                    <div
+                      class="grid grid-cols-1 md:grid-cols-2 gap-4"
+                      role="radiogroup"
+                    >
                       <label class={[
                         "flex flex-col p-6 border-2 rounded-lg cursor-pointer transition-all",
                         if(
                           @selected_booking_mode == :room ||
                             @selected_booking_mode == nil,
                           do: "border-blue-600 bg-blue-50 shadow-md",
-                          else: "border-zinc-300 hover:border-blue-400 hover:bg-zinc-50"
+                          else:
+                            "border-zinc-300 hover:border-blue-400 hover:bg-zinc-50"
                         )
                       ]}>
                         <input
@@ -965,7 +998,8 @@ defmodule YscWeb.TahoeBookingLive do
                         "flex flex-col p-6 border-2 rounded-lg cursor-pointer transition-all",
                         if(@selected_booking_mode == :buyout,
                           do: "border-blue-600 bg-blue-50 shadow-md",
-                          else: "border-zinc-300 hover:border-blue-400 hover:bg-zinc-50"
+                          else:
+                            "border-zinc-300 hover:border-blue-400 hover:bg-zinc-50"
                         ),
                         if(not can_select_booking_mode?(@seasons, Date.utc_today()),
                           do: "opacity-50 cursor-not-allowed",
@@ -978,7 +1012,9 @@ defmodule YscWeb.TahoeBookingLive do
                           name="booking_mode"
                           value="buyout"
                           checked={@selected_booking_mode == :buyout}
-                          disabled={not can_select_booking_mode?(@seasons, Date.utc_today())}
+                          disabled={
+                            not can_select_booking_mode?(@seasons, Date.utc_today())
+                          }
                           class="sr-only"
                         />
                         <div class="flex items-center gap-3 mb-2">
@@ -1010,7 +1046,9 @@ defmodule YscWeb.TahoeBookingLive do
                           Reserve the entire cabin exclusively for your group. Includes all 7 bedrooms, 3 bathrooms, and the sauna.
                         </p>
                         <p
-                          :if={not can_select_booking_mode?(@seasons, Date.utc_today())}
+                          :if={
+                            not can_select_booking_mode?(@seasons, Date.utc_today())
+                          }
                           class="text-xs text-amber-600 mt-2 ml-9 font-medium"
                         >
                           Full buyout is only available May–November.
@@ -1047,7 +1085,10 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                 </div>
                 <!-- Winter Policy Notice -->
-                <div :if={@checkin_date} class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div
+                  :if={@checkin_date}
+                  class="p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                >
                   <p class="text-xs text-blue-900">
                     <strong>Winter Policy:</strong>
                     <%= if @checkin_date do
@@ -1138,7 +1179,10 @@ defmodule YscWeb.TahoeBookingLive do
                     </div>
                     <!-- Guests and Children Selection (Dropdown) -->
                     <div class="py-1">
-                      <div id="guests-label" class="block text-sm font-semibold text-zinc-700 mb-2">
+                      <div
+                        id="guests-label"
+                        class="block text-sm font-semibold text-zinc-700 mb-2"
+                      >
                         Guests
                       </div>
                       <div class="relative">
@@ -1199,7 +1243,8 @@ defmodule YscWeb.TahoeBookingLive do
                                     if(@guests_count <= 1,
                                       do:
                                         "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                      else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                                      else:
+                                        "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
                                     )
                                   ]}
                                 >
@@ -1249,7 +1294,8 @@ defmodule YscWeb.TahoeBookingLive do
                                     if(@children_count <= 0,
                                       do:
                                         "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                      else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                                      else:
+                                        "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
                                     )
                                   ]}
                                 >
@@ -1309,19 +1355,34 @@ defmodule YscWeb.TahoeBookingLive do
                   </div>
                   <!-- Error Messages -->
                   <div class="mt-4 space-y-1">
-                    <p :if={@form_errors[:checkin_date]} class="text-red-600 text-sm">
+                    <p
+                      :if={@form_errors[:checkin_date]}
+                      class="text-red-600 text-sm"
+                    >
                       <%= @form_errors[:checkin_date] %>
                     </p>
-                    <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
+                    <p
+                      :if={@form_errors[:checkout_date]}
+                      class="text-red-600 text-sm"
+                    >
                       <%= @form_errors[:checkout_date] %>
                     </p>
-                    <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
+                    <p
+                      :if={@date_validation_errors[:weekend]}
+                      class="text-red-600 text-sm"
+                    >
                       <%= @date_validation_errors[:weekend] %>
                     </p>
-                    <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
+                    <p
+                      :if={@date_validation_errors[:max_nights]}
+                      class="text-red-600 text-sm"
+                    >
                       <%= @date_validation_errors[:max_nights] %>
                     </p>
-                    <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
+                    <p
+                      :if={@date_validation_errors[:active_booking]}
+                      class="text-red-600 text-sm"
+                    >
                       <%= @date_validation_errors[:active_booking] %>
                     </p>
                     <p
@@ -1336,10 +1397,16 @@ defmodule YscWeb.TahoeBookingLive do
                     >
                       <%= @date_validation_errors[:season_booking_mode] %>
                     </p>
-                    <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm">
+                    <p
+                      :if={@date_validation_errors[:season_date_range]}
+                      class="text-red-600 text-sm"
+                    >
                       <%= @date_validation_errors[:season_date_range] %>
                     </p>
-                    <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm">
+                    <p
+                      :if={@date_validation_errors[:availability]}
+                      class="text-red-600 text-sm"
+                    >
                       <%= @date_validation_errors[:availability] %>
                     </p>
                   </div>
@@ -1388,13 +1455,22 @@ defmodule YscWeb.TahoeBookingLive do
                   />
                   <!-- Error Messages -->
                   <div class="mt-4 space-y-1">
-                    <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
+                    <p
+                      :if={@date_validation_errors[:weekend]}
+                      class="text-red-600 text-sm"
+                    >
                       <%= @date_validation_errors[:weekend] %>
                     </p>
-                    <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
+                    <p
+                      :if={@date_validation_errors[:max_nights]}
+                      class="text-red-600 text-sm"
+                    >
                       <%= @date_validation_errors[:max_nights] %>
                     </p>
-                    <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm">
+                    <p
+                      :if={@date_validation_errors[:availability]}
+                      class="text-red-600 text-sm"
+                    >
                       <%= @date_validation_errors[:availability] %>
                     </p>
                   </div>
@@ -1407,7 +1483,10 @@ defmodule YscWeb.TahoeBookingLive do
               >
                 <div class="flex items-start">
                   <div class="flex-shrink-0">
-                    <.icon name="hero-information-circle" class="h-5 w-5 text-blue-600" />
+                    <.icon
+                      name="hero-information-circle"
+                      class="h-5 w-5 text-blue-600"
+                    />
                   </div>
                   <div class="ms-2 flex-1">
                     <p class="text-sm text-blue-800">
@@ -1418,7 +1497,9 @@ defmodule YscWeb.TahoeBookingLive do
                 </div>
               </div>
               <!-- Section 3: Choose Your Rooms -->
-              <section :if={@selected_booking_mode == :room && @checkin_date && @checkout_date}>
+              <section :if={
+                @selected_booking_mode == :room && @checkin_date && @checkout_date
+              }>
                 <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
                   <span class="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
                     3
@@ -1426,7 +1507,9 @@ defmodule YscWeb.TahoeBookingLive do
                   Choose Your Rooms
                   <%= if can_select_multiple_rooms?(assigns) && length(@selected_room_ids) > 0 do %>
                     <span class="text-sm font-normal text-zinc-500">
-                      (<%= length(@selected_room_ids) %>/<%= max_rooms_for_user(assigns) %>)
+                      (<%= length(@selected_room_ids) %>/<%= max_rooms_for_user(
+                        assigns
+                      ) %>)
                     </span>
                   <% end %>
                 </h2>
@@ -1440,7 +1523,10 @@ defmodule YscWeb.TahoeBookingLive do
                   class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded"
                 >
                   <div class="flex items-start gap-2">
-                    <.icon name="hero-light-bulb-solid" class="w-5 h-5 text-blue-600 flex-shrink-0" />
+                    <.icon
+                      name="hero-light-bulb-solid"
+                      class="w-5 h-5 text-blue-600 flex-shrink-0"
+                    />
                     <p class="text-sm text-blue-900 font-medium">
                       <strong>Family Membership Benefit:</strong>
                       You can book up to <%= max_rooms_for_user(assigns) %> rooms in the same reservation.
@@ -1483,7 +1569,8 @@ defmodule YscWeb.TahoeBookingLive do
                       <div class={[
                         "border-2 rounded overflow-hidden flex flex-col h-full transition-all",
                         if(is_disabled,
-                          do: "border-zinc-200 bg-zinc-50 cursor-not-allowed opacity-60",
+                          do:
+                            "border-zinc-200 bg-zinc-50 cursor-not-allowed opacity-60",
                           else:
                             if(
                               (can_select_multiple_rooms?(assigns) &&
@@ -1496,7 +1583,10 @@ defmodule YscWeb.TahoeBookingLive do
                             )
                         )
                       ]}>
-                        <label :if={!is_disabled} class="block cursor-pointer flex flex-col h-full">
+                        <label
+                          :if={!is_disabled}
+                          class="block cursor-pointer flex flex-col h-full"
+                        >
                           <input
                             type={
                               if can_select_multiple_rooms?(assigns),
@@ -1575,7 +1665,10 @@ defmodule YscWeb.TahoeBookingLive do
                               <!-- Placeholder when no image -->
                               <div class="absolute inset-0 flex items-center justify-center">
                                 <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
-                                  <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                                  <.icon
+                                    name="hero-photo"
+                                    class="w-20 h-20 mx-auto mb-2"
+                                  />Room Image
                                 </div>
                               </div>
                             <% end %>
@@ -1646,7 +1739,9 @@ defmodule YscWeb.TahoeBookingLive do
                                 class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
                                 title="Twin beds"
                               >
-                                <%= raw(bed_icon_svg(:single, "w-3 h-3 text-zinc-600")) %>
+                                <%= raw(
+                                  bed_icon_svg(:single, "w-3 h-3 text-zinc-600")
+                                ) %>
                                 <span><%= room.single_beds %></span>
                               </span>
                               <span
@@ -1654,7 +1749,9 @@ defmodule YscWeb.TahoeBookingLive do
                                 class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
                                 title="Queen beds"
                               >
-                                <%= raw(bed_icon_svg(:queen, "w-3 h-3 text-zinc-600")) %>
+                                <%= raw(
+                                  bed_icon_svg(:queen, "w-3 h-3 text-zinc-600")
+                                ) %>
                                 <span><%= room.queen_beds %></span>
                               </span>
                               <span
@@ -1662,7 +1759,9 @@ defmodule YscWeb.TahoeBookingLive do
                                 class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
                                 title="King beds"
                               >
-                                <%= raw(bed_icon_svg(:king, "w-3 h-3 text-zinc-600")) %>
+                                <%= raw(
+                                  bed_icon_svg(:king, "w-3 h-3 text-zinc-600")
+                                ) %>
                                 <span><%= room.king_beds %></span>
                               </span>
                             </div>
@@ -1780,7 +1879,10 @@ defmodule YscWeb.TahoeBookingLive do
                               <!-- Placeholder when no image -->
                               <div class="absolute inset-0 flex items-center justify-center">
                                 <div class="text-zinc-400 text-sm flex flex-col items-center justify-center">
-                                  <.icon name="hero-photo" class="w-20 h-20 mx-auto mb-2" />Room Image
+                                  <.icon
+                                    name="hero-photo"
+                                    class="w-20 h-20 mx-auto mb-2"
+                                  />Room Image
                                 </div>
                               </div>
                             <% end %>
@@ -1825,7 +1927,9 @@ defmodule YscWeb.TahoeBookingLive do
                                 class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
                                 title="Twin beds"
                               >
-                                <%= raw(bed_icon_svg(:single, "w-3 h-3 text-zinc-600")) %>
+                                <%= raw(
+                                  bed_icon_svg(:single, "w-3 h-3 text-zinc-600")
+                                ) %>
                                 <span><%= room.single_beds %></span>
                               </span>
                               <span
@@ -1833,7 +1937,9 @@ defmodule YscWeb.TahoeBookingLive do
                                 class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
                                 title="Queen beds"
                               >
-                                <%= raw(bed_icon_svg(:queen, "w-3 h-3 text-zinc-600")) %>
+                                <%= raw(
+                                  bed_icon_svg(:queen, "w-3 h-3 text-zinc-600")
+                                ) %>
                                 <span><%= room.queen_beds %></span>
                               </span>
                               <span
@@ -1841,7 +1947,9 @@ defmodule YscWeb.TahoeBookingLive do
                                 class="inline-flex items-center gap-1 px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200"
                                 title="King beds"
                               >
-                                <%= raw(bed_icon_svg(:king, "w-3 h-3 text-zinc-600")) %>
+                                <%= raw(
+                                  bed_icon_svg(:king, "w-3 h-3 text-zinc-600")
+                                ) %>
                                 <span><%= room.king_beds %></span>
                               </span>
                             </div>
@@ -1939,13 +2047,18 @@ defmodule YscWeb.TahoeBookingLive do
                                                                                  @checkin_date
                                                                                ) ==
                                                                                  1,
-                                                                               do: "night",
-                                                                               else: "nights" %>
+                                                                               do:
+                                                                                 "night",
+                                                                               else:
+                                                                                 "nights" %>
                       </span>
                     </div>
                   </div>
                   <!-- Guests -->
-                  <div :if={@guests_count || @children_count} class="flex justify-between text-sm">
+                  <div
+                    :if={@guests_count || @children_count}
+                    class="flex justify-between text-sm"
+                  >
                     <span class="text-zinc-500 font-medium">Guests</span>
                     <span class="font-semibold text-zinc-900">
                       <%= format_guests_display(@guests_count, @children_count) %>
@@ -1962,7 +2075,10 @@ defmodule YscWeb.TahoeBookingLive do
                     class="p-2 bg-blue-50 border border-blue-200 rounded"
                   >
                     <div class="flex items-start gap-2">
-                      <.icon name="hero-light-bulb-solid" class="w-4 h-4 text-blue-600 flex-shrink-0" />
+                      <.icon
+                        name="hero-light-bulb-solid"
+                        class="w-4 h-4 text-blue-600 flex-shrink-0"
+                      />
                       <p class="text-xs text-blue-900 leading-tight">
                         <strong>Family Membership:</strong>
                         You can book up to <%= max_rooms_for_user(assigns) %> rooms.
@@ -2062,7 +2178,10 @@ defmodule YscWeb.TahoeBookingLive do
                     </p>
                     <%= for room_id <- @selected_room_ids do %>
                       <% room = Enum.find(@available_rooms, &(&1.id == room_id)) %>
-                      <div :if={room} class="flex justify-between items-center text-sm">
+                      <div
+                        :if={room}
+                        class="flex justify-between items-center text-sm"
+                      >
                         <span class="text-zinc-700"><%= room.name %></span>
                         <button
                           phx-click="remove-room"
@@ -2104,7 +2223,9 @@ defmodule YscWeb.TahoeBookingLive do
                         <span class="text-zinc-600">
                           Full Buyout
                           <%= if @price_breakdown.nights && @price_breakdown.price_per_night do %>
-                            (<%= MoneyHelper.format_money!(@price_breakdown.price_per_night) %> × <%= @price_breakdown.nights %>)
+                            (<%= MoneyHelper.format_money!(
+                              @price_breakdown.price_per_night
+                            ) %> × <%= @price_breakdown.nights %>)
                           <% end %>
                         </span>
                         <span class="font-semibold text-zinc-900">
@@ -2339,7 +2460,10 @@ defmodule YscWeb.TahoeBookingLive do
                 aria-hidden="true"
               >
               </div>
-              <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+              <span
+                class="hidden sm:inline-block sm:align-middle sm:h-screen"
+                aria-hidden="true"
+              >
                 &#8203;
               </span>
               <div
@@ -2350,7 +2474,10 @@ defmodule YscWeb.TahoeBookingLive do
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                   <div class="sm:flex sm:items-start">
                     <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                      <.icon name="hero-exclamation-triangle-solid" class="h-6 w-6 text-blue-600" />
+                      <.icon
+                        name="hero-exclamation-triangle-solid"
+                        class="h-6 w-6 text-blue-600"
+                      />
                     </div>
                     <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                       <h3 class="text-lg leading-6 font-medium text-zinc-900 mb-4">
@@ -2466,7 +2593,10 @@ defmodule YscWeb.TahoeBookingLive do
                 aria-hidden="true"
               >
               </div>
-              <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+              <span
+                class="hidden sm:inline-block sm:align-middle sm:h-screen"
+                aria-hidden="true"
+              >
                 &#8203;
               </span>
               <div
@@ -2547,14 +2677,16 @@ defmodule YscWeb.TahoeBookingLive do
                       </h4>
                       <div class="space-y-1 ml-4">
                         <p>
-                          <strong>Address:</strong> 2685 Cedar Lane, Homewood, CA 96141.
+                          <strong>Address:</strong>
+                          2685 Cedar Lane, Homewood, CA 96141.
                         </p>
                         <p>
                           <strong>Winter Driving:</strong>
                           You must carry chains or drive a 4WD with snow tires. Check Caltrans (800-427-7623) before travel.
                         </p>
                         <p>
-                          <strong>Parking:</strong> Extremely limited; carpooling is encouraged.
+                          <strong>Parking:</strong>
+                          Extremely limited; carpooling is encouraged.
                         </p>
                         <p>
                           <strong>Street Parking Ban:</strong>
@@ -2584,7 +2716,8 @@ defmodule YscWeb.TahoeBookingLive do
                           </p>
                         </div>
                         <p>
-                          <strong>Trash:</strong> Use bearproof lids on all garbage cans at all times.
+                          <strong>Trash:</strong>
+                          Use bearproof lids on all garbage cans at all times.
                         </p>
                       </div>
                     </div>
@@ -2603,7 +2736,8 @@ defmodule YscWeb.TahoeBookingLive do
                           For safety and noise, children are not permitted to play on the stairs.
                         </p>
                         <p>
-                          <strong>Prohibited:</strong> No pets. No smoking or vaping inside the cabin.
+                          <strong>Prohibited:</strong>
+                          No pets. No smoking or vaping inside the cabin.
                         </p>
                         <p>
                           <strong>Storage:</strong>
@@ -2642,7 +2776,8 @@ defmodule YscWeb.TahoeBookingLive do
                           Leave it spotless; remove all food from the refrigerator.
                         </p>
                         <p>
-                          <strong>Rooms:</strong> Clean your room and strip the beds.
+                          <strong>Rooms:</strong>
+                          Clean your room and strip the beds.
                         </p>
                         <p>
                           <strong>Laundry:</strong>
@@ -2707,13 +2842,22 @@ defmodule YscWeb.TahoeBookingLive do
             </div>
           </div>
           <!-- Booking Eligibility Banner (shown when user can't book) -->
-          <div :if={!@can_book} class="bg-amber-50 border border-amber-200 rounded p-4">
+          <div
+            :if={!@can_book}
+            class="bg-amber-50 border border-amber-200 rounded p-4"
+          >
             <div class="flex items-start">
               <div class="flex-shrink-0">
-                <.icon name="hero-exclamation-triangle-solid" class="h-5 w-5 text-amber-600" />
+                <.icon
+                  name="hero-exclamation-triangle-solid"
+                  class="h-5 w-5 text-amber-600"
+                />
               </div>
               <div class="ms-2 flex-1">
-                <h3 :if={@booking_error_title} class="text-sm font-semibold text-amber-900">
+                <h3
+                  :if={@booking_error_title}
+                  class="text-sm font-semibold text-amber-900"
+                >
                   <%= @booking_error_title %>
                 </h3>
                 <div class="mt-2 text-sm text-amber-800">
@@ -2758,7 +2902,10 @@ defmodule YscWeb.TahoeBookingLive do
             <!-- Tab Content -->
             <div class="space-y-16">
               <!-- General Information Tab -->
-              <div :if={Map.get(assigns, :info_tab, :general) == :general} class="space-y-16">
+              <div
+                :if={Map.get(assigns, :info_tab, :general) == :general}
+                class="space-y-16"
+              >
                 <!-- Welcome Header -->
                 <section>
                   <div class="prose prose-zinc max-w-none mb-10">
@@ -2920,7 +3067,8 @@ defmodule YscWeb.TahoeBookingLive do
                       </div>
                     </div>
                     <p class="text-sm text-zinc-600 mt-4">
-                      <strong>📍 Location:</strong> South of Tahoe City, near the lake's west shore.
+                      <strong>📍 Location:</strong>
+                      South of Tahoe City, near the lake's west shore.
                     </p>
                   </section>
                 </section>
@@ -3005,7 +3153,8 @@ defmodule YscWeb.TahoeBookingLive do
                               4.
                             </span>
                             <span>
-                              After ~3 miles, turn <strong>right onto Timberland Lane</strong>
+                              After ~3 miles, turn
+                              <strong>right onto Timberland Lane</strong>
                               (look for the Timberland totem pole).
                             </span>
                           </li>
@@ -3014,13 +3163,15 @@ defmodule YscWeb.TahoeBookingLive do
                               5.
                             </span>
                             <span>
-                              Turn <strong>left onto Cedar Lane</strong> — the cabin is on your left.
+                              Turn <strong>left onto Cedar Lane</strong>
+                              — the cabin is on your left.
                             </span>
                           </li>
                         </ol>
                         <p class="text-sm text-zinc-600 mt-6">
                           <strong>Transportation Notes:</strong>
-                          Public transportation is limited — <strong>driving is recommended.</strong>
+                          Public transportation is limited —
+                          <strong>driving is recommended.</strong>
                           <strong>Carpooling</strong>
                           is encouraged to reduce parking strain and environmental impact.
                         </p>
@@ -3139,7 +3290,8 @@ defmodule YscWeb.TahoeBookingLive do
                         or use a <strong>4WD vehicle with snow tires</strong>.
                       </li>
                       <li>
-                        Check <strong>road and weather conditions</strong> before traveling.
+                        Check <strong>road and weather conditions</strong>
+                        before traveling.
                       </li>
                     </ul>
                     <div>
@@ -3158,7 +3310,10 @@ defmodule YscWeb.TahoeBookingLive do
                         </li>
                         <li>
                           Caltrans Road Info:
-                          <a href="tel:8004277623" class="text-blue-700 hover:text-blue-900 underline">
+                          <a
+                            href="tel:8004277623"
+                            class="text-blue-700 hover:text-blue-900 underline"
+                          >
                             (800) 427-7623
                           </a>
                         </li>
@@ -3209,13 +3364,19 @@ defmodule YscWeb.TahoeBookingLive do
                       <ul class="list-disc list-inside space-y-1 text-zinc-700">
                         <li>
                           <strong>Tahoe Bus Transit:</strong>
-                          <a href="tel:5305816365" class="text-blue-600 hover:text-blue-800 underline">
+                          <a
+                            href="tel:5305816365"
+                            class="text-blue-600 hover:text-blue-800 underline"
+                          >
                             (530) 581-6365
                           </a>
                         </li>
                         <li>
                           <strong>Tahoe Taxi:</strong>
-                          <a href="tel:5305463181" class="text-blue-600 hover:text-blue-800 underline">
+                          <a
+                            href="tel:5305463181"
+                            class="text-blue-600 hover:text-blue-800 underline"
+                          >
                             (530) 546-3181
                           </a>
                         </li>
@@ -3241,7 +3402,10 @@ defmodule YscWeb.TahoeBookingLive do
                 </section>
               </div>
               <!-- Cabin and Booking Rules Tab -->
-              <div :if={Map.get(assigns, :info_tab, :general) == :rules} id="cabin-rules">
+              <div
+                :if={Map.get(assigns, :info_tab, :general) == :rules}
+                id="cabin-rules"
+              >
                 <!-- Golden Rules Banner -->
                 <section class="bg-zinc-100 rounded-2xl p-6 mb-12 shadow-lg">
                   <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -3271,7 +3435,10 @@ defmodule YscWeb.TahoeBookingLive do
                 <!-- Winter Season Reservations Notice -->
                 <section class="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-12">
                   <div class="flex items-start gap-3">
-                    <.icon name="hero-megaphone" class="w-6 h-6 text-blue-700 flex-shrink-0 mt-0.5" />
+                    <.icon
+                      name="hero-megaphone"
+                      class="w-6 h-6 text-blue-700 flex-shrink-0 mt-0.5"
+                    />
                     <div class="flex-1">
                       <h2 class="text-xl font-bold text-blue-900 mb-2">
                         Winter Season 2025/2026 Reservations
@@ -3674,11 +3841,15 @@ defmodule YscWeb.TahoeBookingLive do
                                     if(buyout_rule && buyout_rule.refund_percentage,
                                       do:
                                         if(
-                                          Decimal.to_float(buyout_rule.refund_percentage) >= 100,
+                                          Decimal.to_float(
+                                            buyout_rule.refund_percentage
+                                          ) >= 100,
                                           do: "text-green-700 font-bold",
                                           else:
                                             if(
-                                              Decimal.to_float(buyout_rule.refund_percentage) >= 50,
+                                              Decimal.to_float(
+                                                buyout_rule.refund_percentage
+                                              ) >= 50,
                                               do: "text-amber-700 font-semibold",
                                               else: "text-red-700 font-semibold"
                                             )
@@ -3687,7 +3858,11 @@ defmodule YscWeb.TahoeBookingLive do
                                     )
                                   ]}>
                                     <%= if buyout_rule && buyout_rule.refund_percentage do %>
-                                      <%= trunc(Decimal.to_float(buyout_rule.refund_percentage)) %>%
+                                      <%= trunc(
+                                        Decimal.to_float(
+                                          buyout_rule.refund_percentage
+                                        )
+                                      ) %>%
                                     <% else %>
                                       —
                                     <% end %>
@@ -3697,11 +3872,15 @@ defmodule YscWeb.TahoeBookingLive do
                                     if(room_rule && room_rule.refund_percentage,
                                       do:
                                         if(
-                                          Decimal.to_float(room_rule.refund_percentage) >= 100,
+                                          Decimal.to_float(
+                                            room_rule.refund_percentage
+                                          ) >= 100,
                                           do: "text-green-700 font-bold",
                                           else:
                                             if(
-                                              Decimal.to_float(room_rule.refund_percentage) >= 50,
+                                              Decimal.to_float(
+                                                room_rule.refund_percentage
+                                              ) >= 50,
                                               do: "text-amber-700 font-semibold",
                                               else: "text-red-700 font-semibold"
                                             )
@@ -3710,7 +3889,11 @@ defmodule YscWeb.TahoeBookingLive do
                                     )
                                   ]}>
                                     <%= if room_rule && room_rule.refund_percentage do %>
-                                      <%= trunc(Decimal.to_float(room_rule.refund_percentage)) %>%
+                                      <%= trunc(
+                                        Decimal.to_float(
+                                          room_rule.refund_percentage
+                                        )
+                                      ) %>%
                                     <% else %>
                                       —
                                     <% end %>
@@ -3719,7 +3902,10 @@ defmodule YscWeb.TahoeBookingLive do
                               <% end %>
                             <% else %>
                               <tr>
-                                <td colspan="3" class="px-4 py-3 text-center text-zinc-600">
+                                <td
+                                  colspan="3"
+                                  class="px-4 py-3 text-center text-zinc-600"
+                                >
                                   Policy information will be displayed here
                                 </td>
                               </tr>
@@ -3828,7 +4014,8 @@ defmodule YscWeb.TahoeBookingLive do
                       <ul class="list-disc list-inside space-y-1 text-zinc-700">
                         <li>Keep personal items out of shared spaces.</li>
                         <li>
-                          Store <strong>ski boots</strong> in the laundry room racks.
+                          Store <strong>ski boots</strong>
+                          in the laundry room racks.
                         </li>
                         <li>
                           Store other gear in the <strong>outside stairwell</strong>.
@@ -3999,7 +4186,8 @@ defmodule YscWeb.TahoeBookingLive do
                           Full-cabin or room reservations allowed (up to 17 guests)
                         </li>
                         <li>
-                          <strong>Winter (Dec – Apr):</strong> Individual room bookings only
+                          <strong>Winter (Dec – Apr):</strong>
+                          Individual room bookings only
                         </li>
                       </ul>
                     </div>
@@ -4220,7 +4408,9 @@ defmodule YscWeb.TahoeBookingLive do
                   </p>
                 </div>
                 <.link
-                  navigate={~p"/users/log-in?#{%{redirect_to: ~p"/bookings/tahoe"}}"}
+                  navigate={
+                    ~p"/users/log-in?#{%{redirect_to: ~p"/bookings/tahoe"}}"
+                  }
                   class="px-8 py-3 bg-white text-blue-600 font-bold rounded-lg hover:bg-blue-50 transition shadow-lg whitespace-nowrap"
                 >
                   Sign In to Book
@@ -4435,7 +4625,8 @@ defmodule YscWeb.TahoeBookingLive do
   end
 
   def handle_event("toggle-guests-dropdown", _params, socket) do
-    {:noreply, assign(socket, guests_dropdown_open: !socket.assigns.guests_dropdown_open)}
+    {:noreply,
+     assign(socket, guests_dropdown_open: !socket.assigns.guests_dropdown_open)}
   end
 
   def handle_event("close-guests-dropdown", _params, socket) do
@@ -4645,7 +4836,8 @@ defmodule YscWeb.TahoeBookingLive do
   def handle_event("toggle-party-size-confirmation", _params, socket) do
     {:noreply,
      assign(socket,
-       party_size_confirmed: !Map.get(socket.assigns, :party_size_confirmed, false)
+       party_size_confirmed:
+         !Map.get(socket.assigns, :party_size_confirmed, false)
      )}
   end
 
@@ -4680,7 +4872,8 @@ defmodule YscWeb.TahoeBookingLive do
            )
            |> assign(
              form_errors: %{
-               general: "Sorry, there is not enough capacity for your requested dates."
+               general:
+                 "Sorry, there is not enough capacity for your requested dates."
              },
              calculated_price: nil,
              price_error: "Insufficient capacity"
@@ -4695,7 +4888,8 @@ defmodule YscWeb.TahoeBookingLive do
            )
            |> assign(
              form_errors: %{
-               general: "Sorry, the property is not available for your requested dates."
+               general:
+                 "Sorry, the property is not available for your requested dates."
              },
              calculated_price: nil,
              price_error: "Property unavailable"
@@ -4710,7 +4904,8 @@ defmodule YscWeb.TahoeBookingLive do
            )
            |> assign(
              form_errors: %{
-               general: "Sorry, some rooms are already booked for your requested dates."
+               general:
+                 "Sorry, some rooms are already booked for your requested dates."
              },
              calculated_price: nil,
              price_error: "Rooms unavailable"
@@ -4726,7 +4921,8 @@ defmodule YscWeb.TahoeBookingLive do
            )
            |> assign(
              form_errors: %{
-               general: "Sorry, some rooms are already booked for your requested dates."
+               general:
+                 "Sorry, some rooms are already booked for your requested dates."
              },
              calculated_price: nil,
              price_error: "Rooms unavailable"
@@ -4780,7 +4976,8 @@ defmodule YscWeb.TahoeBookingLive do
            )
            |> assign(
              form_errors: %{
-               general: "An error occurred while creating your booking. Please try again."
+               general:
+                 "An error occurred while creating your booking. Please try again."
              },
              calculated_price: nil,
              price_error: "Booking failed",
@@ -5117,7 +5314,9 @@ defmodule YscWeb.TahoeBookingLive do
       )
       |> Repo.all()
 
-    Logger.info("[TahoeBookingLive] Found #{length(rooms)} rooms for property #{property}")
+    Logger.info(
+      "[TahoeBookingLive] Found #{length(rooms)} rooms for property #{property}"
+    )
 
     rooms
   end
@@ -7064,7 +7263,9 @@ defmodule YscWeb.TahoeBookingLive do
 
     # Get all bookings in the range (preload rooms for availability checking)
     bookings =
-      Bookings.list_bookings(property, start_range, end_range, preload: [:rooms])
+      Bookings.list_bookings(property, start_range, end_range,
+        preload: [:rooms]
+      )
 
     # Get all blackouts in the range
     blackouts =

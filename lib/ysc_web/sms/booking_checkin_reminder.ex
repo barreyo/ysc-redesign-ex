@@ -62,7 +62,8 @@ defmodule YscWeb.Sms.BookingCheckinReminder do
       if Ecto.assoc_loaded?(booking.user) do
         booking
       else
-        case Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload([:user]) do
+        case Repo.get(Ysc.Bookings.Booking, booking.id)
+             |> Repo.preload([:user]) do
           nil ->
             raise ArgumentError, "Booking not found: #{booking.id}"
 

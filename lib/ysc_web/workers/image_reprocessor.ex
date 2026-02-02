@@ -25,7 +25,9 @@ defmodule YscWeb.Workers.ImageReprocessor do
     # Process each image by enqueueing individual ImageProcessor jobs
     results =
       Enum.map(images, fn image ->
-        Logger.info("Enqueueing reprocessing for image: #{image.id}", job_id: job.id)
+        Logger.info("Enqueueing reprocessing for image: #{image.id}",
+          job_id: job.id
+        )
 
         case enqueue_image_processing(image) do
           {:ok, _job} ->

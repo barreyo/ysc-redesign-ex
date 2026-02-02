@@ -22,7 +22,9 @@ defmodule YscWeb.AdminEventsLive.ScheduleEventFormTest do
     end
 
     test "displays current scheduled time when event is scheduled" do
-      scheduled_time = DateTime.add(DateTime.utc_now(), 24, :hour) |> DateTime.truncate(:second)
+      scheduled_time =
+        DateTime.add(DateTime.utc_now(), 24, :hour)
+        |> DateTime.truncate(:second)
 
       event =
         event_fixture(%{
@@ -139,7 +141,9 @@ defmodule YscWeb.AdminEventsLive.ScheduleEventFormTest do
     end
 
     test "can reschedule a scheduled event" do
-      scheduled_time = DateTime.add(DateTime.utc_now(), 24, :hour) |> DateTime.truncate(:second)
+      scheduled_time =
+        DateTime.add(DateTime.utc_now(), 24, :hour)
+        |> DateTime.truncate(:second)
 
       event =
         event_fixture(%{

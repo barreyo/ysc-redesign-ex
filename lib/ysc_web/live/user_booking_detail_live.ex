@@ -48,7 +48,8 @@ defmodule YscWeb.UserBookingDetailLive do
                   v -> v
                 end
 
-              timezone = Map.get(connect_params, "timezone", "America/Los_Angeles")
+              timezone =
+                Map.get(connect_params, "timezone", "America/Los_Angeles")
 
               # Calculate price breakdown
               price_breakdown = calculate_price_breakdown(booking)
@@ -74,7 +75,10 @@ defmodule YscWeb.UserBookingDetailLive do
             {:error, _reason} ->
               {:ok,
                socket
-               |> put_flash(:error, "You don't have permission to view this booking.")
+               |> put_flash(
+                 :error,
+                 "You don't have permission to view this booking."
+               )
                |> redirect(to: ~p"/")}
           end
       end
@@ -111,7 +115,9 @@ defmodule YscWeb.UserBookingDetailLive do
       :ok ->
         case Bookings.cancel_booking(booking, Date.utc_today(), reason) do
           {:ok, updated_booking, refund_amount, refund_result} ->
-            updated_booking = Repo.preload(updated_booking, [:user, rooms: :room_category])
+            updated_booking =
+              Repo.preload(updated_booking, [:user, rooms: :room_category])
+
             refund_info = get_refund_info(updated_booking)
 
             # Check if refund_result is a PendingRefund (partial refund) or LedgerTransaction (full refund)
@@ -172,7 +178,10 @@ defmodule YscWeb.UserBookingDetailLive do
         {:noreply,
          socket
          |> assign(:show_cancel_modal, false)
-         |> put_flash(:error, "You don't have permission to cancel this booking.")}
+         |> put_flash(
+           :error,
+           "You don't have permission to cancel this booking."
+         )}
     end
   end
 
@@ -191,7 +200,8 @@ defmodule YscWeb.UserBookingDetailLive do
                 color="red"
                 data-confirm="Are you sure you want to cancel this booking?"
               >
-                <.icon name="hero-x-circle" class="w-5 h-5 me-1 -mt-0.5" /> Cancel Booking
+                <.icon name="hero-x-circle" class="w-5 h-5 me-1 -mt-0.5" />
+                Cancel Booking
               </.button>
             </div>
           </div>
@@ -201,7 +211,9 @@ defmodule YscWeb.UserBookingDetailLive do
           <!-- Cancellation Policy -->
           <%= if @refund_info && @can_cancel do %>
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <h2 class="text-lg font-semibold text-blue-900 mb-3">Cancellation Policy</h2>
+              <h2 class="text-lg font-semibold text-blue-900 mb-3">
+                Cancellation Policy
+              </h2>
               <div class="text-sm text-blue-800 space-y-3">
                 <%= if @refund_info.estimated_refund do %>
                   <p class="font-medium">
@@ -227,7 +239,8 @@ defmodule YscWeb.UserBookingDetailLive do
                       # Calculate forfeiture percentage (100 - refund_percentage)
                       for rule <- sorted_rules do
                         forfeiture_percentage =
-                          Decimal.sub(Decimal.new(100), rule.refund_percentage) |> Decimal.to_float()
+                          Decimal.sub(Decimal.new(100), rule.refund_percentage)
+                          |> Decimal.to_float()
 
                         cond do
                           forfeiture_percentage == 100.0 ->
@@ -275,7 +288,9 @@ defmodule YscWeb.UserBookingDetailLive do
           <% end %>
           <!-- Booking Summary -->
           <div class="bg-white rounded-lg border border-zinc-200 p-6">
-            <h2 class="text-xl font-semibold text-zinc-900 mb-4">Booking Summary</h2>
+            <h2 class="text-xl font-semibold text-zinc-900 mb-4">
+              Booking Summary
+            </h2>
 
             <div class="space-y-4">
               <div>
@@ -371,7 +386,9 @@ defmodule YscWeb.UserBookingDetailLive do
           <!-- Payment Summary -->
           <%= if @payment do %>
             <div class="bg-white rounded-lg border border-zinc-200 p-6">
-              <h2 class="text-xl font-semibold text-zinc-900 mb-4">Payment Summary</h2>
+              <h2 class="text-xl font-semibold text-zinc-900 mb-4">
+                Payment Summary
+              </h2>
 
               <div class="space-y-3">
                 <%= if @price_breakdown do %>
@@ -388,7 +405,10 @@ defmodule YscWeb.UserBookingDetailLive do
                 <div class="flex justify-between text-sm">
                   <span class="text-zinc-600">Payment Date</span>
                   <span class="text-zinc-900">
-                    <%= format_datetime(@payment.payment_date || @payment.inserted_at, @timezone) %>
+                    <%= format_datetime(
+                      @payment.payment_date || @payment.inserted_at,
+                      @timezone
+                    ) %>
                   </span>
                 </div>
 
@@ -410,7 +430,9 @@ defmodule YscWeb.UserBookingDetailLive do
 
                 <div class="border-t border-zinc-200 pt-3">
                   <div class="flex justify-between items-center">
-                    <span class="text-lg font-semibold text-zinc-900">Total Paid</span>
+                    <span class="text-lg font-semibold text-zinc-900">
+                      Total Paid
+                    </span>
                     <span class="text-2xl font-bold text-zinc-900">
                       <%= MoneyHelper.format_money!(@payment.amount) %>
                     </span>
@@ -422,7 +444,11 @@ defmodule YscWeb.UserBookingDetailLive do
         </div>
         <!-- Cancel Modal -->
         <%= if @show_cancel_modal do %>
-          <.modal id="cancel-booking-modal" on_cancel={JS.push("hide-cancel-modal")} show>
+          <.modal
+            id="cancel-booking-modal"
+            on_cancel={JS.push("hide-cancel-modal")}
+            show
+          >
             <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-6">
               Cancel Booking
             </h2>
@@ -441,7 +467,11 @@ defmodule YscWeb.UserBookingDetailLive do
                 </div>
               <% end %>
 
-              <.simple_form for={%{}} id="cancel-booking-form" phx-submit="confirm-cancel">
+              <.simple_form
+                for={%{}}
+                id="cancel-booking-form"
+                phx-submit="confirm-cancel"
+              >
                 <.input
                   type="textarea"
                   name="reason"
@@ -453,7 +483,11 @@ defmodule YscWeb.UserBookingDetailLive do
                 />
 
                 <:actions>
-                  <.button type="submit" color="red" phx-disable-with="Cancelling...">
+                  <.button
+                    type="submit"
+                    color="red"
+                    phx-disable-with="Cancelling..."
+                  >
                     Cancel Booking
                   </.button>
                   <.button
@@ -513,7 +547,10 @@ defmodule YscWeb.UserBookingDetailLive do
     now_pst = DateTime.now!("America/Los_Angeles")
     today_pst = DateTime.to_date(now_pst)
     checkin_time = ~T[15:00:00]
-    checkin_datetime_today = DateTime.new!(today_pst, checkin_time, "America/Los_Angeles")
+
+    checkin_datetime_today =
+      DateTime.new!(today_pst, checkin_time, "America/Los_Angeles")
+
     DateTime.compare(now_pst, checkin_datetime_today) == :lt
   end
 
@@ -521,7 +558,12 @@ defmodule YscWeb.UserBookingDetailLive do
     if can_cancel_booking?(booking) do
       case Bookings.calculate_refund(booking, Date.utc_today()) do
         {:ok, refund_amount, applied_rule} ->
-          policy = Bookings.get_active_refund_policy(booking.property, booking.booking_mode)
+          policy =
+            Bookings.get_active_refund_policy(
+              booking.property,
+              booking.booking_mode
+            )
+
           rules = if policy, do: policy.rules || [], else: []
 
           %{
@@ -589,7 +631,8 @@ defmodule YscWeb.UserBookingDetailLive do
             <%= for room_item <- @breakdown["rooms"] do %>
               <div class="flex justify-between text-sm">
                 <span class="text-zinc-600">
-                  <%= room_item["room_name"] || "Room" %> (<%= room_item["nights"] || 0 %> nights)
+                  <%= room_item["room_name"] || "Room" %> (<%= room_item["nights"] ||
+                    0 %> nights)
                 </span>
                 <span class="text-zinc-900">
                   <%= format_money_from_map(room_item["total"]) %>

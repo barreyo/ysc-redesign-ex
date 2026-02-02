@@ -110,7 +110,10 @@ defmodule Ysc.FormsTest do
       }
 
       changeset =
-        Ysc.Forms.ConductViolationReport.changeset(%Ysc.Forms.ConductViolationReport{}, attrs)
+        Ysc.Forms.ConductViolationReport.changeset(
+          %Ysc.Forms.ConductViolationReport{},
+          attrs
+        )
 
       assert {:ok, report} = Forms.create_conduct_violation_report(changeset)
       assert report.email == "reporter@example.com"
@@ -130,9 +133,14 @@ defmodule Ysc.FormsTest do
       }
 
       changeset =
-        Ysc.Forms.ConductViolationReport.changeset(%Ysc.Forms.ConductViolationReport{}, attrs)
+        Ysc.Forms.ConductViolationReport.changeset(
+          %Ysc.Forms.ConductViolationReport{},
+          attrs
+        )
 
-      assert {:error, changeset} = Forms.create_conduct_violation_report(changeset)
+      assert {:error, changeset} =
+               Forms.create_conduct_violation_report(changeset)
+
       refute changeset.valid?
     end
   end
@@ -143,11 +151,13 @@ defmodule Ysc.FormsTest do
         name: "John Doe",
         email: "contact@example.com",
         subject: "Test Subject",
-        message: "This is a test message with enough characters to pass validation.",
+        message:
+          "This is a test message with enough characters to pass validation.",
         user_id: user.id
       }
 
-      changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
+      changeset =
+        Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
 
       assert {:ok, contact_form} = Forms.create_contact_form(changeset)
       assert contact_form.name == "John Doe"
@@ -163,10 +173,12 @@ defmodule Ysc.FormsTest do
         name: "Jane Smith",
         email: "jane@example.com",
         subject: "Another Subject",
-        message: "This is another test message with enough characters to pass validation."
+        message:
+          "This is another test message with enough characters to pass validation."
       }
 
-      changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
+      changeset =
+        Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
 
       assert {:ok, contact_form} = Forms.create_contact_form(changeset)
       assert contact_form.name == "Jane Smith"
@@ -181,7 +193,8 @@ defmodule Ysc.FormsTest do
         message: "short"
       }
 
-      changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
+      changeset =
+        Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
 
       assert {:error, changeset} = Forms.create_contact_form(changeset)
       refute changeset.valid?
@@ -198,7 +211,8 @@ defmodule Ysc.FormsTest do
         message: "short"
       }
 
-      changeset = Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
+      changeset =
+        Ysc.Forms.ContactForm.changeset(%Ysc.Forms.ContactForm{}, attrs)
 
       assert {:error, changeset} = Forms.create_contact_form(changeset)
       assert changeset.errors[:message] != nil

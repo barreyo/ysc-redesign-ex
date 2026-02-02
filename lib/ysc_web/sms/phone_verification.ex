@@ -58,6 +58,9 @@ defmodule YscWeb.Sms.PhoneVerification do
   end
 
   def prepare_sms_data(user, code) when is_integer(code) do
-    prepare_sms_data(user, Integer.to_string(code) |> String.pad_leading(6, "0"))
+    prepare_sms_data(
+      user,
+      Integer.to_string(code) |> String.pad_leading(6, "0")
+    )
   end
 end

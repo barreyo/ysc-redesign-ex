@@ -57,7 +57,10 @@ defmodule Ysc.Bookings.RefundPolicyRuleTest do
       changeset = RefundPolicyRule.changeset(%RefundPolicyRule{}, attrs)
 
       assert changeset.valid?
-      assert changeset.changes.description == "50% refund 7-13 days before check-in"
+
+      assert changeset.changes.description ==
+               "50% refund 7-13 days before check-in"
+
       assert changeset.changes.priority == 1
     end
 
@@ -97,7 +100,9 @@ defmodule Ysc.Bookings.RefundPolicyRuleTest do
       assert changeset.errors[:refund_policy_id] != nil
     end
 
-    test "validates description maximum length (500 characters)", %{policy: policy} do
+    test "validates description maximum length (500 characters)", %{
+      policy: policy
+    } do
       long_description = String.duplicate("a", 501)
 
       attrs = %{
@@ -331,7 +336,10 @@ defmodule Ysc.Bookings.RefundPolicyRuleTest do
 
       assert retrieved.days_before_checkin == 21
       assert Decimal.equal?(retrieved.refund_percentage, Decimal.new("85.5"))
-      assert retrieved.description == "85.5% refund for cancellations 21+ days before"
+
+      assert retrieved.description ==
+               "85.5% refund for cancellations 21+ days before"
+
       assert retrieved.priority == 2
       assert retrieved.inserted_at != nil
       assert retrieved.updated_at != nil

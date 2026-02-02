@@ -231,7 +231,8 @@ defmodule Ysc.Bookings.BookingTest do
         property: :tahoe
       }
 
-      changeset = Booking.changeset(booking, %{}, rooms: [room], skip_validation: true)
+      changeset =
+        Booking.changeset(booking, %{}, rooms: [room], skip_validation: true)
 
       # Inference sets booking_mode to :room based on rooms
       assert get_field(changeset, :booking_mode) == :room
@@ -247,7 +248,8 @@ defmodule Ysc.Bookings.BookingTest do
         property: :tahoe
       }
 
-      changeset = Booking.changeset(booking, %{}, rooms: [], skip_validation: true)
+      changeset =
+        Booking.changeset(booking, %{}, rooms: [], skip_validation: true)
 
       # Inference sets booking_mode to :buyout when no rooms
       assert get_field(changeset, :booking_mode) == :buyout
@@ -265,7 +267,11 @@ defmodule Ysc.Bookings.BookingTest do
         booking_mode: :buyout
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [room], skip_validation: true)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [room],
+          skip_validation: true
+        )
 
       assert changeset.valid?
       # Explicit booking_mode is preserved even with rooms present
@@ -776,7 +782,10 @@ defmodule Ysc.Bookings.BookingTest do
 
       {:ok, booking} =
         %Booking{}
-        |> Booking.changeset(attrs, rooms: [room1, room2], skip_validation: true)
+        |> Booking.changeset(attrs,
+          rooms: [room1, room2],
+          skip_validation: true
+        )
         |> Repo.insert()
 
       booking_with_rooms = Repo.preload(booking, :rooms)

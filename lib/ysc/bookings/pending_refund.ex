@@ -22,7 +22,11 @@ defmodule Ysc.Bookings.PendingRefund do
     belongs_to :payment, Payment
     field :policy_refund_amount, Money.Ecto.Composite.Type
     field :admin_refund_amount, Money.Ecto.Composite.Type
-    field :status, Ecto.Enum, values: [:pending, :approved, :rejected], default: :pending
+
+    field :status, Ecto.Enum,
+      values: [:pending, :approved, :rejected],
+      default: :pending
+
     field :cancellation_reason, :string
     field :admin_notes, :string
     belongs_to :reviewed_by, User
@@ -49,7 +53,12 @@ defmodule Ysc.Bookings.PendingRefund do
       :applied_rule_days_before_checkin,
       :applied_rule_refund_percentage
     ])
-    |> validate_required([:booking_id, :payment_id, :policy_refund_amount, :status])
+    |> validate_required([
+      :booking_id,
+      :payment_id,
+      :policy_refund_amount,
+      :status
+    ])
     |> validate_inclusion(:status, [:pending, :approved, :rejected])
   end
 end

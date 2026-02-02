@@ -15,9 +15,15 @@ defmodule Ysc.Messages do
   alias Ysc.SmsRateLimit
 
   # Helper function to safely convert email recipient to string
-  defp email_recipient_to_string(recipient) when is_binary(recipient), do: recipient
-  defp email_recipient_to_string({_name, email}) when is_binary(email), do: email
-  defp email_recipient_to_string([recipient | _]), do: email_recipient_to_string(recipient)
+  defp email_recipient_to_string(recipient) when is_binary(recipient),
+    do: recipient
+
+  defp email_recipient_to_string({_name, email}) when is_binary(email),
+    do: email
+
+  defp email_recipient_to_string([recipient | _]),
+    do: email_recipient_to_string(recipient)
+
   defp email_recipient_to_string(other), do: inspect(other)
 
   def create_message_idempotency(attrs) do
@@ -86,7 +92,10 @@ defmodule Ysc.Messages do
 
     Sentry.capture_message("Mailer.deliver failed",
       level: :error,
-      extra: build_email_sentry_extra(email, attrs, %{error: inspect(error, limit: :infinity)}),
+      extra:
+        build_email_sentry_extra(email, attrs, %{
+          error: inspect(error, limit: :infinity)
+        }),
       tags: build_email_sentry_tags(attrs, "mailer_deliver_failed")
     )
 
@@ -169,7 +178,10 @@ defmodule Ysc.Messages do
 
     Sentry.capture_message("Email transaction failed with unexpected error",
       level: :error,
-      extra: build_email_sentry_extra(email, attrs, %{error: inspect(error, limit: :infinity)}),
+      extra:
+        build_email_sentry_extra(email, attrs, %{
+          error: inspect(error, limit: :infinity)
+        }),
       tags: build_email_sentry_tags(attrs, "email_transaction_unexpected_error")
     )
 
@@ -194,13 +206,26 @@ defmodule Ysc.Messages do
     ]
 
     if constraint_string in idempotency_constraint_names do
-      handle_email_idempotency_constraint_duplicate(email, attrs, constraint_string)
+      handle_email_idempotency_constraint_duplicate(
+        email,
+        attrs,
+        constraint_string
+      )
     else
-      handle_email_non_idempotency_unique_constraint(error, email, attrs, constraint_string)
+      handle_email_non_idempotency_unique_constraint(
+        error,
+        email,
+        attrs,
+        constraint_string
+      )
     end
   end
 
-  defp handle_email_idempotency_constraint_duplicate(email, attrs, constraint_string) do
+  defp handle_email_idempotency_constraint_duplicate(
+         email,
+         attrs,
+         constraint_string
+       ) do
     Logger.info(
       "Duplicate message detected (idempotency constraint), treating as success",
       recipient: email.to,
@@ -212,8 +237,14 @@ defmodule Ysc.Messages do
     {:ok, email}
   end
 
-  defp handle_email_non_idempotency_unique_constraint(error, email, attrs, constraint_string) do
-    Logger.error("Email transaction raised unique constraint error (not idempotency)",
+  defp handle_email_non_idempotency_unique_constraint(
+         error,
+         email,
+         attrs,
+         constraint_string
+       ) do
+    Logger.error(
+      "Email transaction raised unique constraint error (not idempotency)",
       recipient: email.to,
       idempotency_key: attrs[:idempotency_key],
       constraint: constraint_string,
@@ -458,11 +489,23 @@ defmodule Ysc.Messages do
         handle_constraint_error(error, phone_number, attrs, body)
 
       error ->
-        handle_transaction_exception(error, phone_number, attrs, body, __STACKTRACE__)
+        handle_transaction_exception(
+          error,
+          phone_number,
+          attrs,
+          body,
+          __STACKTRACE__
+        )
     end
   end
 
-  defp handle_transaction_exception(error, phone_number, attrs, body, stacktrace) do
+  defp handle_transaction_exception(
+         error,
+         phone_number,
+         attrs,
+         body,
+         stacktrace
+       ) do
     Logger.error("SMS transaction raised exception",
       recipient: phone_number,
       idempotency_key: attrs[:idempotency_key],
@@ -561,7 +604,8 @@ defmodule Ysc.Messages do
 
   defp handle_transaction_result(result, phone_number, attrs, _body) do
     case result do
-      {:ok, %{send_sms: %{id: message_id}, message_idempotency: _message_idempotency}} ->
+      {:ok,
+       %{send_sms: %{id: message_id}, message_idempotency: _message_idempotency}} ->
         handle_successful_sms(phone_number, attrs, message_id)
 
       {:error, :message_idempotency, changeset, _} ->
@@ -676,13 +720,26 @@ defmodule Ysc.Messages do
     ]
 
     if constraint_string in idempotency_constraint_names do
-      handle_idempotency_constraint_duplicate(phone_number, attrs, constraint_string)
+      handle_idempotency_constraint_duplicate(
+        phone_number,
+        attrs,
+        constraint_string
+      )
     else
-      handle_non_idempotency_unique_constraint(error, phone_number, attrs, constraint_string)
+      handle_non_idempotency_unique_constraint(
+        error,
+        phone_number,
+        attrs,
+        constraint_string
+      )
     end
   end
 
-  defp handle_idempotency_constraint_duplicate(phone_number, attrs, constraint_string) do
+  defp handle_idempotency_constraint_duplicate(
+         phone_number,
+         attrs,
+         constraint_string
+       ) do
     Logger.info(
       "Duplicate SMS detected (idempotency constraint), treating as success",
       recipient: phone_number,
@@ -699,8 +756,14 @@ defmodule Ysc.Messages do
     {:ok, %{id: "mdr2-idempotent"}}
   end
 
-  defp handle_non_idempotency_unique_constraint(error, phone_number, attrs, constraint_string) do
-    Logger.error("SMS transaction raised unique constraint error (not idempotency)",
+  defp handle_non_idempotency_unique_constraint(
+         error,
+         phone_number,
+         attrs,
+         constraint_string
+       ) do
+    Logger.error(
+      "SMS transaction raised unique constraint error (not idempotency)",
       recipient: phone_number,
       idempotency_key: attrs[:idempotency_key],
       constraint: constraint_string,

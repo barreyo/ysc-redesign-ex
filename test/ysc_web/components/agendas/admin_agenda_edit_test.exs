@@ -104,7 +104,10 @@ defmodule YscWeb.AgendaEditComponentTest do
       assert html =~ "End"
     end
 
-    test "displays delete button for agenda item", %{agenda: agenda, event: event} do
+    test "displays delete button for agenda item", %{
+      agenda: agenda,
+      event: event
+    } do
       {:ok, _item} =
         Agendas.create_agenda_item(event.id, agenda, %{
           title: "Lunch",
@@ -250,7 +253,10 @@ defmodule YscWeb.AgendaEditComponentTest do
   end
 
   describe "styling and layout" do
-    test "applies correct CSS classes for agenda items", %{agenda: agenda, event: event} do
+    test "applies correct CSS classes for agenda items", %{
+      agenda: agenda,
+      event: event
+    } do
       {:ok, _item} =
         Agendas.create_agenda_item(event.id, agenda, %{
           title: "Test"

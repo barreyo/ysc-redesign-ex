@@ -213,7 +213,9 @@ defmodule Ysc.Bookings do
   """
   def list_rooms(property \\ nil) do
     query =
-      from r in Room, order_by: [asc: r.property, asc: r.name], preload: [:room_category, :image]
+      from r in Room,
+        order_by: [asc: r.property, asc: r.name],
+        preload: [:room_category, :image]
 
     query =
       if property do
@@ -291,9 +293,16 @@ defmodule Ysc.Bookings do
       # Get all bookings in a date range across all properties
       list_bookings(nil, ~D[2025-11-01], ~D[2025-11-30])
   """
-  def list_bookings(property \\ nil, start_date \\ nil, end_date \\ nil, opts \\ []) do
+  def list_bookings(
+        property \\ nil,
+        start_date \\ nil,
+        end_date \\ nil,
+        opts \\ []
+      ) do
     preloads = Keyword.get(opts, :preload, [:rooms, :user])
-    query = from b in Booking, order_by: [asc: b.checkin_date], preload: ^preloads
+
+    query =
+      from b in Booking, order_by: [asc: b.checkin_date], preload: ^preloads
 
     query =
       if property do
@@ -333,7 +342,9 @@ defmodule Ysc.Bookings do
     {property_filter, other_params} = extract_property_filter(other_params)
 
     base_query =
-      from(b in Booking, preload: [:user, rooms: :room_category, check_ins: :check_in_vehicles])
+      from(b in Booking,
+        preload: [:user, rooms: :room_category, check_ins: :check_in_vehicles]
+      )
 
     # Apply property filter
     base_query =
@@ -345,7 +356,8 @@ defmodule Ysc.Bookings do
 
     # Apply date range filters
     base_query =
-      if date_range_filters[:filter_start_date] && date_range_filters[:filter_end_date] do
+      if date_range_filters[:filter_start_date] &&
+           date_range_filters[:filter_end_date] do
         from b in base_query,
           where:
             fragment(
@@ -374,7 +386,10 @@ defmodule Ysc.Bookings do
     do: list_paginated_bookings(params)
 
   @spec list_paginated_bookings(
-          %{optional(:__struct__) => Flop, optional(atom() | binary()) => any()},
+          %{
+            optional(:__struct__) => Flop,
+            optional(atom() | binary()) => any()
+          },
           any()
         ) :: {:error, Flop.Meta.t()} | {:ok, {list(), Flop.Meta.t()}}
   def list_paginated_bookings(params, search_term) do
@@ -395,7 +410,8 @@ defmodule Ysc.Bookings do
 
     # Apply date range filters
     base_query =
-      if date_range_filters[:filter_start_date] && date_range_filters[:filter_end_date] do
+      if date_range_filters[:filter_start_date] &&
+           date_range_filters[:filter_end_date] do
         from b in base_query,
           where:
             fragment(
@@ -488,7 +504,8 @@ defmodule Ysc.Bookings do
       |> delete_in(["filter", "filter_start_date"])
       |> delete_in(["filter", "filter_end_date"])
 
-    {%{filter_start_date: filter_start_date, filter_end_date: filter_end_date}, filtered_params}
+    {%{filter_start_date: filter_start_date, filter_end_date: filter_end_date},
+     filtered_params}
   end
 
   defp delete_in(map, [key | rest]) when is_map(map) do
@@ -519,7 +536,8 @@ defmodule Ysc.Bookings do
   def get_booking!(id) do
     Repo.get!(Booking, id)
     |> Repo.preload([
-      {:booking_guests, from(bg in BookingGuest, order_by: [asc: bg.order_index])},
+      {:booking_guests,
+       from(bg in BookingGuest, order_by: [asc: bg.order_index])},
       :rooms,
       :user
     ])
@@ -539,7 +557,8 @@ defmodule Ysc.Bookings do
     if booking do
       booking
       |> Repo.preload([
-        {:booking_guests, from(bg in BookingGuest, order_by: [asc: bg.order_index])}
+        {:booking_guests,
+         from(bg in BookingGuest, order_by: [asc: bg.order_index])}
       ])
     else
       nil
@@ -587,7 +606,8 @@ defmodule Ysc.Bookings do
   @doc """
   Creates multiple booking guests atomically.
   """
-  def create_booking_guests(booking_id, guests_attrs) when is_list(guests_attrs) do
+  def create_booking_guests(booking_id, guests_attrs)
+      when is_list(guests_attrs) do
     import Ecto.Multi
 
     multi =
@@ -603,9 +623,13 @@ defmodule Ysc.Bookings do
           end)
 
         guest_attrs_with_booking =
-          Map.merge(guest_attrs_string_keys, %{"booking_id" => booking_id, "order_index" => index})
+          Map.merge(guest_attrs_string_keys, %{
+            "booking_id" => booking_id,
+            "order_index" => index
+          })
 
-        changeset = BookingGuest.changeset(%BookingGuest{}, guest_attrs_with_booking)
+        changeset =
+          BookingGuest.changeset(%BookingGuest{}, guest_attrs_with_booking)
 
         insert(acc, {:guest, index}, changeset)
       end)
@@ -770,7 +794,11 @@ defmodule Ysc.Bookings do
             b.property == ^property and
               b.checkin_date <= ^today_pst and
               b.checkout_date > ^today_pst and
-              fragment("LOWER(?) = LOWER(?)", u.last_name, ^normalized_last_name),
+              fragment(
+                "LOWER(?) = LOWER(?)",
+                u.last_name,
+                ^normalized_last_name
+              ),
           order_by: [desc: b.checkin_date],
           preload: [:rooms, :user]
         )
@@ -780,7 +808,8 @@ defmodule Ysc.Bookings do
       Enum.map(bookings, fn booking ->
         booking
         |> Repo.preload([
-          {:booking_guests, from(bg in BookingGuest, order_by: [asc: bg.order_index])}
+          {:booking_guests,
+           from(bg in BookingGuest, order_by: [asc: bg.order_index])}
         ])
       end)
     end
@@ -905,7 +934,8 @@ defmodule Ysc.Bookings do
       iex> Ysc.Bookings.has_blackout?(:tahoe, ~D[2025-01-09], ~D[2025-01-10])
       true
   """
-  def has_blackout?(property, checkin_date, checkout_date) when is_atom(property) do
+  def has_blackout?(property, checkin_date, checkout_date)
+      when is_atom(property) do
     # Get all blackouts that might overlap
     blackouts = get_overlapping_blackouts(property, checkin_date, checkout_date)
 
@@ -941,7 +971,8 @@ defmodule Ysc.Bookings do
   @doc """
   Gets all blackouts that overlap with a date range for a property.
   """
-  def get_overlapping_blackouts(property, start_date, end_date) when is_atom(property) do
+  def get_overlapping_blackouts(property, start_date, end_date)
+      when is_atom(property) do
     from(b in Blackout,
       where: b.property == ^property,
       where:
@@ -986,7 +1017,12 @@ defmodule Ysc.Bookings do
       false
       # First ends Nov 2 at 11 AM, second starts Nov 2 at 3 PM - no overlap
   """
-  def bookings_overlap?(checkin_date1, checkout_date1, checkin_date2, checkout_date2) do
+  def bookings_overlap?(
+        checkin_date1,
+        checkout_date1,
+        checkin_date2,
+        checkout_date2
+      ) do
     # Bookings overlap if:
     # 1. The first booking's check-in date is before the second's checkout date
     #    AND the first booking's checkout date is after the second's check-in date
@@ -1042,7 +1078,12 @@ defmodule Ysc.Bookings do
   - `true` if available
   - `false` if not available
   """
-  def room_available?(room_id, checkin_date, checkout_date, exclude_booking_id \\ nil) do
+  def room_available?(
+        room_id,
+        checkin_date,
+        checkout_date,
+        exclude_booking_id \\ nil
+      ) do
     room = get_room!(room_id)
 
     if room.is_active do
@@ -1068,7 +1109,8 @@ defmodule Ysc.Bookings do
 
       overlapping_bookings_query =
         if exclude_booking_id do
-          from b in overlapping_bookings_query, where: b.id != ^exclude_booking_id
+          from b in overlapping_bookings_query,
+            where: b.id != ^exclude_booking_id
         else
           overlapping_bookings_query
         end
@@ -1123,7 +1165,12 @@ defmodule Ysc.Bookings do
   ## Returns
   - `MapSet` of available room IDs
   """
-  def batch_check_room_availability(room_ids, property, checkin_date, checkout_date) do
+  def batch_check_room_availability(
+        room_ids,
+        property,
+        checkin_date,
+        checkout_date
+      ) do
     if Enum.empty?(room_ids) do
       MapSet.new()
     else
@@ -1254,7 +1301,8 @@ defmodule Ysc.Bookings do
   end
 
   defp calculate_booking_price_impl(params) do
-    with {:ok, nights} <- validate_booking_dates(params.checkin_date, params.checkout_date),
+    with {:ok, nights} <-
+           validate_booking_dates(params.checkin_date, params.checkout_date),
          {:ok, _} <- validate_booking_mode(params.booking_mode, params.room_id) do
       case params.booking_mode do
         :buyout ->
@@ -1325,10 +1373,12 @@ defmodule Ysc.Bookings do
   defp calculate_buyout_price(property, checkin_date, checkout_date, _nights) do
     # For buyouts, we need to check the season for each night
     # and sum up the prices
-    date_range = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+    date_range =
+      Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
     {total, price_per_night} =
-      Enum.reduce(date_range, {Money.new(:USD, 0), nil}, fn date, {acc, price_acc} ->
+      Enum.reduce(date_range, {Money.new(:USD, 0), nil}, fn date,
+                                                            {acc, price_acc} ->
         season = Season.for_date(property, date)
         season_id = if season, do: season.id, else: nil
 
@@ -1415,8 +1465,9 @@ defmodule Ysc.Bookings do
   defp validate_property(property) when is_atom(property), do: :ok
   defp validate_property(_), do: {:error, :invalid_property}
 
-  defp validate_guests_count(guests_count) when is_integer(guests_count) and guests_count > 0,
-    do: :ok
+  defp validate_guests_count(guests_count)
+       when is_integer(guests_count) and guests_count > 0,
+       do: :ok
 
   defp validate_guests_count(_), do: {:error, :invalid_guests_count}
 
@@ -1426,10 +1477,14 @@ defmodule Ysc.Bookings do
 
   defp validate_children_count(_), do: {:error, :invalid_children_count}
 
-  defp validate_checkin_date(checkin_date) when is_struct(checkin_date, Date), do: :ok
+  defp validate_checkin_date(checkin_date) when is_struct(checkin_date, Date),
+    do: :ok
+
   defp validate_checkin_date(_), do: {:error, :invalid_checkin_date}
 
-  defp validate_checkout_date(checkout_date) when is_struct(checkout_date, Date), do: :ok
+  defp validate_checkout_date(checkout_date)
+       when is_struct(checkout_date, Date), do: :ok
+
   defp validate_checkout_date(_), do: {:error, :invalid_checkout_date}
 
   defp validate_date_range(checkin_date, checkout_date) do
@@ -1453,15 +1508,17 @@ defmodule Ysc.Bookings do
     room = get_room!(room_id)
 
     # For multiple rooms, use actual guests_count; for single room, use billable_people (capped by capacity)
-    billable_people = calculate_billable_people(use_actual_guests, room, guests_count)
+    billable_people =
+      calculate_billable_people(use_actual_guests, room, guests_count)
 
     if is_nil(billable_people) or billable_people <= 0 do
       {:error, :invalid_guests_count}
     else
-      date_range = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+      date_range =
+        Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
-      {total, base_total, children_total, adult_price_per_night, children_price_per_night,
-       found_pricing_rules} =
+      {total, base_total, children_total, adult_price_per_night,
+       children_price_per_night, found_pricing_rules} =
         calculate_room_price_for_date_range(
           date_range,
           property,
@@ -1509,8 +1566,10 @@ defmodule Ysc.Bookings do
        ) do
     Enum.reduce(
       date_range,
-      {Money.new(:USD, 0), Money.new(:USD, 0), Money.new(:USD, 0), nil, nil, false},
-      fn date, {acc, base_acc, children_acc, adult_price, children_price, found_any} ->
+      {Money.new(:USD, 0), Money.new(:USD, 0), Money.new(:USD, 0), nil, nil,
+       false},
+      fn date,
+         {acc, base_acc, children_acc, adult_price, children_price, found_any} ->
         calculate_room_price_for_date(
           date,
           property,
@@ -1536,7 +1595,8 @@ defmodule Ysc.Bookings do
     season = Season.for_date(property, date)
     season_id = if season, do: season.id, else: nil
 
-    pricing_rule = find_pricing_rule_for_room(property, season_id, room_id, room_category_id)
+    pricing_rule =
+      find_pricing_rule_for_room(property, season_id, room_id, room_category_id)
 
     if pricing_rule do
       process_pricing_rule_for_date(
@@ -1554,7 +1614,12 @@ defmodule Ysc.Bookings do
     end
   end
 
-  defp find_pricing_rule_for_room(property, season_id, room_id, room_category_id) do
+  defp find_pricing_rule_for_room(
+         property,
+         season_id,
+         room_id,
+         room_category_id
+       ) do
     # Simple fallback hierarchy:
     # 1. Try room-specific pricing rule (booking_mode = :room)
     # 2. Try category-level pricing rule (booking_mode = :room)
@@ -1610,13 +1675,21 @@ defmodule Ysc.Bookings do
 
     # Add children pricing for Tahoe
     children_price_for_night =
-      calculate_children_price_for_night(property, children_count, children_price_per_person)
+      calculate_children_price_for_night(
+        property,
+        children_count,
+        children_price_per_person
+      )
 
     {:ok, night_total} = Money.add(base_price, children_price_for_night)
     {:ok, new_total} = Money.add(acc, night_total)
     {:ok, new_base_total} = Money.add(base_acc, base_price)
-    {:ok, new_children_total} = Money.add(children_acc, children_price_for_night)
-    {new_total, new_base_total, new_children_total, adult_price, children_price, true}
+
+    {:ok, new_children_total} =
+      Money.add(children_acc, children_price_for_night)
+
+    {new_total, new_base_total, new_children_total, adult_price, children_price,
+     true}
   end
 
   defp find_children_pricing(property, season_id, room_id, room_category_id) do
@@ -1655,7 +1728,11 @@ defmodule Ysc.Bookings do
     end
   end
 
-  defp calculate_children_price_for_night(property, children_count, children_price_per_person) do
+  defp calculate_children_price_for_night(
+         property,
+         children_count,
+         children_price_per_person
+       ) do
     if property == :tahoe && children_count > 0 do
       {:ok, price} = Money.mult(children_price_per_person, children_count)
       price
@@ -1668,10 +1745,13 @@ defmodule Ysc.Bookings do
     nights = length(params.date_range)
 
     base_per_night = calculate_per_night_price(params.base_total, nights)
-    children_per_night = calculate_per_night_price(params.children_total, nights)
+
+    children_per_night =
+      calculate_per_night_price(params.children_total, nights)
 
     # Ensure children_price_per_night has a fallback value
-    children_price_per_night = params.children_price_per_night || Money.new(:USD, 25)
+    children_price_per_night =
+      params.children_price_per_night || Money.new(:USD, 25)
 
     {:ok, params.total,
      %{
@@ -1697,7 +1777,13 @@ defmodule Ysc.Bookings do
     end
   end
 
-  defp calculate_day_price(property, checkin_date, _checkout_date, guests_count, nights) do
+  defp calculate_day_price(
+         property,
+         checkin_date,
+         _checkout_date,
+         guests_count,
+         nights
+       ) do
     # For day bookings, price is per guest per day
     # Clear Lake uses this model
 
@@ -1707,7 +1793,14 @@ defmodule Ysc.Bookings do
     season_id = if season, do: season.id, else: nil
 
     pricing_rule =
-      PricingRule.find_most_specific(property, season_id, nil, nil, :day, :per_guest_per_day)
+      PricingRule.find_most_specific(
+        property,
+        season_id,
+        nil,
+        nil,
+        :day,
+        :per_guest_per_day
+      )
 
     if pricing_rule do
       total_days = nights
@@ -1852,7 +1945,9 @@ defmodule Ysc.Bookings do
   Lists all refund policies, optionally filtered by property and booking mode.
   """
   def list_refund_policies(property \\ nil, booking_mode \\ nil) do
-    query = from rp in RefundPolicy, order_by: [asc: rp.property, asc: rp.booking_mode]
+    query =
+      from rp in RefundPolicy,
+        order_by: [asc: rp.property, asc: rp.booking_mode]
 
     query =
       if property do
@@ -2149,8 +2244,12 @@ defmodule Ysc.Bookings do
           # Get the original payment amount for this booking
           case get_booking_payment_amount(booking) do
             {:ok, original_amount} ->
-              refund_percentage = Decimal.to_float(applied_rule.refund_percentage)
-              refund_amount = calculate_refund_amount(original_amount, refund_percentage)
+              refund_percentage =
+                Decimal.to_float(applied_rule.refund_percentage)
+
+              refund_amount =
+                calculate_refund_amount(original_amount, refund_percentage)
+
               {:ok, refund_amount, applied_rule}
 
             {:error, reason} ->
@@ -2223,7 +2322,11 @@ defmodule Ysc.Bookings do
       iex> cancel_booking(booking, ~D[2025-11-10], "User requested cancellation")
       {:ok, %Booking{}, %Money{}, %LedgerTransaction{}}
   """
-  def cancel_booking(booking, cancellation_date \\ Date.utc_today(), reason \\ nil) do
+  def cancel_booking(
+        booking,
+        cancellation_date \\ Date.utc_today(),
+        reason \\ nil
+      ) do
     alias Ysc.Bookings.{BookingLocker, PendingRefund}
 
     # First, always cancel the booking and free up inventory
@@ -2299,22 +2402,28 @@ defmodule Ysc.Bookings do
                           )
 
                           # Return the refund ID so we can track it
-                          {:ok, canceled_booking, actual_refund_amount, stripe_refund.id}
+                          {:ok, canceled_booking, actual_refund_amount,
+                           stripe_refund.id}
 
                         {:error, reason} ->
                           {:error, {:refund_failed, reason}}
                       end
                     else
                       {:error,
-                       {:refund_failed, "Payment does not have a valid Stripe payment intent ID"}}
+                       {:refund_failed,
+                        "Payment does not have a valid Stripe payment intent ID"}}
                     end
                   else
                     # Policy rule applied (partial refund, full refund via policy, or $0) - create pending refund for admin review
                     applied_rule_days =
-                      if applied_rule, do: applied_rule.days_before_checkin, else: nil
+                      if applied_rule,
+                        do: applied_rule.days_before_checkin,
+                        else: nil
 
                     applied_rule_percentage =
-                      if applied_rule, do: applied_rule.refund_percentage, else: nil
+                      if applied_rule,
+                        do: applied_rule.refund_percentage,
+                        else: nil
 
                     pending_refund_attrs = %{
                       booking_id: canceled_booking.id,
@@ -2345,7 +2454,8 @@ defmodule Ysc.Bookings do
                           reason
                         )
 
-                        {:ok, canceled_booking, actual_refund_amount, pending_refund}
+                        {:ok, canceled_booking, actual_refund_amount,
+                         pending_refund}
 
                       {:error, changeset} ->
                         {:error, {:pending_refund_failed, changeset}}
@@ -2361,8 +2471,10 @@ defmodule Ysc.Bookings do
                       policy_refund_amount: Money.new(0, :USD),
                       status: :pending,
                       cancellation_reason: reason,
-                      applied_rule_days_before_checkin: applied_rule.days_before_checkin,
-                      applied_rule_refund_percentage: applied_rule.refund_percentage
+                      applied_rule_days_before_checkin:
+                        applied_rule.days_before_checkin,
+                      applied_rule_refund_percentage:
+                        applied_rule.refund_percentage
                     }
 
                     case %PendingRefund{}
@@ -2384,7 +2496,8 @@ defmodule Ysc.Bookings do
                           reason
                         )
 
-                        {:ok, canceled_booking, Money.new(0, :USD), pending_refund}
+                        {:ok, canceled_booking, Money.new(0, :USD),
+                         pending_refund}
 
                       {:error, changeset} ->
                         {:error, {:pending_refund_failed, changeset}}
@@ -2486,7 +2599,11 @@ defmodule Ysc.Bookings do
     # Expand the date range by 1 day on each side to capture all relevant checkouts and checkins
     expanded_start = Date.add(start_date, -1)
     expanded_end = Date.add(end_date, 1)
-    all_bookings = list_bookings(:clear_lake, expanded_start, expanded_end, preload: [:rooms])
+
+    all_bookings =
+      list_bookings(:clear_lake, expanded_start, expanded_end,
+        preload: [:rooms]
+      )
 
     bookings =
       Enum.filter(all_bookings, fn booking ->
@@ -2513,7 +2630,12 @@ defmodule Ysc.Bookings do
       date_range
       |> Enum.map(fn date ->
         {date,
-         %{day_bookings_count: 0, has_buyout: false, has_checkout: false, has_checkin: false}}
+         %{
+           day_bookings_count: 0,
+           has_buyout: false,
+           has_checkout: false,
+           has_checkin: false
+         }}
       end)
       |> Map.new()
 
@@ -2549,7 +2671,10 @@ defmodule Ysc.Bookings do
         if Date.compare(booking.checkout_date, booking.checkin_date) == :gt do
           # Exclude checkout_date - only count nights actually stayed
           booking_date_range =
-            Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
+            Date.range(
+              booking.checkin_date,
+              Date.add(booking.checkout_date, -1)
+            )
 
           booking_date_range
           |> Enum.reduce(acc, fn date, date_acc ->
@@ -2589,7 +2714,9 @@ defmodule Ysc.Bookings do
       from(pi in PropertyInventory,
         where: pi.property == :clear_lake,
         where: pi.day >= ^start_date and pi.day <= ^end_date,
-        select: {pi.day, %{capacity_held: pi.capacity_held, buyout_held: pi.buyout_held}}
+        select:
+          {pi.day,
+           %{capacity_held: pi.capacity_held, buyout_held: pi.buyout_held}}
       )
       |> Repo.all()
       |> Map.new()
@@ -2598,10 +2725,14 @@ defmodule Ysc.Bookings do
     availability
     |> Enum.map(fn {date, info} ->
       is_blacked_out = MapSet.member?(blacked_out_dates, date)
+
       # Account for both confirmed bookings and held capacity from PropertyInventory
       # This ensures we count :hold bookings that may not be in the bookings query
       held_inventory =
-        Map.get(held_inventory_by_date, date, %{capacity_held: 0, buyout_held: false})
+        Map.get(held_inventory_by_date, date, %{
+          capacity_held: 0,
+          buyout_held: false
+        })
 
       capacity_held = held_inventory.capacity_held
       buyout_held = held_inventory.buyout_held
@@ -2615,7 +2746,8 @@ defmodule Ysc.Bookings do
       # - Spots available
       # - No buyout (confirmed or held)
       can_book_day =
-        not is_blacked_out and spots_available > 0 and not info.has_buyout and not buyout_held
+        not is_blacked_out and spots_available > 0 and not info.has_buyout and
+          not buyout_held
 
       # Buyout can only be booked if:
       # - Not blacked out
@@ -2670,7 +2802,9 @@ defmodule Ysc.Bookings do
     # Expand the date range by 1 day on each side to capture all relevant checkouts and checkins
     expanded_start = Date.add(start_date, -1)
     expanded_end = Date.add(end_date, 1)
-    all_bookings = list_bookings(:tahoe, expanded_start, expanded_end, preload: [:rooms])
+
+    all_bookings =
+      list_bookings(:tahoe, expanded_start, expanded_end, preload: [:rooms])
 
     bookings =
       Enum.filter(all_bookings, fn booking ->
@@ -2681,7 +2815,13 @@ defmodule Ysc.Bookings do
     # Expand the range to include blackouts that might affect changeover days
     expanded_blackout_start = Date.add(start_date, -1)
     expanded_blackout_end = Date.add(end_date, 1)
-    blackouts = get_overlapping_blackouts(:tahoe, expanded_blackout_start, expanded_blackout_end)
+
+    blackouts =
+      get_overlapping_blackouts(
+        :tahoe,
+        expanded_blackout_start,
+        expanded_blackout_end
+      )
 
     # Create a set of blacked out dates
     # Blackouts block:
@@ -2723,7 +2863,10 @@ defmodule Ysc.Bookings do
         if Date.compare(booking.checkout_date, booking.checkin_date) == :gt do
           # Exclude checkout_date - only count nights actually stayed
           booking_date_range =
-            Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
+            Date.range(
+              booking.checkin_date,
+              Date.add(booking.checkout_date, -1)
+            )
 
           booking_date_range
           |> Enum.reduce(acc, fn date, date_acc ->
@@ -2767,7 +2910,9 @@ defmodule Ysc.Bookings do
     # We already have them in the bookings list, so filter and extract dates
     held_room_dates =
       bookings
-      |> Enum.filter(fn booking -> booking.status == :hold && booking.booking_mode == :room end)
+      |> Enum.filter(fn booking ->
+        booking.status == :hold && booking.booking_mode == :room
+      end)
       |> Enum.flat_map(fn booking ->
         if Date.compare(booking.checkout_date, booking.checkin_date) == :gt do
           Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
@@ -2784,7 +2929,9 @@ defmodule Ysc.Bookings do
       is_blacked_out = MapSet.member?(blacked_out_dates, date)
 
       # Check for held buyout
-      held_inventory = Map.get(held_inventory_by_date, date, %{buyout_held: false})
+      held_inventory =
+        Map.get(held_inventory_by_date, date, %{buyout_held: false})
+
       buyout_held = held_inventory.buyout_held
 
       # Check if there's a held room booking on this date
@@ -2794,7 +2941,8 @@ defmodule Ysc.Bookings do
       # - Not blacked out
       # - No buyout (confirmed or held)
       # - No room bookings don't block other room bookings (they can coexist)
-      can_book_room = not is_blacked_out and not info.has_buyout and not buyout_held
+      can_book_room =
+        not is_blacked_out and not info.has_buyout and not buyout_held
 
       # Buyout can only be booked if:
       # - Not blacked out
@@ -2887,7 +3035,11 @@ defmodule Ysc.Bookings do
       refund_amount_cents = money_to_cents(refund_amount)
 
       # Create refund in Stripe
-      case create_stripe_refund(payment.external_payment_id, refund_amount_cents, refund_reason) do
+      case create_stripe_refund(
+             payment.external_payment_id,
+             refund_amount_cents,
+             refund_reason
+           ) do
         {:ok, stripe_refund} ->
           # Process refund in ledger immediately (creates refund record, ledger entries, and sends email)
           # The webhook will handle idempotency if it arrives later
@@ -2912,7 +3064,12 @@ defmodule Ysc.Bookings do
             |> Repo.update!()
 
           # Log if ledger processing had issues (but don't fail - refund was created in Stripe)
-          log_ledger_result(ledger_result, pending_refund, payment, stripe_refund)
+          log_ledger_result(
+            ledger_result,
+            pending_refund,
+            payment,
+            stripe_refund
+          )
 
           {:ok, updated_pending_refund, stripe_refund.id}
 
@@ -2920,7 +3077,9 @@ defmodule Ysc.Bookings do
           {:error, {:refund_failed, reason}}
       end
     else
-      {:error, {:refund_failed, "Payment does not have a valid Stripe payment intent ID"}}
+      {:error,
+       {:refund_failed,
+        "Payment does not have a valid Stripe payment intent ID"}}
     end
   end
 
@@ -2952,7 +3111,9 @@ defmodule Ysc.Bookings do
 
     try do
       # Reload associations
-      booking = Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
+      booking =
+        Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
+
       payment = Ysc.Ledgers.get_payment_with_associations(payment.id)
 
       if booking && booking.user && payment do
@@ -2998,7 +3159,8 @@ defmodule Ysc.Bookings do
             )
         end
       else
-        Logger.warning("Skipping booking refund pending email - missing associations",
+        Logger.warning(
+          "Skipping booking refund pending email - missing associations",
           pending_refund_id: pending_refund.id,
           booking_id: booking && booking.id,
           payment_id: payment && payment.id
@@ -3026,7 +3188,8 @@ defmodule Ysc.Bookings do
 
     try do
       # Reload booking with user association
-      booking = Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
+      booking =
+        Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
 
       if booking && booking.user do
         # Get cabin master for the property
@@ -3040,7 +3203,9 @@ defmodule Ysc.Bookings do
         cabin_master =
           if cabin_master_position do
             from(u in Ysc.Accounts.User,
-              where: u.board_position == ^cabin_master_position and u.state == :active
+              where:
+                u.board_position == ^cabin_master_position and
+                  u.state == :active
             )
             |> Repo.one()
           else
@@ -3072,14 +3237,21 @@ defmodule Ysc.Bookings do
 
         # Send email to treasurer if found
         if treasurer && treasurer.email do
-          send_treasurer_cancellation_email(treasurer, booking, payment, pending_refund, reason)
+          send_treasurer_cancellation_email(
+            treasurer,
+            booking,
+            payment,
+            pending_refund,
+            reason
+          )
         else
           Logger.warning("No treasurer found",
             booking_id: booking.id
           )
         end
       else
-        Logger.warning("Skipping cancellation notification emails - missing booking or user",
+        Logger.warning(
+          "Skipping cancellation notification emails - missing booking or user",
           booking_id: booking && booking.id
         )
       end
@@ -3124,7 +3296,9 @@ defmodule Ysc.Bookings do
         YscWeb.Emails.Notifier.schedule_email(
           cabin_master.email,
           idempotency_key,
-          YscWeb.Emails.BookingCancellationCabinMasterNotification.get_subject(requires_review),
+          YscWeb.Emails.BookingCancellationCabinMasterNotification.get_subject(
+            requires_review
+          ),
           "booking_cancellation_cabin_master_notification",
           email_data,
           "",
@@ -3189,7 +3363,9 @@ defmodule Ysc.Bookings do
         YscWeb.Emails.Notifier.schedule_email(
           treasurer.email,
           idempotency_key,
-          YscWeb.Emails.BookingCancellationTreasurerNotification.get_subject(requires_review),
+          YscWeb.Emails.BookingCancellationTreasurerNotification.get_subject(
+            requires_review
+          ),
           "booking_cancellation_treasurer_notification",
           email_data,
           "",
@@ -3234,7 +3410,8 @@ defmodule Ysc.Bookings do
 
     try do
       # Reload booking with user association
-      booking = Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
+      booking =
+        Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload(:user)
 
       if booking && booking.user && booking.user.email do
         # Prepare email data
@@ -3265,7 +3442,8 @@ defmodule Ysc.Bookings do
 
         case result do
           %Oban.Job{} = job ->
-            Logger.info("Booking cancellation confirmation email scheduled successfully",
+            Logger.info(
+              "Booking cancellation confirmation email scheduled successfully",
               booking_id: booking.id,
               user_id: booking.user_id,
               user_email: booking.user.email,
@@ -3273,7 +3451,8 @@ defmodule Ysc.Bookings do
             )
 
           {:error, reason} ->
-            Logger.error("Failed to schedule booking cancellation confirmation email",
+            Logger.error(
+              "Failed to schedule booking cancellation confirmation email",
               booking_id: booking.id,
               user_id: booking.user_id,
               error: reason
@@ -3349,7 +3528,9 @@ defmodule Ysc.Bookings do
     # First, retrieve the payment intent to get the charge ID
     stripe_client = Application.get_env(:ysc, :stripe_client, Ysc.StripeClient)
 
-    case stripe_client.retrieve_payment_intent(payment_intent_id, %{expand: ["charges"]}) do
+    case stripe_client.retrieve_payment_intent(payment_intent_id, %{
+           expand: ["charges"]
+         }) do
       {:ok, payment_intent} ->
         # Get the charge ID from the payment intent
         charge_id =
@@ -3364,7 +3545,8 @@ defmodule Ysc.Bookings do
           user_id = payment_intent.metadata["user_id"]
 
           booking_id =
-            payment_intent.metadata["booking_id"] || payment_intent.metadata["ticket_order_id"]
+            payment_intent.metadata["booking_id"] ||
+              payment_intent.metadata["ticket_order_id"]
 
           # Create refund using the charge ID
           refund_params = %{
@@ -3379,7 +3561,11 @@ defmodule Ysc.Bookings do
             }
           }
 
-          handle_stripe_refund_creation(refund_params, payment_intent_id, amount_cents)
+          handle_stripe_refund_creation(
+            refund_params,
+            payment_intent_id,
+            amount_cents
+          )
         else
           Logger.error("No charge found in payment intent",
             payment_intent_id: payment_intent_id
@@ -3446,7 +3632,8 @@ defmodule Ysc.Bookings do
 
       {:error, reason} ->
         # Log error but don't fail - refund was created in Stripe
-        Logger.warning("Failed to process refund in ledger (refund created in Stripe)",
+        Logger.warning(
+          "Failed to process refund in ledger (refund created in Stripe)",
           pending_refund_id: pending_refund.id,
           payment_id: payment.id,
           stripe_refund_id: stripe_refund.id,
@@ -3455,7 +3642,11 @@ defmodule Ysc.Bookings do
     end
   end
 
-  defp handle_stripe_refund_creation(refund_params, payment_intent_id, amount_cents) do
+  defp handle_stripe_refund_creation(
+         refund_params,
+         payment_intent_id,
+         amount_cents
+       ) do
     if Code.ensure_loaded?(Mix) && Mix.env() == :test do
       refund = %Stripe.Refund{id: "re_test_#{payment_intent_id}"}
 

@@ -103,7 +103,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = AdminApplicationSubmitted.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert AdminApplicationSubmitted.get_template_name() == "admin_application_submitted"
+
+      assert AdminApplicationSubmitted.get_template_name() ==
+               "admin_application_submitted"
     end
 
     test "ChangeEmail renders", %{user: user} do
@@ -188,7 +190,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = ConductViolationConfirmation.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert ConductViolationConfirmation.get_template_name() == "conduct_violation_confirmation"
+
+      assert ConductViolationConfirmation.get_template_name() ==
+               "conduct_violation_confirmation"
     end
 
     test "ConductViolationBoardNotification renders", %{user: user} do
@@ -267,7 +271,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = TicketPurchaseConfirmation.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert TicketPurchaseConfirmation.get_template_name() == "ticket_purchase_confirmation"
+
+      assert TicketPurchaseConfirmation.get_template_name() ==
+               "ticket_purchase_confirmation"
     end
 
     test "TicketOrderRefund renders", %{user: user} do
@@ -373,7 +379,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = BookingRefundProcessed.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert BookingRefundProcessed.get_template_name() == "booking_refund_processed"
+
+      assert BookingRefundProcessed.get_template_name() ==
+               "booking_refund_processed"
     end
 
     test "BookingRefundPending renders", %{user: user} do
@@ -406,7 +414,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = BookingRefundPending.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert BookingRefundPending.get_template_name() == "booking_refund_pending"
+
+      assert BookingRefundPending.get_template_name() ==
+               "booking_refund_pending"
     end
 
     test "BookingCheckinReminder renders", %{user: user} do
@@ -437,7 +447,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = BookingCheckinReminder.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert BookingCheckinReminder.get_template_name() == "booking_checkin_reminder"
+
+      assert BookingCheckinReminder.get_template_name() ==
+               "booking_checkin_reminder"
     end
 
     test "BookingCheckoutReminder renders", %{user: user} do
@@ -458,7 +470,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = BookingCheckoutReminder.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert BookingCheckoutReminder.get_template_name() == "booking_checkout_reminder"
+
+      assert BookingCheckoutReminder.get_template_name() ==
+               "booking_checkout_reminder"
     end
 
     test "BookingCancellationConfirmation renders", %{user: user} do
@@ -583,7 +597,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = VolunteerConfirmation.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert VolunteerConfirmation.get_template_name() == "volunteer_confirmation"
+
+      assert VolunteerConfirmation.get_template_name() ==
+               "volunteer_confirmation"
     end
 
     test "VolunteerBoardNotification renders", %{user: user} do
@@ -598,7 +614,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = VolunteerBoardNotification.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert VolunteerBoardNotification.get_template_name() == "volunteer_board_notification"
+
+      assert VolunteerBoardNotification.get_template_name() ==
+               "volunteer_board_notification"
     end
 
     test "OutageNotification renders", %{user: user} do
@@ -639,7 +657,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = MembershipPaymentFailure.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert MembershipPaymentFailure.get_template_name() == "membership_payment_failure"
+
+      assert MembershipPaymentFailure.get_template_name() ==
+               "membership_payment_failure"
     end
 
     test "MembershipPaymentConfirmation renders", %{user: user} do
@@ -670,7 +690,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = MembershipRenewalSuccess.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert MembershipRenewalSuccess.get_template_name() == "membership_renewal_success"
+
+      assert MembershipRenewalSuccess.get_template_name() ==
+               "membership_renewal_success"
     end
 
     test "MembershipPaymentReminder7Day renders", %{user: user} do
@@ -758,7 +780,9 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       html = ExpenseReportConfirmation.render(assigns)
       assert is_binary(html)
       assert String.length(html) > 0
-      assert ExpenseReportConfirmation.get_template_name() == "expense_report_confirmation"
+
+      assert ExpenseReportConfirmation.get_template_name() ==
+               "expense_report_confirmation"
     end
 
     test "ExpenseReportTreasurerNotification renders", %{user: user} do
@@ -809,7 +833,8 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
         "email_changed" => EmailChanged,
         "admin_application_submitted" => AdminApplicationSubmitted,
         "conduct_violation_confirmation" => ConductViolationConfirmation,
-        "conduct_violation_board_notification" => ConductViolationBoardNotification,
+        "conduct_violation_board_notification" =>
+          ConductViolationBoardNotification,
         "ticket_purchase_confirmation" => TicketPurchaseConfirmation,
         "ticket_order_refund" => TicketOrderRefund,
         "booking_confirmation" => BookingConfirmation,
@@ -827,11 +852,13 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
         "booking_checkout_reminder" => BookingCheckoutReminder,
         "event_notification" => EventNotification,
         "expense_report_confirmation" => ExpenseReportConfirmation,
-        "expense_report_treasurer_notification" => ExpenseReportTreasurerNotification,
+        "expense_report_treasurer_notification" =>
+          ExpenseReportTreasurerNotification,
         "booking_cancellation_confirmation" => BookingCancellationConfirmation,
         "booking_cancellation_cabin_master_notification" =>
           BookingCancellationCabinMasterNotification,
-        "booking_cancellation_treasurer_notification" => BookingCancellationTreasurerNotification
+        "booking_cancellation_treasurer_notification" =>
+          BookingCancellationTreasurerNotification
       }
 
       for {template_name, expected_module} <- template_mappings do

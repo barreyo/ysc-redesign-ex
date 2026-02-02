@@ -25,10 +25,15 @@ defmodule YscWeb.NewsListLive do
           <div class="flex-1 min-w-0">
             <div class="flex items-center text-sm text-zinc-500 mb-2">
               <time>
-                <%= Timex.format!(post.published_on, "{WDshort}, {Mshort} {D}, {YYYY}") %>
+                <%= Timex.format!(
+                  post.published_on,
+                  "{WDshort}, {Mshort} {D}, {YYYY}"
+                ) %>
               </time>
               <span class="mx-2">•</span>
-              <span>by <%= post.author.first_name %> <%= post.author.last_name %></span>
+              <span>
+                by <%= post.author.first_name %> <%= post.author.last_name %>
+              </span>
             </div>
 
             <.link navigate={~p"/posts/#{post.url_name}"} class="block">
@@ -38,7 +43,8 @@ defmodule YscWeb.NewsListLive do
             </.link>
 
             <p class="text-zinc-600 text-sm line-clamp-2">
-              <%= post.preview_text || String.slice(post.rendered_body || "", 0, 150) <> "..." %>
+              <%= post.preview_text ||
+                String.slice(post.rendered_body || "", 0, 150) <> "..." %>
             </p>
           </div>
         </div>
@@ -48,7 +54,9 @@ defmodule YscWeb.NewsListLive do
         <div class="text-zinc-500">
           <.icon name="hero-newspaper" class="w-12 h-12 mx-auto mb-4 text-zinc-400" />
           <p class="text-lg font-medium text-zinc-600">No news articles yet</p>
-          <p class="text-sm text-zinc-500">Check back soon for club updates and announcements!</p>
+          <p class="text-sm text-zinc-500">
+            Check back soon for club updates and announcements!
+          </p>
         </div>
       </div>
     </div>

@@ -12,10 +12,15 @@ defmodule Ysc.Posts.Comment do
   @foreign_key_type Ecto.ULID
   @timestamps_opts [type: :utc_datetime]
   schema "comments" do
-    belongs_to :author, Ysc.Accounts.User, foreign_key: :user_id, references: :id
+    belongs_to :author, Ysc.Accounts.User,
+      foreign_key: :user_id,
+      references: :id
+
     belongs_to :post, Ysc.Posts.Post, foreign_key: :post_id, references: :id
 
-    belongs_to :reply_to_comment, Ysc.Posts.Comment, foreign_key: :comment_id, references: :id
+    belongs_to :reply_to_comment, Ysc.Posts.Comment,
+      foreign_key: :comment_id,
+      references: :id
 
     field :text, :string
 

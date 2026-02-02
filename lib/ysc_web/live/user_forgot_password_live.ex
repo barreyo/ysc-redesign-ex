@@ -18,7 +18,12 @@ defmodule YscWeb.UserForgotPasswordLive do
         <:subtitle>We'll send a password reset link to your inbox</:subtitle>
       </.header>
 
-      <.simple_form for={@form} id="reset_password_form" phx-submit="send_email" class="py-8">
+      <.simple_form
+        for={@form}
+        id="reset_password_form"
+        phx-submit="send_email"
+        class="py-8"
+      >
         <.input field={@form[:email]} type="email" placeholder="Email" required />
         <:actions>
           <.button phx-disable-with="Sending..." class="w-full">
@@ -33,7 +38,8 @@ defmodule YscWeb.UserForgotPasswordLive do
   end
 
   def mount(_params, _session, socket) do
-    remote_ip = get_connect_info(socket, :peer_data) |> Map.get(:address, {0, 0, 0, 0})
+    remote_ip =
+      get_connect_info(socket, :peer_data) |> Map.get(:address, {0, 0, 0, 0})
 
     {:ok,
      socket
@@ -49,13 +55,19 @@ defmodule YscWeb.UserForgotPasswordLive do
       rate_limited_ip?(ip) ->
         {:noreply,
          socket
-         |> put_flash(:error, "Too many attempts from your connection. Please try again later.")
+         |> put_flash(
+           :error,
+           "Too many attempts from your connection. Please try again later."
+         )
          |> redirect(to: ~p"/users/reset-password")}
 
       rate_limited_identifier?(email) ->
         {:noreply,
          socket
-         |> put_flash(:error, "Too many attempts for this email. Please try again later.")
+         |> put_flash(
+           :error,
+           "Too many attempts for this email. Please try again later."
+         )
          |> redirect(to: ~p"/users/reset-password")}
 
       true ->

@@ -41,8 +41,13 @@ defmodule YscWeb.AdminSettingsLive do
               <div>
                 <ul>
                   <li :for={entry <- Map.get(@grouped_settings, scope)} class="py-2">
-                    <label class="leading-6 text-zinc-800 font-semibold" for={entry.id}>
-                      <%= entry.name |> String.replace("_", " ") |> String.capitalize() %>:
+                    <label
+                      class="leading-6 text-zinc-800 font-semibold"
+                      for={entry.id}
+                    >
+                      <%= entry.name
+                      |> String.replace("_", " ")
+                      |> String.capitalize() %>:
                     </label>
                     <input
                       id={entry.id}
@@ -51,8 +56,16 @@ defmodule YscWeb.AdminSettingsLive do
                       name={"settings[#{entry.name}][value]"}
                       value={entry.value}
                     />
-                    <input name={"settings[#{entry.name}][name]"} type="hidden" value={entry.name} />
-                    <input name={"settings[#{entry.name}][group]"} type="hidden" value={entry.group} />
+                    <input
+                      name={"settings[#{entry.name}][name]"}
+                      type="hidden"
+                      value={entry.name}
+                    />
+                    <input
+                      name={"settings[#{entry.name}][group]"}
+                      type="hidden"
+                      value={entry.group}
+                    />
                   </li>
                 </ul>
               </div>
@@ -73,13 +86,17 @@ defmodule YscWeb.AdminSettingsLive do
             class="rounded px-4 py-3 bg-blue-700 hover:bg-blue-800 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-100"
             navigate={~p"/admin/dashboard"}
           >
-            <.icon name="hero-arrow-top-right-on-square" class=" text-zinc-100 w-4 h-4 -mt-1 mr-2" />
-            System Dashboard
+            <.icon
+              name="hero-arrow-top-right-on-square"
+              class=" text-zinc-100 w-4 h-4 -mt-1 mr-2"
+            /> System Dashboard
           </.link>
         </div>
         <!-- Recent Oban Jobs -->
         <div class="w-full py-4">
-          <h2 class="text-lg leading-8 font-semibold text-zinc-800 mb-4">Recent Oban Jobs</h2>
+          <h2 class="text-lg leading-8 font-semibold text-zinc-800 mb-4">
+            Recent Oban Jobs
+          </h2>
           <div class="bg-white shadow rounded-lg overflow-hidden">
             <table class="min-w-full divide-y divide-zinc-200">
               <thead class="bg-zinc-50">
@@ -131,7 +148,10 @@ defmodule YscWeb.AdminSettingsLive do
                         data-utc-time={DateTime.to_iso8601(job.completed_at)}
                         data-prefix=""
                       >
-                        <%= Calendar.strftime(job.completed_at, "%Y-%m-%d %H:%M:%S UTC") %>
+                        <%= Calendar.strftime(
+                          job.completed_at,
+                          "%Y-%m-%d %H:%M:%S UTC"
+                        ) %>
                       </span>
                     <% else %>
                       <%= if job.scheduled_at do %>
@@ -141,7 +161,10 @@ defmodule YscWeb.AdminSettingsLive do
                           data-utc-time={DateTime.to_iso8601(job.scheduled_at)}
                           data-prefix="Scheduled: "
                         >
-                          Scheduled: <%= Calendar.strftime(job.scheduled_at, "%Y-%m-%d %H:%M:%S UTC") %>
+                          Scheduled: <%= Calendar.strftime(
+                            job.scheduled_at,
+                            "%Y-%m-%d %H:%M:%S UTC"
+                          ) %>
                         </span>
                       <% else %>
                         <%= if job.inserted_at do %>
@@ -151,7 +174,10 @@ defmodule YscWeb.AdminSettingsLive do
                             data-utc-time={DateTime.to_iso8601(job.inserted_at)}
                             data-prefix=""
                           >
-                            <%= Calendar.strftime(job.inserted_at, "%Y-%m-%d %H:%M:%S UTC") %>
+                            <%= Calendar.strftime(
+                              job.inserted_at,
+                              "%Y-%m-%d %H:%M:%S UTC"
+                            ) %>
                           </span>
                         <% else %>
                           N/A
@@ -173,7 +199,10 @@ defmodule YscWeb.AdminSettingsLive do
                   </td>
                 </tr>
                 <tr :if={Enum.empty?(@recent_jobs)}>
-                  <td colspan="7" class="px-6 py-4 text-center text-sm text-zinc-500">
+                  <td
+                    colspan="7"
+                    class="px-6 py-4 text-center text-sm text-zinc-500"
+                  >
                     No jobs found.
                   </td>
                 </tr>
@@ -201,7 +230,12 @@ defmodule YscWeb.AdminSettingsLive do
      |> assign(:scopes, scopes)
      |> assign(:recent_jobs, recent_jobs)
      |> assign(form: form),
-     temporary_assigns: [scopes: [], grouped_settings: %{}, form: nil, recent_jobs: []]}
+     temporary_assigns: [
+       scopes: [],
+       grouped_settings: %{},
+       form: nil,
+       recent_jobs: []
+     ]}
   end
 
   def handle_event("update-settings", %{"settings" => settings}, socket) do
@@ -210,7 +244,9 @@ defmodule YscWeb.AdminSettingsLive do
     end
 
     {:noreply,
-     socket |> put_flash(:info, "Settings Updated") |> redirect(to: ~p"/admin/settings")}
+     socket
+     |> put_flash(:info, "Settings Updated")
+     |> redirect(to: ~p"/admin/settings")}
   end
 
   def handle_event("reschedule_job", %{"job_id" => job_id}, socket) do
@@ -238,7 +274,13 @@ defmodule YscWeb.AdminSettingsLive do
     # and inserted_at as fallback for other states
     from(j in Job,
       order_by: [
-        desc: fragment("COALESCE(?, ?, ?)", j.completed_at, j.scheduled_at, j.inserted_at)
+        desc:
+          fragment(
+            "COALESCE(?, ?, ?)",
+            j.completed_at,
+            j.scheduled_at,
+            j.inserted_at
+          )
       ],
       limit: ^limit
     )
@@ -258,7 +300,8 @@ defmodule YscWeb.AdminSettingsLive do
           |> Module.concat()
 
         # Check if the module exists and has the new/1 function
-        if Code.ensure_loaded?(worker_module) and function_exported?(worker_module, :new, 1) do
+        if Code.ensure_loaded?(worker_module) and
+             function_exported?(worker_module, :new, 1) do
           # Create a new job with the same args
           try do
             new_job = apply(worker_module, :new, [job.args])
@@ -275,7 +318,8 @@ defmodule YscWeb.AdminSettingsLive do
               {:error, Exception.message(error)}
           end
         else
-          {:error, "Worker module #{job.worker} not found or does not export new/1"}
+          {:error,
+           "Worker module #{job.worker} not found or does not export new/1"}
         end
     end
   end

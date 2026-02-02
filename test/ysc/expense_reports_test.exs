@@ -22,7 +22,8 @@ defmodule Ysc.ExpenseReportsTest do
   end
 
   describe "bank accounts" do
-    test "list_bank_accounts/1 returns empty list for user with no bank accounts", %{user: user} do
+    test "list_bank_accounts/1 returns empty list for user with no bank accounts",
+         %{user: user} do
       assert ExpenseReports.list_bank_accounts(user) == []
     end
 
@@ -76,7 +77,9 @@ defmodule Ysc.ExpenseReportsTest do
 
       # Update with new account number (last 4 should change)
       {:ok, updated} =
-        ExpenseReports.update_bank_account(bank_account, %{"account_number" => "123456789"})
+        ExpenseReports.update_bank_account(bank_account, %{
+          "account_number" => "123456789"
+        })
 
       assert updated.account_number_last_4 == "6789"
     end
@@ -187,7 +190,12 @@ defmodule Ysc.ExpenseReportsTest do
 
       # Preload expense_items association before updating to avoid changeset error
       report = Ysc.Repo.preload(report, :expense_items)
-      assert {:ok, updated} = ExpenseReports.update_expense_report(report, %{status: "approved"})
+
+      assert {:ok, updated} =
+               ExpenseReports.update_expense_report(report, %{
+                 status: "approved"
+               })
+
       assert updated.status == "approved"
     end
   end

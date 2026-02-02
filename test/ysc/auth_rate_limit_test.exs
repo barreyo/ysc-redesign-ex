@@ -5,10 +5,16 @@ defmodule Ysc.AuthRateLimitTest do
 
   # Use low limits so we can hit them in tests. Each test uses unique IP/email to avoid cross-test pollution.
   setup do
-    Application.put_env(:ysc, Ysc.AuthRateLimit, ip_limit: 2, identifier_limit: 2)
+    Application.put_env(:ysc, Ysc.AuthRateLimit,
+      ip_limit: 2,
+      identifier_limit: 2
+    )
 
     on_exit(fn ->
-      Application.put_env(:ysc, Ysc.AuthRateLimit, ip_limit: 10_000, identifier_limit: 10_000)
+      Application.put_env(:ysc, Ysc.AuthRateLimit,
+        ip_limit: 10_000,
+        identifier_limit: 10_000
+      )
     end)
 
     :ok
@@ -25,7 +31,10 @@ defmodule Ysc.AuthRateLimitTest do
       ip = "127.0.0.101"
       assert :ok = AuthRateLimit.check_ip(ip)
       assert :ok = AuthRateLimit.check_ip(ip)
-      assert {:error, :rate_limited, retry_after_sec} = AuthRateLimit.check_ip(ip)
+
+      assert {:error, :rate_limited, retry_after_sec} =
+               AuthRateLimit.check_ip(ip)
+
       assert is_integer(retry_after_sec)
       assert retry_after_sec > 0
     end
@@ -60,7 +69,10 @@ defmodule Ysc.AuthRateLimitTest do
       email = "over_limit_#{System.unique_integer([:positive])}@example.com"
       assert :ok = AuthRateLimit.check_identifier(email)
       assert :ok = AuthRateLimit.check_identifier(email)
-      assert {:error, :rate_limited, retry_after_sec} = AuthRateLimit.check_identifier(email)
+
+      assert {:error, :rate_limited, retry_after_sec} =
+               AuthRateLimit.check_identifier(email)
+
       assert is_integer(retry_after_sec)
       assert retry_after_sec > 0
     end
@@ -69,6 +81,7 @@ defmodule Ysc.AuthRateLimitTest do
       email = "SameEmail_#{System.unique_integer([:positive])}@Example.COM"
       assert :ok = AuthRateLimit.check_identifier(String.downcase(email))
       assert :ok = AuthRateLimit.check_identifier(String.upcase(email))
+
       # Third attempt (either form) is rate limited because they share the same normalized key
       assert {:error, :rate_limited, _} = AuthRateLimit.check_identifier(email)
     end

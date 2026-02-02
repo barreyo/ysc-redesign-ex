@@ -24,7 +24,8 @@ defmodule Ysc.Accounts.MembershipCacheTest do
       user =
         user_fixture()
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Ysc.Repo.update!()
 
@@ -65,7 +66,8 @@ defmodule Ysc.Accounts.MembershipCacheTest do
       user =
         user_fixture()
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Ysc.Repo.update!()
 
@@ -123,7 +125,8 @@ defmodule Ysc.Accounts.MembershipCacheTest do
       user =
         user_fixture()
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Ysc.Repo.update!()
 
@@ -140,7 +143,8 @@ defmodule Ysc.Accounts.MembershipCacheTest do
       user =
         user_fixture()
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Ysc.Repo.update!()
 
@@ -161,7 +165,8 @@ defmodule Ysc.Accounts.MembershipCacheTest do
       user =
         user_fixture()
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Ysc.Repo.update!()
 
@@ -177,7 +182,8 @@ defmodule Ysc.Accounts.MembershipCacheTest do
       user =
         user_fixture()
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Ysc.Repo.update!()
 
@@ -197,7 +203,8 @@ defmodule Ysc.Accounts.MembershipCacheTest do
       user =
         user_fixture()
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Ysc.Repo.update!()
 
@@ -222,14 +229,16 @@ defmodule Ysc.Accounts.MembershipCacheTest do
       user1 =
         user_fixture()
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Ysc.Repo.update!()
 
       user2 =
         user_fixture()
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Ysc.Repo.update!()
 

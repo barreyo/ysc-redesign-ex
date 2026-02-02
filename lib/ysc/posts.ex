@@ -28,7 +28,9 @@ defmodule Ysc.Posts do
   end
 
   def get_post_by_id_or_url_name(value) do
-    Repo.one(from p in Post, where: p.id == ^value, or_where: p.url_name == ^value)
+    Repo.one(
+      from p in Post, where: p.id == ^value, or_where: p.url_name == ^value
+    )
   end
 
   def get_featured_post() do
@@ -152,7 +154,9 @@ defmodule Ysc.Posts do
   def get_insert_index_for_comment(%Comment{} = new_comment) do
     reply_to_id = new_comment.comment_id
     reply_counts = reply_counts(new_comment.post_id)
-    root_comments_before = top_level_comments_before(reply_to_id, new_comment.post_id)
+
+    root_comments_before =
+      top_level_comments_before(reply_to_id, new_comment.post_id)
 
     Enum.reduce(reply_counts, 0, fn [c_id, reply_count], acc ->
       if c_id > reply_to_id do
@@ -191,8 +195,11 @@ defmodule Ysc.Posts do
 
     Repo.transaction(add_comment_to_post_multi(corrected_params))
     |> case do
-      {:ok, %{new_comment: comment}} -> {:ok, comment} |> broadcast_change("new_comment")
-      {:error, _, changeset, _} -> {:error, changeset}
+      {:ok, %{new_comment: comment}} ->
+        {:ok, comment} |> broadcast_change("new_comment")
+
+      {:error, _, changeset, _} ->
+        {:error, changeset}
     end
   end
 
@@ -207,7 +214,10 @@ defmodule Ysc.Posts do
       changeset
     end)
     |> Ecto.Multi.update(:updated_post, fn %{post: post} ->
-      post |> Post.update_comment_count_changeset(%{"comment_count" => post.comment_count + 1})
+      post
+      |> Post.update_comment_count_changeset(%{
+        "comment_count" => post.comment_count + 1
+      })
     end)
   end
 

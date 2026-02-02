@@ -36,7 +36,9 @@ defmodule Ysc.Webhooks.WebhookEvent do
     |> validate_required([:provider, :event_id, :event_type])
     |> validate_length(:event_id, min: 1)
     |> validate_length(:event_type, min: 1)
-    |> unique_constraint([:provider, :event_id], name: :webhook_events_provider_event_id_index)
+    |> unique_constraint([:provider, :event_id],
+      name: :webhook_events_provider_event_id_index
+    )
     |> validate_inclusion(:state, WebhookState.__valid_values__())
   end
 end

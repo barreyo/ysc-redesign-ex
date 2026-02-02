@@ -23,7 +23,9 @@ defmodule Ysc.Subscriptions.ExpirationWorker do
   @impl Oban.Worker
   def perform(%Oban.Job{}) do
     {expired_count, failed_count} = check_and_expire_subscriptions()
-    {:ok, "Checked subscriptions: #{expired_count} expired, #{failed_count} failed"}
+
+    {:ok,
+     "Checked subscriptions: #{expired_count} expired, #{failed_count} failed"}
   end
 
   @doc """
@@ -50,7 +52,8 @@ defmodule Ysc.Subscriptions.ExpirationWorker do
     )
 
     {expired_count, failed_count} =
-      Enum.reduce(expired_subscriptions, {0, 0}, fn subscription, {expired, failed} ->
+      Enum.reduce(expired_subscriptions, {0, 0}, fn subscription,
+                                                    {expired, failed} ->
         case process_expired_subscription(subscription) do
           :ok ->
             {expired + 1, failed}
@@ -114,7 +117,8 @@ defmodule Ysc.Subscriptions.ExpirationWorker do
         # we should still invalidate the cache to be defensive
         if subscription.user_id do
           # Double-check expiration locally
-          if Subscriptions.cancelled?(subscription) or not Subscriptions.active?(subscription) do
+          if Subscriptions.cancelled?(subscription) or
+               not Subscriptions.active?(subscription) do
             MembershipCache.invalidate_user(subscription.user_id)
 
             Logger.warning(
@@ -130,7 +134,11 @@ defmodule Ysc.Subscriptions.ExpirationWorker do
   end
 
   defp subscription_retriever do
-    Application.get_env(:ysc, :stripe_subscription_retriever, Stripe.Subscription)
+    Application.get_env(
+      :ysc,
+      :stripe_subscription_retriever,
+      Stripe.Subscription
+    )
   end
 
   defp sync_subscription_from_stripe(%Subscription{} = subscription) do
@@ -142,7 +150,8 @@ defmodule Ysc.Subscriptions.ExpirationWorker do
         attrs = %{
           stripe_status: stripe_subscription.status,
           start_date:
-            stripe_subscription.start_date && DateTime.from_unix!(stripe_subscription.start_date),
+            stripe_subscription.start_date &&
+              DateTime.from_unix!(stripe_subscription.start_date),
           current_period_start:
             stripe_subscription.current_period_start &&
               DateTime.from_unix!(stripe_subscription.current_period_start),
@@ -150,15 +159,21 @@ defmodule Ysc.Subscriptions.ExpirationWorker do
             stripe_subscription.current_period_end &&
               DateTime.from_unix!(stripe_subscription.current_period_end),
           trial_ends_at:
-            stripe_subscription.trial_end && DateTime.from_unix!(stripe_subscription.trial_end),
+            stripe_subscription.trial_end &&
+              DateTime.from_unix!(stripe_subscription.trial_end),
           ends_at:
-            stripe_subscription.ended_at && DateTime.from_unix!(stripe_subscription.ended_at)
+            stripe_subscription.ended_at &&
+              DateTime.from_unix!(stripe_subscription.ended_at)
         }
 
         # Add cancellation info if present
         attrs =
           if stripe_subscription.cancel_at do
-            Map.put(attrs, :ends_at, DateTime.from_unix!(stripe_subscription.cancel_at))
+            Map.put(
+              attrs,
+              :ends_at,
+              DateTime.from_unix!(stripe_subscription.cancel_at)
+            )
           else
             attrs
           end
@@ -186,7 +201,8 @@ defmodule Ysc.Subscriptions.ExpirationWorker do
         {:error, error}
 
       {:error, reason} ->
-        Logger.error("Unexpected error when retrieving subscription from Stripe",
+        Logger.error(
+          "Unexpected error when retrieving subscription from Stripe",
           subscription_id: subscription.id,
           stripe_id: subscription.stripe_id,
           error: inspect(reason)

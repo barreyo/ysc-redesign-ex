@@ -26,7 +26,8 @@ defmodule Ysc.Sms.SmsMessage do
       foreign_key: :message_idempotency_id,
       references: :id
 
-    has_many :delivery_receipts, Ysc.Sms.SmsDeliveryReceipt, foreign_key: :sms_message_id
+    has_many :delivery_receipts, Ysc.Sms.SmsDeliveryReceipt,
+      foreign_key: :sms_message_id
 
     timestamps()
   end

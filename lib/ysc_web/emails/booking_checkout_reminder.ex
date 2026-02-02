@@ -47,7 +47,8 @@ defmodule YscWeb.Emails.BookingCheckoutReminder do
       if Ecto.assoc_loaded?(booking.user) && Ecto.assoc_loaded?(booking.rooms) do
         booking
       else
-        case Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload([:user, :rooms]) do
+        case Repo.get(Ysc.Bookings.Booking, booking.id)
+             |> Repo.preload([:user, :rooms]) do
           nil ->
             raise ArgumentError, "Booking not found: #{booking.id}"
 
@@ -70,13 +71,17 @@ defmodule YscWeb.Emails.BookingCheckoutReminder do
 
     cabin_master_name =
       if cabin_master do
-        "#{cabin_master.first_name || ""} #{cabin_master.last_name || ""}" |> String.trim()
+        "#{cabin_master.first_name || ""} #{cabin_master.last_name || ""}"
+        |> String.trim()
       else
         nil
       end
 
-    cabin_master_email = OutageNotification.get_cabin_master_email(booking.property)
-    cabin_master_phone = if cabin_master, do: cabin_master.phone_number, else: nil
+    cabin_master_email =
+      OutageNotification.get_cabin_master_email(booking.property)
+
+    cabin_master_phone =
+      if cabin_master, do: cabin_master.phone_number, else: nil
 
     # Format dates
     checkout_date = format_date(booking.checkout_date)
@@ -114,7 +119,10 @@ defmodule YscWeb.Emails.BookingCheckoutReminder do
   defp get_property_name(property), do: to_string(property)
 
   defp get_property_address(:tahoe), do: "2685 Cedar Lane, Homewood, CA 96141"
-  defp get_property_address(:clear_lake), do: "9325 Bass Road, Kelseyville, CA 95451"
+
+  defp get_property_address(:clear_lake),
+    do: "9325 Bass Road, Kelseyville, CA 95451"
+
   defp get_property_address(_), do: "Property Address"
 
   defp format_date(date) do

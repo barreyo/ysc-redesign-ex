@@ -45,8 +45,11 @@ defmodule Ysc.Webhooks do
     case Repo.one(query) do
       nil ->
         case Repo.get(WebhookEvent, event_id) do
-          nil -> {:error, :not_found}
-          %WebhookEvent{state: state} when state != :pending -> {:error, :already_processing}
+          nil ->
+            {:error, :not_found}
+
+          %WebhookEvent{state: state} when state != :pending ->
+            {:error, :already_processing}
         end
 
       webhook_event ->
@@ -101,7 +104,8 @@ defmodule Ysc.Webhooks do
   Updates a webhook event's state to complete or failed.
   Returns {:ok, webhook_event} if successful, or {:error, :not_found} if not found.
   """
-  def update_webhook_event_state(event_id, new_state) when new_state in [:processed, :failed] do
+  def update_webhook_event_state(event_id, new_state)
+      when new_state in [:processed, :failed] do
     case Repo.get(WebhookEvent, event_id) do
       nil ->
         {:error, :not_found}
@@ -150,15 +154,20 @@ defmodule Ysc.Webhooks do
     # Use FOR UPDATE SKIP LOCKED to handle concurrent processing attempts
     query =
       from(w in WebhookEvent,
-        where: w.provider == ^provider and w.event_id == ^event_id and w.state == :pending,
+        where:
+          w.provider == ^provider and w.event_id == ^event_id and
+            w.state == :pending,
         lock: "FOR UPDATE SKIP LOCKED"
       )
 
     case Repo.one(query) do
       nil ->
         case get_webhook_event_by_provider_and_event_id(provider, event_id) do
-          nil -> {:error, :not_found}
-          %WebhookEvent{state: state} when state != :pending -> {:error, :already_processing}
+          nil ->
+            {:error, :not_found}
+
+          %WebhookEvent{state: state} when state != :pending ->
+            {:error, :already_processing}
         end
 
       webhook_event ->
@@ -223,6 +232,10 @@ defmodule Ysc.Webhooks do
   end
 
   defp maybe_filter_by_date_range(query, start_date, end_date) do
-    where(query, [w], w.inserted_at >= ^start_date and w.inserted_at <= ^end_date)
+    where(
+      query,
+      [w],
+      w.inserted_at >= ^start_date and w.inserted_at <= ^end_date
+    )
   end
 end

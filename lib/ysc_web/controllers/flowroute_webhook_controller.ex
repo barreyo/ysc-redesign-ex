@@ -12,7 +12,9 @@ defmodule YscWeb.FlowrouteWebhookController do
   Handles inbound SMS webhook from FlowRoute.
   """
   def handle_inbound_sms(conn, params) do
-    Logger.info("Received FlowRoute inbound SMS webhook", payload: inspect(params))
+    Logger.info("Received FlowRoute inbound SMS webhook",
+      payload: inspect(params)
+    )
 
     try do
       # Extract data from webhook payload
@@ -21,7 +23,10 @@ defmodule YscWeb.FlowrouteWebhookController do
       message_id = get_in(data, ["id"])
 
       if is_nil(message_id) or is_nil(attributes) do
-        Logger.warning("Invalid inbound SMS webhook payload", payload: inspect(params))
+        Logger.warning("Invalid inbound SMS webhook payload",
+          payload: inspect(params)
+        )
+
         send_resp(conn, 400, "Invalid payload")
       else
         # Parse timestamp
@@ -38,7 +43,9 @@ defmodule YscWeb.FlowrouteWebhookController do
           end
 
         # Convert direction and status to enum atoms
-        direction = normalize_direction(get_in(attributes, ["direction"]) || "inbound")
+        direction =
+          normalize_direction(get_in(attributes, ["direction"]) || "inbound")
+
         status = normalize_received_status(get_in(attributes, ["status"]))
 
         # Create SMS received record
@@ -54,7 +61,8 @@ defmodule YscWeb.FlowrouteWebhookController do
           message_encoding: get_in(attributes, ["message_encoding"]),
           status: status,
           amount_display: get_in(attributes, ["amount_display"]),
-          amount_nanodollars: parse_nanodollars(get_in(attributes, ["amount_nanodollars"])),
+          amount_nanodollars:
+            parse_nanodollars(get_in(attributes, ["amount_nanodollars"])),
           message_callback_url: get_in(attributes, ["message_callback_url"]),
           provider_timestamp: timestamp,
           raw_payload: params
@@ -107,7 +115,9 @@ defmodule YscWeb.FlowrouteWebhookController do
   Handles delivery receipt (DLR) webhook from FlowRoute.
   """
   def handle_delivery_receipt(conn, params) do
-    Logger.info("Received FlowRoute delivery receipt webhook", payload: inspect(params))
+    Logger.info("Received FlowRoute delivery receipt webhook",
+      payload: inspect(params)
+    )
 
     try do
       # Extract data from webhook payload
@@ -116,7 +126,10 @@ defmodule YscWeb.FlowrouteWebhookController do
       message_id = get_in(data, ["id"])
 
       if is_nil(message_id) or is_nil(attributes) do
-        Logger.warning("Invalid delivery receipt webhook payload", payload: inspect(params))
+        Logger.warning("Invalid delivery receipt webhook payload",
+          payload: inspect(params)
+        )
+
         send_resp(conn, 400, "Invalid payload")
       else
         # Parse timestamp
@@ -133,7 +146,8 @@ defmodule YscWeb.FlowrouteWebhookController do
           end
 
         # Convert status to enum atom
-        status = normalize_delivery_receipt_status(get_in(attributes, ["status"]))
+        status =
+          normalize_delivery_receipt_status(get_in(attributes, ["status"]))
 
         # Create delivery receipt record
         attrs = %{
@@ -143,7 +157,8 @@ defmodule YscWeb.FlowrouteWebhookController do
           level: get_in(attributes, ["level"]),
           status: status,
           status_code: get_in(attributes, ["status_code"]),
-          status_code_description: get_in(attributes, ["status_code_description"]),
+          status_code_description:
+            get_in(attributes, ["status_code_description"]),
           provider_timestamp: timestamp,
           raw_payload: params
         }
@@ -196,7 +211,10 @@ defmodule YscWeb.FlowrouteWebhookController do
   # Private functions
 
   defp parse_nanodollars(nil), do: nil
-  defp parse_nanodollars(value) when is_binary(value), do: String.to_integer(value)
+
+  defp parse_nanodollars(value) when is_binary(value),
+    do: String.to_integer(value)
+
   defp parse_nanodollars(value) when is_integer(value), do: value
   defp parse_nanodollars(_), do: nil
 
@@ -236,10 +254,16 @@ defmodule YscWeb.FlowrouteWebhookController do
   # Normalize delivery receipt status string to enum atom
   defp normalize_delivery_receipt_status("delivered"), do: :delivered
   defp normalize_delivery_receipt_status("failed"), do: :failed
-  defp normalize_delivery_receipt_status("message buffered"), do: :message_buffered
+
+  defp normalize_delivery_receipt_status("message buffered"),
+    do: :message_buffered
+
   defp normalize_delivery_receipt_status("message sent"), do: :message_sent
   defp normalize_delivery_receipt_status("pending"), do: :pending
-  defp normalize_delivery_receipt_status(status) when is_atom(status), do: status
+
+  defp normalize_delivery_receipt_status(status) when is_atom(status),
+    do: status
+
   defp normalize_delivery_receipt_status(_), do: :pending
 
   # Handle SMS commands (START, SUBSCRIBE, STOP, HELP)
@@ -361,7 +385,8 @@ defmodule YscWeb.FlowrouteWebhookController do
             send_opt_out_response(sms_received.from, sms_received.to)
 
           {:error, changeset} ->
-            Logger.error("Failed to update notification preferences for opt-out",
+            Logger.error(
+              "Failed to update notification preferences for opt-out",
               user_id: user.id,
               phone_number: sms_received.from,
               errors: inspect(changeset.errors)
@@ -418,7 +443,8 @@ defmodule YscWeb.FlowrouteWebhookController do
 
   # Send response SMS
   defp send_response_sms(to, from, body, template) do
-    idempotency_key = "sms_response_#{template}_#{to}_#{System.system_time(:second)}"
+    idempotency_key =
+      "sms_response_#{template}_#{to}_#{System.system_time(:second)}"
 
     attrs = %{
       message_type: :sms,

@@ -28,7 +28,12 @@ defmodule YscWeb.Emails.MembershipPaymentFailure do
 
   def retry_payment_url(_), do: nil
 
-  def prepare_email_data(user, membership_type, is_renewal \\ false, invoice_id \\ nil) do
+  def prepare_email_data(
+        user,
+        membership_type,
+        is_renewal \\ false,
+        invoice_id \\ nil
+      ) do
     # Validate input
     if is_nil(user) do
       raise ArgumentError, "User cannot be nil"

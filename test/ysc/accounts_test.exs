@@ -56,13 +56,24 @@ defmodule Ysc.AccountsTest do
 
   describe "search_users/2" do
     test "searches users by name" do
-      user = user_fixture(%{first_name: "John", last_name: "Doe", phone_number: "+14159098268"})
+      user =
+        user_fixture(%{
+          first_name: "John",
+          last_name: "Doe",
+          phone_number: "+14159098268"
+        })
+
       results = Accounts.search_users("John")
       assert Enum.any?(results, &(&1.id == user.id))
     end
 
     test "searches users by email" do
-      user = user_fixture(%{email: "john.doe@example.com", phone_number: "+14159098268"})
+      user =
+        user_fixture(%{
+          email: "john.doe@example.com",
+          phone_number: "+14159098268"
+        })
+
       results = Accounts.search_users("john.doe@example.com")
       assert Enum.any?(results, &(&1.id == user.id))
     end
@@ -71,7 +82,11 @@ defmodule Ysc.AccountsTest do
       for i <- 1..15 do
         # Generate valid phone numbers (US format: +1XXXXXXXXXX, 11 digits total)
         phone_suffix = String.pad_leading(Integer.to_string(i), 2, "0")
-        user_fixture(%{first_name: "John#{i}", phone_number: "+141590982#{phone_suffix}"})
+
+        user_fixture(%{
+          first_name: "John#{i}",
+          phone_number: "+141590982#{phone_suffix}"
+        })
       end
 
       results = Accounts.search_users("John", limit: 10)
@@ -81,7 +96,10 @@ defmodule Ysc.AccountsTest do
 
   describe "get_user_by_email_and_password/2" do
     test "does not return the user if the email does not exist" do
-      refute Accounts.get_user_by_email_and_password("unknown@example.com", "hello world!")
+      refute Accounts.get_user_by_email_and_password(
+               "unknown@example.com",
+               "hello world!"
+             )
     end
 
     test "does not return the user if the password is not valid" do
@@ -93,7 +111,10 @@ defmodule Ysc.AccountsTest do
       %{id: id} = user = user_fixture(%{phone_number: "+14159098268"})
 
       assert %User{id: ^id} =
-               Accounts.get_user_by_email_and_password(user.email, valid_user_password())
+               Accounts.get_user_by_email_and_password(
+                 user.email,
+                 valid_user_password()
+               )
     end
   end
 
@@ -122,7 +143,8 @@ defmodule Ysc.AccountsTest do
       user =
         user
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Repo.update!()
         |> Repo.reload!()
@@ -138,7 +160,8 @@ defmodule Ysc.AccountsTest do
       user =
         user
         |> Ecto.Changeset.change(
-          lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+          lifetime_membership_awarded_at:
+            DateTime.truncate(DateTime.utc_now(), :second)
         )
         |> Repo.update!()
         |> Repo.reload!()
@@ -170,7 +193,9 @@ defmodule Ysc.AccountsTest do
       _other = user_fixture(%{first_name: "Jane", phone_number: "+14159098269"})
 
       params = %{page: 1, page_size: 10}
-      assert {:ok, {users, _meta}} = Accounts.list_paginated_users(params, "John")
+
+      assert {:ok, {users, _meta}} =
+               Accounts.list_paginated_users(params, "John")
 
       assert Enum.any?(users, &(&1.id == user.id))
     end
@@ -191,7 +216,9 @@ defmodule Ysc.AccountsTest do
       user = user_fixture(%{phone_number: "+14159098268"})
       attrs = %{newsletter_notifications: false}
 
-      assert {:ok, updated} = Accounts.update_notification_preferences(user, attrs)
+      assert {:ok, updated} =
+               Accounts.update_notification_preferences(user, attrs)
+
       assert updated.newsletter_notifications == false
     end
   end
@@ -243,8 +270,12 @@ defmodule Ysc.AccountsTest do
 
     test "validates maximum values for email and password for security" do
       too_long = String.duplicate("db", 100)
-      {:error, changeset} = Accounts.register_user(%{email: too_long, password: too_long})
+
+      {:error, changeset} =
+        Accounts.register_user(%{email: too_long, password: too_long})
+
       assert "should be at most 160 character(s)" in errors_on(changeset).email
+
       assert "should be at most 72 character(s)" in errors_on(changeset).password
     end
 
@@ -295,7 +326,9 @@ defmodule Ysc.AccountsTest do
 
   describe "change_user_registration/2" do
     test "returns a changeset" do
-      assert %Ecto.Changeset{} = changeset = Accounts.change_user_registration(%User{})
+      assert %Ecto.Changeset{} =
+               changeset = Accounts.change_user_registration(%User{})
+
       assert changeset.required == [:email, :first_name, :last_name]
     end
 
@@ -333,22 +366,29 @@ defmodule Ysc.AccountsTest do
     end
 
     test "requires email to change", %{user: user} do
-      {:error, changeset} = Accounts.apply_user_email(user, valid_user_password(), %{})
+      {:error, changeset} =
+        Accounts.apply_user_email(user, valid_user_password(), %{})
+
       assert %{email: ["did not change"]} = errors_on(changeset)
     end
 
     test "validates email", %{user: user} do
       {:error, changeset} =
-        Accounts.apply_user_email(user, valid_user_password(), %{email: "not valid"})
+        Accounts.apply_user_email(user, valid_user_password(), %{
+          email: "not valid"
+        })
 
-      assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
+      assert %{email: ["must have the @ sign and no spaces"]} =
+               errors_on(changeset)
     end
 
     test "validates maximum value for email for security", %{user: user} do
       too_long = String.duplicate("db", 100)
 
       {:error, changeset} =
-        Accounts.apply_user_email(user, valid_user_password(), %{email: too_long})
+        Accounts.apply_user_email(user, valid_user_password(), %{
+          email: too_long
+        })
 
       assert "should be at most 160 character(s)" in errors_on(changeset).email
     end
@@ -357,7 +397,8 @@ defmodule Ysc.AccountsTest do
       %{email: email} = user_fixture(%{phone_number: "+14159098265"})
       password = valid_user_password()
 
-      {:error, changeset} = Accounts.apply_user_email(user, password, %{email: email})
+      {:error, changeset} =
+        Accounts.apply_user_email(user, password, %{email: email})
 
       assert "has already been taken" in errors_on(changeset).email
     end
@@ -371,7 +412,10 @@ defmodule Ysc.AccountsTest do
 
     test "applies the email without persisting it", %{user: user} do
       email = unique_user_email()
-      {:ok, user} = Accounts.apply_user_email(user, valid_user_password(), %{email: email})
+
+      {:ok, user} =
+        Accounts.apply_user_email(user, valid_user_password(), %{email: email})
+
       assert user.email == email
       assert Accounts.get_user!(user.id).email != email
     end
@@ -385,11 +429,18 @@ defmodule Ysc.AccountsTest do
     test "sends token through notification", %{user: user} do
       token =
         extract_user_token(fn url ->
-          Accounts.deliver_user_update_email_instructions(user, "current@example.com", url)
+          Accounts.deliver_user_update_email_instructions(
+            user,
+            "current@example.com",
+            url
+          )
         end)
 
       {:ok, token} = Base.url_decode64(token, padding: false)
-      assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
+
+      assert user_token =
+               Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
+
       assert user_token.user_id == user.id
       assert user_token.sent_to == user.email
       assert user_token.context == "change:current@example.com"
@@ -403,14 +454,24 @@ defmodule Ysc.AccountsTest do
 
       token =
         extract_user_token(fn url ->
-          Accounts.deliver_user_update_email_instructions(%{user | email: email}, user.email, url)
+          Accounts.deliver_user_update_email_instructions(
+            %{user | email: email},
+            user.email,
+            url
+          )
         end)
 
       %{user: user, token: token, email: email}
     end
 
-    test "updates the email with a valid token", %{user: user, token: token, email: email} do
-      assert {:ok, updated_user, ^email} = Accounts.update_user_email(user, token)
+    test "updates the email with a valid token", %{
+      user: user,
+      token: token,
+      email: email
+    } do
+      assert {:ok, updated_user, ^email} =
+               Accounts.update_user_email(user, token)
+
       assert updated_user.email != user.email
       assert updated_user.email == email
       assert updated_user.confirmed_at
@@ -426,14 +487,23 @@ defmodule Ysc.AccountsTest do
       assert Repo.get_by(UserToken, user_id: user.id)
     end
 
-    test "does not update email if user email changed", %{user: user, token: token} do
-      assert Accounts.update_user_email(%{user | email: "current@example.com"}, token) == :error
+    test "does not update email if user email changed", %{
+      user: user,
+      token: token
+    } do
+      assert Accounts.update_user_email(
+               %{user | email: "current@example.com"},
+               token
+             ) == :error
+
       assert Repo.get!(User, user.id).email == user.email
       assert Repo.get_by(UserToken, user_id: user.id)
     end
 
     test "does not update email if token expired", %{user: user, token: token} do
-      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
+      {1, nil} =
+        Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
+
       assert Accounts.update_user_email(user, token) == :error
       assert Repo.get!(User, user.id).email == user.email
       assert Repo.get_by(UserToken, user_id: user.id)
@@ -442,7 +512,9 @@ defmodule Ysc.AccountsTest do
 
   describe "change_user_password/2" do
     test "returns a user changeset" do
-      assert %Ecto.Changeset{} = changeset = Accounts.change_user_password(%User{})
+      assert %Ecto.Changeset{} =
+               changeset = Accounts.change_user_password(%User{})
+
       assert changeset.required == [:password]
     end
 
@@ -480,14 +552,18 @@ defmodule Ysc.AccountsTest do
       too_long = String.duplicate("db", 100)
 
       {:error, changeset} =
-        Accounts.update_user_password(user, valid_user_password(), %{password: too_long})
+        Accounts.update_user_password(user, valid_user_password(), %{
+          password: too_long
+        })
 
       assert "should be at most 72 character(s)" in errors_on(changeset).password
     end
 
     test "validates current password", %{user: user} do
       {:error, changeset} =
-        Accounts.update_user_password(user, "invalid", %{password: valid_user_password()})
+        Accounts.update_user_password(user, "invalid", %{
+          password: valid_user_password()
+        })
 
       assert %{current_password: ["is not valid"]} = errors_on(changeset)
     end
@@ -499,7 +575,11 @@ defmodule Ysc.AccountsTest do
         })
 
       assert is_nil(user.password)
-      assert Accounts.get_user_by_email_and_password(user.email, "new valid password")
+
+      assert Accounts.get_user_by_email_and_password(
+               user.email,
+               "new valid password"
+             )
     end
 
     test "deletes all tokens for the given user", %{user: user} do
@@ -552,7 +632,9 @@ defmodule Ysc.AccountsTest do
     end
 
     test "does not return user for expired token", %{token: token} do
-      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
+      {1, nil} =
+        Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
+
       refute Accounts.get_user_by_session_token(token)
     end
   end
@@ -578,7 +660,10 @@ defmodule Ysc.AccountsTest do
         end)
 
       {:ok, token} = Base.url_decode64(token, padding: false)
-      assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
+
+      assert user_token =
+               Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
+
       assert user_token.user_id == user.id
       assert user_token.sent_to == user.email
       assert user_token.context == "confirm"
@@ -612,7 +697,9 @@ defmodule Ysc.AccountsTest do
     end
 
     test "does not confirm email if token expired", %{user: user, token: token} do
-      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
+      {1, nil} =
+        Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
+
       assert Accounts.confirm_user(token) == :error
       refute Repo.get!(User, user.id).confirmed_at
       assert Repo.get_by(UserToken, user_id: user.id)
@@ -631,7 +718,10 @@ defmodule Ysc.AccountsTest do
         end)
 
       {:ok, token} = Base.url_decode64(token, padding: false)
-      assert user_token = Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
+
+      assert user_token =
+               Repo.get_by(UserToken, token: :crypto.hash(:sha256, token))
+
       assert user_token.user_id == user.id
       assert user_token.sent_to == user.email
       assert user_token.context == "reset_password"
@@ -660,8 +750,13 @@ defmodule Ysc.AccountsTest do
       assert Repo.get_by(UserToken, user_id: user.id)
     end
 
-    test "does not return the user if token expired", %{user: user, token: token} do
-      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
+    test "does not return the user if token expired", %{
+      user: user,
+      token: token
+    } do
+      {1, nil} =
+        Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
+
       refute Accounts.get_user_by_reset_password_token(token)
       assert Repo.get_by(UserToken, user_id: user.id)
     end
@@ -687,19 +782,31 @@ defmodule Ysc.AccountsTest do
 
     test "validates maximum values for password for security", %{user: user} do
       too_long = String.duplicate("db", 100)
-      {:error, changeset} = Accounts.reset_user_password(user, %{password: too_long})
+
+      {:error, changeset} =
+        Accounts.reset_user_password(user, %{password: too_long})
+
       assert "should be at most 72 character(s)" in errors_on(changeset).password
     end
 
     test "updates the password", %{user: user} do
-      {:ok, updated_user} = Accounts.reset_user_password(user, %{password: "new valid password"})
+      {:ok, updated_user} =
+        Accounts.reset_user_password(user, %{password: "new valid password"})
+
       assert is_nil(updated_user.password)
-      assert Accounts.get_user_by_email_and_password(user.email, "new valid password")
+
+      assert Accounts.get_user_by_email_and_password(
+               user.email,
+               "new valid password"
+             )
     end
 
     test "deletes all tokens for the given user", %{user: user} do
       _ = Accounts.generate_user_session_token(user)
-      {:ok, _} = Accounts.reset_user_password(user, %{password: "new valid password"})
+
+      {:ok, _} =
+        Accounts.reset_user_password(user, %{password: "new valid password"})
+
       refute Repo.get_by(UserToken, user_id: user.id)
     end
   end

@@ -15,8 +15,11 @@ defmodule Ysc.Bookings.CheckIn do
     field :rules_agreed, :boolean, default: false
     field :checked_in_at, :utc_datetime
 
-    many_to_many :bookings, Ysc.Bookings.Booking, join_through: Ysc.Bookings.CheckInBooking
-    has_many :check_in_vehicles, Ysc.Bookings.CheckInVehicle, foreign_key: :check_in_id
+    many_to_many :bookings, Ysc.Bookings.Booking,
+      join_through: Ysc.Bookings.CheckInBooking
+
+    has_many :check_in_vehicles, Ysc.Bookings.CheckInVehicle,
+      foreign_key: :check_in_id
 
     timestamps(type: :utc_datetime)
   end

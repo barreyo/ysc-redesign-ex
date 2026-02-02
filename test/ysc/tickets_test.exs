@@ -17,7 +17,8 @@ defmodule Ysc.TicketsTest do
     user =
       user
       |> Ecto.Changeset.change(
-        lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        lifetime_membership_awarded_at:
+          DateTime.truncate(DateTime.utc_now(), :second)
       )
       |> Ysc.Repo.update!()
 
@@ -29,7 +30,8 @@ defmodule Ysc.TicketsTest do
         description: "A test event",
         state: :published,
         organizer_id: organizer.id,
-        start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
+        start_date:
+          DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
         max_attendees: 100,
         published_at: DateTime.truncate(DateTime.utc_now(), :second)
       })
@@ -56,7 +58,11 @@ defmodule Ysc.TicketsTest do
   end
 
   describe "create_ticket_order/3" do
-    test "creates a ticket order with valid selections", %{user: user, event: event, tier1: tier1} do
+    test "creates a ticket order with valid selections", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
       ticket_selections = %{tier1.id => 2}
 
       assert {:ok, %TicketOrder{} = order} =
@@ -107,7 +113,9 @@ defmodule Ysc.TicketsTest do
       event: event,
       tier1: tier1
     } do
-      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+      {:ok, order} =
+        Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+
       found = Tickets.get_ticket_order(order.id)
       assert found.id == order.id
       assert Ecto.assoc_loaded?(found.user)
@@ -120,8 +128,14 @@ defmodule Ysc.TicketsTest do
   end
 
   describe "get_ticket_order_by_reference/1" do
-    test "returns ticket order by reference_id", %{user: user, event: event, tier1: tier1} do
-      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+    test "returns ticket order by reference_id", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
+      {:ok, order} =
+        Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+
       found = Tickets.get_ticket_order_by_reference(order.reference_id)
       assert found.id == order.id
     end
@@ -132,9 +146,16 @@ defmodule Ysc.TicketsTest do
   end
 
   describe "list_user_ticket_orders/1" do
-    test "returns ticket orders for user", %{user: user, event: event, tier1: tier1} do
-      {:ok, order1} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
-      {:ok, _order2} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+    test "returns ticket orders for user", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
+      {:ok, order1} =
+        Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+
+      {:ok, _order2} =
+        Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
 
       orders = Tickets.list_user_ticket_orders(user.id)
       assert length(orders) >= 2
@@ -143,19 +164,32 @@ defmodule Ysc.TicketsTest do
   end
 
   describe "list_user_ticket_orders_paginated/2" do
-    test "returns paginated ticket orders", %{user: user, event: event, tier1: tier1} do
-      {:ok, _order} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
+    test "returns paginated ticket orders", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
+      {:ok, _order} =
+        Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 1})
 
       params = %{page: 1, page_size: 10}
-      assert {:ok, {orders, meta}} = Tickets.list_user_ticket_orders_paginated(user.id, params)
+
+      assert {:ok, {orders, meta}} =
+               Tickets.list_user_ticket_orders_paginated(user.id, params)
+
       assert is_list(orders)
       assert Map.has_key?(meta, :total_count)
     end
   end
 
   describe "list_user_tickets_for_event/2" do
-    test "returns tickets for user and event", %{user: user, event: event, tier1: tier1} do
-      {:ok, _order} = Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 2})
+    test "returns tickets for user and event", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
+      {:ok, _order} =
+        Tickets.create_ticket_order(user.id, event.id, %{tier1.id => 2})
 
       # Tickets are created with :pending status, but list_user_tickets_for_event
       # only returns :confirmed tickets. We need to confirm the tickets first.
@@ -163,6 +197,7 @@ defmodule Ysc.TicketsTest do
       tickets = Tickets.list_user_tickets_for_event(user.id, event.id)
       # Tickets are pending, so they won't be in the confirmed list
       assert is_list(tickets)
+
       # If we want to test with confirmed tickets, we'd need to complete the order first
       # For now, just verify the function doesn't crash
     end
@@ -218,9 +253,15 @@ defmodule Ysc.TicketsTest do
   end
 
   describe "get_ticket_order_by_payment_id/1" do
-    test "returns ticket order by payment ID", %{user: user, event: event, tier1: tier1} do
+    test "returns ticket order by payment ID", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
       ticket_selections = %{tier1.id => 1}
-      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
+
+      {:ok, order} =
+        Tickets.create_ticket_order(user.id, event.id, ticket_selections)
 
       # Create a payment and link it
       {:ok, {payment, _transaction, _entries}} =
@@ -246,24 +287,39 @@ defmodule Ysc.TicketsTest do
   end
 
   describe "update_payment_intent/2" do
-    test "updates payment intent on ticket order", %{user: user, event: event, tier1: tier1} do
+    test "updates payment intent on ticket order", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
       ticket_selections = %{tier1.id => 1}
-      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
 
-      assert {:ok, updated} = Tickets.update_payment_intent(order, "pi_updated_123")
+      {:ok, order} =
+        Tickets.create_ticket_order(user.id, event.id, ticket_selections)
+
+      assert {:ok, updated} =
+               Tickets.update_payment_intent(order, "pi_updated_123")
+
       assert updated.payment_intent_id == "pi_updated_123"
     end
   end
 
   describe "calculate_event_and_donation_amounts/1" do
-    test "calculates event and donation amounts", %{user: user, event: event, tier1: tier1} do
+    test "calculates event and donation amounts", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
       ticket_selections = %{tier1.id => 1}
-      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
+
+      {:ok, order} =
+        Tickets.create_ticket_order(user.id, event.id, ticket_selections)
 
       # Preload tickets association
       order = Tickets.get_ticket_order(order.id)
 
       result = Tickets.calculate_event_and_donation_amounts(order)
+
       # Function returns a tuple {gross_event_amount, donation_amount, discount_amount}
       assert is_tuple(result)
       assert tuple_size(result) == 3
@@ -275,9 +331,15 @@ defmodule Ysc.TicketsTest do
   end
 
   describe "expire_timed_out_orders/0" do
-    test "expires orders older than timeout period", %{user: user, event: event, tier1: tier1} do
+    test "expires orders older than timeout period", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
       ticket_selections = %{tier1.id => 1}
-      {:ok, order} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
+
+      {:ok, order} =
+        Tickets.create_ticket_order(user.id, event.id, ticket_selections)
 
       # Manually set inserted_at to be older than timeout using SQL
       old_time =

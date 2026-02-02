@@ -23,7 +23,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
 
   Returns {:ok, bill} on success, {:error, reason} on failure.
   """
-  @spec sync_expense_report(ExpenseReport.t()) :: {:ok, map()} | {:error, atom() | String.t()}
+  @spec sync_expense_report(ExpenseReport.t()) ::
+          {:ok, map()} | {:error, atom() | String.t()}
   def sync_expense_report(%ExpenseReport{} = expense_report) do
     Logger.info("[QB Expense Sync] Starting sync for expense report",
       expense_report_id: expense_report.id,
@@ -43,7 +44,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
 
       # If status is not "synced", update it to "synced" to mark as complete
       if expense_report.quickbooks_sync_status != "synced" do
-        Logger.info("[QB Expense Sync] Updating sync status to 'synced' for existing bill",
+        Logger.info(
+          "[QB Expense Sync] Updating sync status to 'synced' for existing bill",
           expense_report_id: expense_report.id,
           bill_id: expense_report.quickbooks_bill_id
         )
@@ -70,14 +72,22 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
 
           expense_report
         else
-          Logger.debug("[QB Expense Sync] Associations not loaded, preloading now",
+          Logger.debug(
+            "[QB Expense Sync] Associations not loaded, preloading now",
             expense_report_id: expense_report.id,
             user_loaded: Ecto.assoc_loaded?(expense_report.user),
-            expense_items_loaded: Ecto.assoc_loaded?(expense_report.expense_items)
+            expense_items_loaded:
+              Ecto.assoc_loaded?(expense_report.expense_items)
           )
 
           expense_report
-          |> Repo.preload([:expense_items, :income_items, :address, :bank_account, :event])
+          |> Repo.preload([
+            :expense_items,
+            :income_items,
+            :address,
+            :bank_account,
+            :event
+          ])
           |> Repo.preload(user: :billing_address)
         end
 
@@ -87,19 +97,25 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
         # This prevents duplicate bills if receipt upload fails or is retried
         bill_id = bill["Id"]
 
-        Logger.info("[QB Expense Sync] Bill created, storing bill_id for idempotency",
+        Logger.info(
+          "[QB Expense Sync] Bill created, storing bill_id for idempotency",
           expense_report_id: expense_report.id,
           bill_id: bill_id
         )
 
         # Store bill_id and vendor_id immediately (even if receipt upload fails later)
         # This ensures idempotency - if we retry, we won't create a duplicate bill
-        case update_expense_report_with_bill_id(expense_report, vendor_id, bill_id) do
+        case update_expense_report_with_bill_id(
+               expense_report,
+               vendor_id,
+               bill_id
+             ) do
           {:ok, _} ->
             # Now try to upload receipts (non-blocking - bill is already created)
             # upload_and_link_receipts always returns {:ok, status} where status is
             # :no_files, :partial_success, or :success
-            {:ok, receipt_status} = upload_and_link_receipts(expense_report, bill_id)
+            {:ok, receipt_status} =
+              upload_and_link_receipts(expense_report, bill_id)
 
             # Log receipt upload status
             case receipt_status do
@@ -117,7 +133,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
                 )
 
               :success ->
-                Logger.info("[QB Expense Sync] All receipts uploaded successfully",
+                Logger.info(
+                  "[QB Expense Sync] All receipts uploaded successfully",
                   expense_report_id: expense_report.id,
                   bill_id: bill_id
                 )
@@ -126,7 +143,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
             # Mark as fully synced (bill is created, which is the important part)
             update_expense_report_success(expense_report, vendor_id, bill_id)
 
-            Logger.info("[QB Expense Sync] Successfully synced expense report to QuickBooks",
+            Logger.info(
+              "[QB Expense Sync] Successfully synced expense report to QuickBooks",
               expense_report_id: expense_report.id,
               bill_id: bill_id,
               receipt_status: receipt_status
@@ -150,7 +168,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
         {:error, reason} = error ->
           update_expense_report_error(expense_report, reason)
 
-          Logger.error("[QB Expense Sync] Failed to sync expense report to QuickBooks",
+          Logger.error(
+            "[QB Expense Sync] Failed to sync expense report to QuickBooks",
             expense_report_id: expense_report.id,
             error: inspect(reason)
           )
@@ -187,7 +206,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
         display_name
       end
 
-    Logger.debug("[QB Expense Sync] get_or_create_vendor: Getting or creating vendor",
+    Logger.debug(
+      "[QB Expense Sync] get_or_create_vendor: Getting or creating vendor",
       display_name: display_name,
       user_id: user.id,
       first_name: first_name,
@@ -206,7 +226,10 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
       if Ecto.assoc_loaded?(user.billing_address) do
         case user.billing_address do
           nil ->
-            Logger.debug("[QB Expense Sync] get_or_create_vendor: Billing address is nil")
+            Logger.debug(
+              "[QB Expense Sync] get_or_create_vendor: Billing address is nil"
+            )
+
             vendor_params
 
           billing_address ->
@@ -219,11 +242,15 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
             })
         end
       else
-        Logger.debug("[QB Expense Sync] get_or_create_vendor: Billing address not loaded")
+        Logger.debug(
+          "[QB Expense Sync] get_or_create_vendor: Billing address not loaded"
+        )
+
         vendor_params
       end
 
-    Logger.debug("[QB Expense Sync] get_or_create_vendor: Calling QuickBooks client",
+    Logger.debug(
+      "[QB Expense Sync] get_or_create_vendor: Calling QuickBooks client",
       display_name: display_name,
       vendor_params: Map.keys(vendor_params)
     )
@@ -240,7 +267,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
         {:ok, vendor_id}
 
       {:error, reason} ->
-        Logger.error("[QB Expense Sync] get_or_create_vendor: Failed to get or create vendor",
+        Logger.error(
+          "[QB Expense Sync] get_or_create_vendor: Failed to get or create vendor",
           display_name: display_name,
           error: inspect(reason),
           error_type: if(is_atom(reason), do: reason, else: :unknown)
@@ -249,7 +277,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
         {:error, reason}
 
       other ->
-        Logger.error("[QB Expense Sync] get_or_create_vendor: Unexpected result",
+        Logger.error(
+          "[QB Expense Sync] get_or_create_vendor: Unexpected result",
           display_name: display_name,
           result: inspect(other)
         )
@@ -267,7 +296,9 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
     # Get default expense account (uncategorized expense) for line items
     # The treasurer will update this with proper accounts/classes later
     default_expense_account_id =
-      case Application.get_env(:ysc, :quickbooks, [])[:default_expense_account_id] do
+      case Application.get_env(:ysc, :quickbooks, [])[
+             :default_expense_account_id
+           ] do
         nil ->
           # Try to query for "Uncategorized Expense" account
           case client_module().query_account_by_name("Uncategorized Expense") do
@@ -280,7 +311,9 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
       end
 
     if is_nil(default_expense_account_id) do
-      Logger.warning("[QB Expense Sync] create_bill: No default expense account configured")
+      Logger.warning(
+        "[QB Expense Sync] create_bill: No default expense account configured"
+      )
     end
 
     # Get Accounts Payable account (separate from expense account)
@@ -293,7 +326,9 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
               account_id
 
             _ ->
-              case client_module().query_account_by_name("Accounts Payable (A/P)") do
+              case client_module().query_account_by_name(
+                     "Accounts Payable (A/P)"
+                   ) do
                 {:ok, account_id} -> account_id
                 _ -> nil
               end
@@ -304,12 +339,16 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
       end
 
     if is_nil(ap_account_id) do
-      Logger.warning("[QB Expense Sync] create_bill: No Accounts Payable account configured")
+      Logger.warning(
+        "[QB Expense Sync] create_bill: No Accounts Payable account configured"
+      )
     end
 
     # Get default income account for income items
     default_income_account_id =
-      case Application.get_env(:ysc, :quickbooks, [])[:default_income_account_id] do
+      case Application.get_env(:ysc, :quickbooks, [])[
+             :default_income_account_id
+           ] do
         nil ->
           # Try to query for "General Revenue" account
           case client_module().query_account_by_name("General Revenue") do
@@ -329,7 +368,9 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
       end
 
     if is_nil(default_income_account_id) do
-      Logger.warning("[QB Expense Sync] create_bill: No default income account configured")
+      Logger.warning(
+        "[QB Expense Sync] create_bill: No default income account configured"
+      )
     end
 
     # Build bill lines from expense items
@@ -416,7 +457,9 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
     # Use expense report ID as idempotency key to prevent duplicate bills on retries
     idempotency_key = "expense_report_#{expense_report.id}"
 
-    case client_module().create_bill(bill_params, idempotency_key: idempotency_key) do
+    case client_module().create_bill(bill_params,
+           idempotency_key: idempotency_key
+         ) do
       {:ok, bill} ->
         Logger.info("[QB Expense Sync] create_bill: Successfully created bill",
           bill_id: Map.get(bill, "Id"),
@@ -463,15 +506,22 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
           end
 
         "check" ->
-          check_note = "⚠️ CHECK REQUESTED - Please issue a physical check for this reimbursement"
+          check_note =
+            "⚠️ CHECK REQUESTED - Please issue a physical check for this reimbursement"
 
           note_parts =
             if expense_report.address do
               addr = expense_report.address
-              address_str = "#{addr.address}, #{addr.city}, #{addr.region} #{addr.postal_code}"
+
+              address_str =
+                "#{addr.address}, #{addr.city}, #{addr.region} #{addr.postal_code}"
+
               ["Ship check to: #{address_str}" | note_parts]
             else
-              ["⚠️ WARNING: Check requested but no shipping address on file" | note_parts]
+              [
+                "⚠️ WARNING: Check requested but no shipping address on file"
+                | note_parts
+              ]
             end
 
           [check_note | note_parts]
@@ -484,7 +534,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
   end
 
   defp upload_and_link_receipts(%ExpenseReport{} = expense_report, bill_id) do
-    Logger.info("[QB Expense Sync] upload_and_link_receipts: Starting receipt upload process",
+    Logger.info(
+      "[QB Expense Sync] upload_and_link_receipts: Starting receipt upload process",
       expense_report_id: expense_report.id,
       bill_id: bill_id,
       expense_items_loaded: Ecto.assoc_loaded?(expense_report.expense_items),
@@ -543,12 +594,16 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
     # Filter expense items with receipts
     expense_items_with_receipts =
       expense_items
-      |> Enum.filter(fn item -> item.receipt_s3_path && item.receipt_s3_path != "" end)
+      |> Enum.filter(fn item ->
+        item.receipt_s3_path && item.receipt_s3_path != ""
+      end)
 
     # Filter income items with evidence
     income_items_with_evidence =
       income_items
-      |> Enum.filter(fn item -> item.proof_s3_path && item.proof_s3_path != "" end)
+      |> Enum.filter(fn item ->
+        item.proof_s3_path && item.proof_s3_path != ""
+      end)
 
     # Combine all files to upload (expense receipts + income evidence)
     all_files_to_upload =
@@ -557,7 +612,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
         (income_items_with_evidence
          |> Enum.map(fn item -> {:income_evidence, item.proof_s3_path} end))
 
-    Logger.info("[QB Expense Sync] upload_and_link_receipts: Found files to upload",
+    Logger.info(
+      "[QB Expense Sync] upload_and_link_receipts: Found files to upload",
       expense_report_id: expense_report.id,
       expense_receipts_count: length(expense_items_with_receipts),
       income_evidence_count: length(income_items_with_evidence),
@@ -565,7 +621,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
     )
 
     if Enum.empty?(all_files_to_upload) do
-      Logger.info("[QB Expense Sync] upload_and_link_receipts: No files to upload",
+      Logger.info(
+        "[QB Expense Sync] upload_and_link_receipts: No files to upload",
         expense_report_id: expense_report.id
       )
 
@@ -599,7 +656,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
       )
 
       if Enum.any?(errors) do
-        Logger.error("[QB Expense Sync] upload_and_link_receipts: Some files failed to upload",
+        Logger.error(
+          "[QB Expense Sync] upload_and_link_receipts: Some files failed to upload",
           expense_report_id: expense_report.id,
           successful_count: length(successes),
           failed_count: length(errors),
@@ -624,7 +682,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
   end
 
   defp upload_receipt_to_quickbooks(s3_path, bill_id) do
-    Logger.info("[QB Expense Sync] upload_receipt_to_quickbooks: Starting receipt upload",
+    Logger.info(
+      "[QB Expense Sync] upload_receipt_to_quickbooks: Starting receipt upload",
       s3_path: s3_path,
       bill_id: bill_id
     )
@@ -724,7 +783,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
     bucket = S3Config.expense_reports_bucket_name()
     key = extract_s3_key(s3_path)
 
-    Logger.debug("[QB Expense Sync] download_from_s3_to_temp: Downloading from S3",
+    Logger.debug(
+      "[QB Expense Sync] download_from_s3_to_temp: Downloading from S3",
       bucket: bucket,
       key: key
     )
@@ -735,16 +795,21 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
     # - AWS_SECRET_ACCESS_KEY (from environment)
     # These credentials must have read access to the expense-reports bucket
     access_key_id = Application.get_env(:ex_aws, :access_key_id)
-    secret_access_key_configured = Application.get_env(:ex_aws, :secret_access_key) != nil
 
-    Logger.debug("[QB Expense Sync] download_from_s3_to_temp: ExAws configuration check",
+    secret_access_key_configured =
+      Application.get_env(:ex_aws, :secret_access_key) != nil
+
+    Logger.debug(
+      "[QB Expense Sync] download_from_s3_to_temp: ExAws configuration check",
       bucket: bucket,
       access_key_id_configured: !is_nil(access_key_id),
       secret_access_key_configured: secret_access_key_configured
     )
 
     # Create temp file
-    temp_file = System.tmp_dir!() |> Path.join("qb_upload_#{:rand.uniform(1_000_000_000)}")
+    temp_file =
+      System.tmp_dir!()
+      |> Path.join("qb_upload_#{:rand.uniform(1_000_000_000)}")
 
     # Download from S3 using ExAws
     # ExAws will use credentials configured in runtime.exs:
@@ -755,7 +820,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
       {:ok, %{body: body}} ->
         File.write!(temp_file, body)
 
-        Logger.debug("[QB Expense Sync] download_from_s3_to_temp: Successfully downloaded file",
+        Logger.debug(
+          "[QB Expense Sync] download_from_s3_to_temp: Successfully downloaded file",
           bucket: bucket,
           key: key,
           file_size: byte_size(body),
@@ -765,7 +831,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
         {:ok, temp_file}
 
       {:error, reason} ->
-        Logger.error("[QB Expense Sync] download_from_s3_to_temp: Failed to download from S3",
+        Logger.error(
+          "[QB Expense Sync] download_from_s3_to_temp: Failed to download from S3",
           bucket: bucket,
           key: key,
           error: inspect(reason),
@@ -825,7 +892,9 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
       file_name = "#{base_name}#{detected_ext}"
 
       file_exists = File.exists?(file_path)
-      file_size = if file_exists, do: File.stat!(file_path).size, else: :not_found
+
+      file_size =
+        if file_exists, do: File.stat!(file_path).size, else: :not_found
 
       Logger.info(
         "[QB Expense Sync] upload_to_quickbooks: Uploading file to QuickBooks",
@@ -845,7 +914,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
           content_type: content_type
         )
 
-        result = client_module().upload_attachment(file_path, file_name, content_type)
+        result =
+          client_module().upload_attachment(file_path, file_name, content_type)
 
         case result do
           {:ok, attachable_id} ->
@@ -883,7 +953,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
           stacktrace: stacktrace
         )
 
-        {:error, "Exception during upload: #{exception_type}: #{exception_message}"}
+        {:error,
+         "Exception during upload: #{exception_type}: #{exception_message}"}
     catch
       :exit, reason ->
         Logger.error(
@@ -997,7 +1068,8 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
          })
          |> Repo.update() do
       {:ok, updated} ->
-        Logger.debug("[QB Expense Sync] update_expense_report_error: Successfully updated",
+        Logger.debug(
+          "[QB Expense Sync] update_expense_report_error: Successfully updated",
           expense_report_id: updated.id,
           sync_status: updated.quickbooks_sync_status
         )

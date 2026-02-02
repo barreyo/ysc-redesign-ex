@@ -8,7 +8,10 @@
     </p>
     <p>
       The YSC is always in need of talented, motivated members to serve on the board and/or the various committees. Annual elections take place at the beginning of each year. You can see the board in action by reviewing our
-      <.link navigate={~p"/financials"} class="hover:text-blue-700 transition ease-in-out">
+      <.link
+        navigate={~p"/financials"}
+        class="hover:text-blue-700 transition ease-in-out"
+      >
         Financials & Annual Meetings
       </.link>
       page.
@@ -93,7 +96,9 @@
                   </p>
                 </div>
                 <.link
-                  navigate={~p"/contact?subject=#{URI.encode(atom_to_readable(position))}"}
+                  navigate={
+                    ~p"/contact?subject=#{URI.encode(atom_to_readable(position))}"
+                  }
                   class="text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline whitespace-nowrap flex-shrink-0 ml-4"
                 >
                   Inquire<.icon

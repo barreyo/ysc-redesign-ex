@@ -25,7 +25,8 @@ defmodule Ysc.Tickets.BookingValidatorTest do
     user =
       user
       |> Ecto.Changeset.change(
-        lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        lifetime_membership_awarded_at:
+          DateTime.truncate(DateTime.utc_now(), :second)
       )
       |> Repo.update!()
 
@@ -37,7 +38,8 @@ defmodule Ysc.Tickets.BookingValidatorTest do
         description: "A test event",
         state: :published,
         organizer_id: organizer.id,
-        start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
+        start_date:
+          DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
         max_attendees: 100,
         published_at: DateTime.truncate(DateTime.utc_now(), :second)
       })
@@ -80,10 +82,19 @@ defmodule Ysc.Tickets.BookingValidatorTest do
   end
 
   describe "validate_booking/3" do
-    test "returns :ok for valid booking", %{user: user, event: event, tier1: tier1} do
+    test "returns :ok for valid booking", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
       ticket_selections = %{tier1.id => 2}
 
-      assert :ok = BookingValidator.validate_booking(user.id, event.id, ticket_selections)
+      assert :ok =
+               BookingValidator.validate_booking(
+                 user.id,
+                 event.id,
+                 ticket_selections
+               )
     end
 
     test "returns error when user doesn't exist" do
@@ -91,10 +102,17 @@ defmodule Ysc.Tickets.BookingValidatorTest do
       fake_event_id = Ecto.ULID.generate()
 
       assert {:error, :user_not_found} =
-               BookingValidator.validate_booking(fake_user_id, fake_event_id, %{})
+               BookingValidator.validate_booking(
+                 fake_user_id,
+                 fake_event_id,
+                 %{}
+               )
     end
 
-    test "returns error when user doesn't have active membership", %{event: event, tier1: tier1} do
+    test "returns error when user doesn't have active membership", %{
+      event: event,
+      tier1: tier1
+    } do
       # Create user without membership
       user_without_membership = user_fixture()
 
@@ -125,7 +143,11 @@ defmodule Ysc.Tickets.BookingValidatorTest do
       ticket_selections = %{fake_tier_id => 1}
 
       assert {:error, :invalid_tier_selection} =
-               BookingValidator.validate_booking(user.id, event.id, ticket_selections)
+               BookingValidator.validate_booking(
+                 user.id,
+                 event.id,
+                 ticket_selections
+               )
     end
 
     test "returns error when tier is for different event", %{
@@ -142,7 +164,12 @@ defmodule Ysc.Tickets.BookingValidatorTest do
           description: "Another event",
           state: :published,
           organizer_id: organizer.id,
-          start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
+          start_date:
+            DateTime.add(
+              DateTime.truncate(DateTime.utc_now(), :second),
+              30,
+              :day
+            ),
           max_attendees: 50,
           published_at: DateTime.truncate(DateTime.utc_now(), :second)
         })
@@ -150,7 +177,11 @@ defmodule Ysc.Tickets.BookingValidatorTest do
       ticket_selections = %{tier1.id => 1}
 
       assert {:error, :invalid_tier_selection} =
-               BookingValidator.validate_booking(user.id, other_event.id, ticket_selections)
+               BookingValidator.validate_booking(
+                 user.id,
+                 other_event.id,
+                 ticket_selections
+               )
     end
 
     test "returns error when tier is not on sale yet", %{
@@ -165,25 +196,46 @@ defmodule Ysc.Tickets.BookingValidatorTest do
           price: Money.new(50, :USD),
           quantity: 50,
           event_id: event.id,
-          start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 1, :day)
+          start_date:
+            DateTime.add(
+              DateTime.truncate(DateTime.utc_now(), :second),
+              1,
+              :day
+            )
         })
 
       ticket_selections = %{future_tier.id => 1}
 
       assert {:error, :invalid_tier_selection} =
-               BookingValidator.validate_booking(user.id, event.id, ticket_selections)
+               BookingValidator.validate_booking(
+                 user.id,
+                 event.id,
+                 ticket_selections
+               )
     end
 
-    test "returns error when quantity is invalid", %{user: user, event: event, tier1: tier1} do
+    test "returns error when quantity is invalid", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
       ticket_selections = %{tier1.id => 0}
 
       assert {:error, :invalid_tier_selection} =
-               BookingValidator.validate_booking(user.id, event.id, ticket_selections)
+               BookingValidator.validate_booking(
+                 user.id,
+                 event.id,
+                 ticket_selections
+               )
 
       ticket_selections = %{tier1.id => -1}
 
       assert {:error, :invalid_tier_selection} =
-               BookingValidator.validate_booking(user.id, event.id, ticket_selections)
+               BookingValidator.validate_booking(
+                 user.id,
+                 event.id,
+                 ticket_selections
+               )
     end
 
     test "returns error when tier capacity exceeded", %{
@@ -195,7 +247,11 @@ defmodule Ysc.Tickets.BookingValidatorTest do
       ticket_selections = %{tier1.id => 51}
 
       assert {:error, :tier_capacity_exceeded} =
-               BookingValidator.validate_booking(user.id, event.id, ticket_selections)
+               BookingValidator.validate_booking(
+                 user.id,
+                 event.id,
+                 ticket_selections
+               )
     end
 
     test "returns error when event capacity exceeded", %{
@@ -213,7 +269,12 @@ defmodule Ysc.Tickets.BookingValidatorTest do
           user_id: user.id,
           ticket_tier_id: tier1.id,
           status: :confirmed,
-          expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+          expires_at:
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              1,
+              :day
+            )
         }
         |> Repo.insert!()
       end
@@ -223,7 +284,11 @@ defmodule Ysc.Tickets.BookingValidatorTest do
 
       # Event is already at capacity, so it returns :event_at_capacity
       assert {:error, :event_at_capacity} =
-               BookingValidator.validate_booking(user.id, event.id, ticket_selections)
+               BookingValidator.validate_booking(
+                 user.id,
+                 event.id,
+                 ticket_selections
+               )
     end
 
     test "allows booking when event has no max_attendees", %{
@@ -238,7 +303,12 @@ defmodule Ysc.Tickets.BookingValidatorTest do
           description: "Event with no capacity limit",
           state: :published,
           organizer_id: organizer.id,
-          start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
+          start_date:
+            DateTime.add(
+              DateTime.truncate(DateTime.utc_now(), :second),
+              30,
+              :day
+            ),
           max_attendees: nil,
           published_at: DateTime.truncate(DateTime.utc_now(), :second)
         })
@@ -257,10 +327,18 @@ defmodule Ysc.Tickets.BookingValidatorTest do
       ticket_selections = %{tier.id => 1000}
 
       assert :ok =
-               BookingValidator.validate_booking(user.id, unlimited_event.id, ticket_selections)
+               BookingValidator.validate_booking(
+                 user.id,
+                 unlimited_event.id,
+                 ticket_selections
+               )
     end
 
-    test "returns error when event is cancelled", %{user: user, event: event, tier1: tier1} do
+    test "returns error when event is cancelled", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
       # Cancel the event
       event
       |> Event.changeset(%{state: :cancelled})
@@ -269,7 +347,11 @@ defmodule Ysc.Tickets.BookingValidatorTest do
       ticket_selections = %{tier1.id => 1}
 
       assert {:error, :event_cancelled} =
-               BookingValidator.validate_booking(user.id, event.id, ticket_selections)
+               BookingValidator.validate_booking(
+                 user.id,
+                 event.id,
+                 ticket_selections
+               )
     end
 
     test "returns error when event is in the past", %{user: user, tier1: tier1} do
@@ -282,15 +364,29 @@ defmodule Ysc.Tickets.BookingValidatorTest do
           description: "An event that already happened",
           state: :published,
           organizer_id: organizer.id,
-          start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), -1, :day),
+          start_date:
+            DateTime.add(
+              DateTime.truncate(DateTime.utc_now(), :second),
+              -1,
+              :day
+            ),
           max_attendees: 100,
-          published_at: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), -2, :day)
+          published_at:
+            DateTime.add(
+              DateTime.truncate(DateTime.utc_now(), :second),
+              -2,
+              :day
+            )
         })
 
       ticket_selections = %{tier1.id => 1}
 
       assert {:error, :event_in_past} =
-               BookingValidator.validate_booking(user.id, past_event.id, ticket_selections)
+               BookingValidator.validate_booking(
+                 user.id,
+                 past_event.id,
+                 ticket_selections
+               )
     end
 
     test "returns error when user has pending booking for same event", %{
@@ -310,7 +406,11 @@ defmodule Ysc.Tickets.BookingValidatorTest do
         ticket_selections = %{tier1.id => 1}
 
         assert {:error, :concurrent_booking_not_allowed} =
-                 BookingValidator.validate_booking(user.id, event.id, ticket_selections)
+                 BookingValidator.validate_booking(
+                   user.id,
+                   event.id,
+                   ticket_selections
+                 )
       end
 
       # Clean up
@@ -325,7 +425,9 @@ defmodule Ysc.Tickets.BookingValidatorTest do
       assert {:ok, 50} = BookingValidator.check_tier_capacity(tier1.id, 10)
     end
 
-    test "returns :unlimited for unlimited tier", %{unlimited_tier: unlimited_tier} do
+    test "returns :unlimited for unlimited tier", %{
+      unlimited_tier: unlimited_tier
+    } do
       assert {:ok, :unlimited} =
                BookingValidator.check_tier_capacity(unlimited_tier.id, 1000)
     end
@@ -355,7 +457,12 @@ defmodule Ysc.Tickets.BookingValidatorTest do
           user_id: user.id,
           ticket_tier_id: tier1.id,
           status: :confirmed,
-          expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+          expires_at:
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              1,
+              :day
+            )
         }
         |> Repo.insert!()
       end
@@ -367,7 +474,12 @@ defmodule Ysc.Tickets.BookingValidatorTest do
           user_id: user.id,
           ticket_tier_id: tier1.id,
           status: :pending,
-          expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+          expires_at:
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              1,
+              :day
+            )
         }
         |> Repo.insert!()
       end
@@ -385,7 +497,11 @@ defmodule Ysc.Tickets.BookingValidatorTest do
       assert false == BookingValidator.event_at_capacity?(event.id)
     end
 
-    test "returns true when event is at capacity", %{user: user, event: event, tier1: tier1} do
+    test "returns true when event is at capacity", %{
+      user: user,
+      event: event,
+      tier1: tier1
+    } do
       # Fill up the event
       for _i <- 1..100 do
         %Ticket{
@@ -394,7 +510,12 @@ defmodule Ysc.Tickets.BookingValidatorTest do
           user_id: user.id,
           ticket_tier_id: tier1.id,
           status: :confirmed,
-          expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+          expires_at:
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              1,
+              :day
+            )
         }
         |> Repo.insert!()
       end
@@ -411,7 +532,12 @@ defmodule Ysc.Tickets.BookingValidatorTest do
           description: "Event with no capacity limit",
           state: :published,
           organizer_id: organizer.id,
-          start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
+          start_date:
+            DateTime.add(
+              DateTime.truncate(DateTime.utc_now(), :second),
+              30,
+              :day
+            ),
           max_attendees: nil,
           published_at: DateTime.truncate(DateTime.utc_now(), :second)
         })
@@ -453,7 +579,12 @@ defmodule Ysc.Tickets.BookingValidatorTest do
           user_id: user.id,
           ticket_tier_id: tier1.id,
           status: :confirmed,
-          expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+          expires_at:
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              1,
+              :day
+            )
         }
         |> Repo.insert!()
       end

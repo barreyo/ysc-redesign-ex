@@ -123,11 +123,17 @@ config :stripity_stripe,
   public_key: System.get_env("STRIPE_PUBLIC_KEY"),
   webhook_secret: System.get_env("STRIPE_WEBHOOK_SECRET")
 
-config :stripity_stripe, :retries, max_attempts: 3, base_backoff: 500, max_backoff: 2_000
+config :stripity_stripe, :retries,
+  max_attempts: 3,
+  base_backoff: 500,
+  max_backoff: 2_000
 
 config :ysc, :radar,
   public_key:
-    System.get_env("RADAR_PUBLIC_KEY", "prj_test_pk_5bcfd56661bb7fc596d70d5f21f0e2c6049b0966")
+    System.get_env(
+      "RADAR_PUBLIC_KEY",
+      "prj_test_pk_5bcfd56661bb7fc596d70d5f21f0e2c6049b0966"
+    )
 
 # Email configuration defaults for dev/test environments
 # Production runtime configuration is in config/runtime.exs
@@ -156,7 +162,11 @@ config :ysc,
       amount: 45,
       currency: "usd",
       trial_period_days: 0,
-      stripe_price_id: System.get_env("STRIPE_SINGLE_PRICE_ID", "price_1QfrfDIZd8GkARoBcwlNchx4"),
+      stripe_price_id:
+        System.get_env(
+          "STRIPE_SINGLE_PRICE_ID",
+          "price_1QfrfDIZd8GkARoBcwlNchx4"
+        ),
       statement_descriptor: "Single Membership",
       description: "Membership just for yourself",
       metadata: %{
@@ -171,7 +181,11 @@ config :ysc,
       amount: 65,
       currency: "usd",
       trial_period_days: 0,
-      stripe_price_id: System.get_env("STRIPE_FAMILY_PRICE_ID", "price_1QfrgWIZd8GkARoB5JBtjoIL"),
+      stripe_price_id:
+        System.get_env(
+          "STRIPE_FAMILY_PRICE_ID",
+          "price_1QfrgWIZd8GkARoB5JBtjoIL"
+        ),
       statement_descriptor: "Family Membership",
       description: "For you, your Spouse and your children under 18",
       metadata: %{
@@ -188,7 +202,8 @@ config :ysc,
       trial_period_days: 0,
       stripe_price_id: nil,
       statement_descriptor: "Lifetime Membership",
-      description: "Lifetime membership with all Family membership perks - never expires",
+      description:
+        "Lifetime membership with all Family membership perks - never expires",
       metadata: %{
         "plan_type" => "membership",
         "interval" => "lifetime"
@@ -225,7 +240,11 @@ config :ysc, :quickbooks,
   client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET"),
   company_id: System.get_env("QUICKBOOKS_COMPANY_ID"),
   webhook_verifier_token: System.get_env("QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN"),
-  url: System.get_env("QUICKBOOKS_BASE_URL", "https://sandbox-quickbooks.api.intuit.com/v3"),
+  url:
+    System.get_env(
+      "QUICKBOOKS_BASE_URL",
+      "https://sandbox-quickbooks.api.intuit.com/v3"
+    ),
   app_id: System.get_env("QUICKBOOKS_APP_ID"),
   access_token: System.get_env("QUICKBOOKS_ACCESS_TOKEN"),
   refresh_token: System.get_env("QUICKBOOKS_REFRESH_TOKEN"),
@@ -234,10 +253,13 @@ config :ysc, :quickbooks,
   event_item_id: System.get_env("QUICKBOOKS_EVENT_ITEM_ID"),
   donation_item_id: System.get_env("QUICKBOOKS_DONATION_ITEM_ID"),
   tahoe_booking_item_id: System.get_env("QUICKBOOKS_TAHOE_BOOKING_ITEM_ID"),
-  clear_lake_booking_item_id: System.get_env("QUICKBOOKS_CLEAR_LAKE_BOOKING_ITEM_ID"),
+  clear_lake_booking_item_id:
+    System.get_env("QUICKBOOKS_CLEAR_LAKE_BOOKING_ITEM_ID"),
   membership_item_id: System.get_env("QUICKBOOKS_MEMBERSHIP_ITEM_ID"),
-  single_membership_item_id: System.get_env("QUICKBOOKS_SINGLE_MEMBERSHIP_ITEM_ID"),
-  family_membership_item_id: System.get_env("QUICKBOOKS_FAMILY_MEMBERSHIP_ITEM_ID"),
+  single_membership_item_id:
+    System.get_env("QUICKBOOKS_SINGLE_MEMBERSHIP_ITEM_ID"),
+  family_membership_item_id:
+    System.get_env("QUICKBOOKS_FAMILY_MEMBERSHIP_ITEM_ID"),
   default_item_id: System.get_env("QUICKBOOKS_DEFAULT_ITEM_ID"),
   stripe_fee_item_id: System.get_env("QUICKBOOKS_STRIPE_FEE_ITEM_ID"),
   # QuickBooks Account IDs (required - cannot be auto-created)

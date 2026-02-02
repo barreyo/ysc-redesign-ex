@@ -31,7 +31,9 @@ defmodule YscWeb.UserSecurityLiveTest do
     end
 
     test "requires authentication", %{conn: conn} do
-      assert {:error, {:redirect, %{to: path}}} = live(conn, ~p"/users/settings/security")
+      assert {:error, {:redirect, %{to: path}}} =
+               live(conn, ~p"/users/settings/security")
+
       assert path == "/users/log-in"
     end
   end
@@ -61,6 +63,7 @@ defmodule YscWeb.UserSecurityLiveTest do
       :timer.sleep(200)
 
       html = render(view)
+
       # Check for either loading state or empty state (async may still be processing)
       assert html =~ "Loading passkeys" or html =~ "Add Passkey"
     end
@@ -171,7 +174,10 @@ defmodule YscWeb.UserSecurityLiveTest do
       :timer.sleep(100)
       updated_user = Repo.reload!(user)
 
-      assert Accounts.get_user_by_email_and_password(updated_user.email, "new valid password 123") !=
+      assert Accounts.get_user_by_email_and_password(
+               updated_user.email,
+               "new valid password 123"
+             ) !=
                nil
     end
   end
@@ -211,7 +217,10 @@ defmodule YscWeb.UserSecurityLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/users/settings/security")
 
-      result = render_click(view, "delete_passkey", %{"passkey_id" => Ecto.ULID.generate()})
+      result =
+        render_click(view, "delete_passkey", %{
+          "passkey_id" => Ecto.ULID.generate()
+        })
 
       assert result =~ "Passkey not found"
     end
@@ -232,7 +241,8 @@ defmodule YscWeb.UserSecurityLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/users/settings/security")
 
-      result = render_click(view, "delete_passkey", %{"passkey_id" => other_passkey.id})
+      result =
+        render_click(view, "delete_passkey", %{"passkey_id" => other_passkey.id})
 
       assert result =~ "not authorized"
     end

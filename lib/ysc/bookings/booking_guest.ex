@@ -18,7 +18,9 @@ defmodule Ysc.Bookings.BookingGuest do
     field :is_booking_user, :boolean, default: false
     field :order_index, :integer, default: 0
 
-    belongs_to :booking, Ysc.Bookings.Booking, foreign_key: :booking_id, references: :id
+    belongs_to :booking, Ysc.Bookings.Booking,
+      foreign_key: :booking_id,
+      references: :id
 
     timestamps()
   end

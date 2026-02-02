@@ -46,7 +46,9 @@ defmodule Ysc.Tickets.TimeoutWorker do
   @impl Oban.Worker
   def perform(%Oban.Job{}) do
     {expired_count, failed_count} = expire_timed_out_orders()
-    {:ok, "Expired #{expired_count} timed out ticket orders (#{failed_count} failed)"}
+
+    {:ok,
+     "Expired #{expired_count} timed out ticket orders (#{failed_count} failed)"}
   end
 
   @doc """
@@ -139,7 +141,12 @@ defmodule Ysc.Tickets.TimeoutWorker do
     expire_timed_out_orders_batched(now, 0, 0, 0)
   end
 
-  defp expire_timed_out_orders_batched(_now, offset, expired_count, failed_count)
+  defp expire_timed_out_orders_batched(
+         _now,
+         offset,
+         expired_count,
+         failed_count
+       )
        when offset >= @max_orders_per_run do
     Logger.info("Reached maximum orders per run limit",
       max_orders: @max_orders_per_run,
@@ -179,7 +186,8 @@ defmodule Ysc.Tickets.TimeoutWorker do
 
       # Process each order and track results
       {batch_expired, batch_failed} =
-        Enum.reduce(expired_orders, {0, 0}, fn ticket_order, {acc_expired, acc_failed} ->
+        Enum.reduce(expired_orders, {0, 0}, fn ticket_order,
+                                               {acc_expired, acc_failed} ->
           case Tickets.expire_ticket_order(ticket_order) do
             {:ok, _expired_order} ->
               Logger.info("Expired ticket order due to timeout",

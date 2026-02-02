@@ -42,7 +42,8 @@ defmodule Ysc.Bookings.PricingHelpers do
           selected_room_ids = Map.get(socket.assigns, :selected_room_ids)
 
           !is_nil(selected_room_id) ||
-            (!is_nil(selected_room_ids) && is_list(selected_room_ids) && selected_room_ids != [])
+            (!is_nil(selected_room_ids) && is_list(selected_room_ids) &&
+               selected_room_ids != [])
 
         :day ->
           # For Clear Lake day bookings, need guests count
@@ -78,14 +79,19 @@ defmodule Ysc.Bookings.PricingHelpers do
   """
   def calculate_price_if_ready(socket, property, opts \\ []) do
     if ready_for_price_calculation?(socket, property) do
-      parse_guests_fn = Keyword.get(opts, :parse_guests_fn, &Function.identity/1)
-      parse_children_fn = Keyword.get(opts, :parse_children_fn, &Function.identity/1)
+      parse_guests_fn =
+        Keyword.get(opts, :parse_guests_fn, &Function.identity/1)
+
+      parse_children_fn =
+        Keyword.get(opts, :parse_children_fn, &Function.identity/1)
 
       can_select_multiple_rooms_fn =
         Keyword.get(opts, :can_select_multiple_rooms_fn, fn _ -> false end)
 
       guests_count = parse_guests_fn.(Map.get(socket.assigns, :guests_count, 1))
-      children_count = parse_children_fn.(Map.get(socket.assigns, :children_count, 0))
+
+      children_count =
+        parse_children_fn.(Map.get(socket.assigns, :children_count, 0))
 
       case socket.assigns.selected_booking_mode do
         :buyout ->
@@ -107,7 +113,11 @@ defmodule Ysc.Bookings.PricingHelpers do
           assign_error(socket, "Invalid booking mode")
       end
     else
-      assign(socket, calculated_price: nil, price_breakdown: nil, price_error: nil)
+      assign(socket,
+        calculated_price: nil,
+        price_breakdown: nil,
+        price_error: nil
+      )
     end
   end
 
@@ -151,7 +161,14 @@ defmodule Ysc.Bookings.PricingHelpers do
       assign_error(socket, "Please select at least one room")
     else
       room_count = length(room_ids)
-      billable_people = calculate_billable_people(socket, room_ids, guests_count, children_count)
+
+      billable_people =
+        calculate_billable_people(
+          socket,
+          room_ids,
+          guests_count,
+          children_count
+        )
 
       case Bookings.calculate_booking_price(
              property,
@@ -231,7 +248,9 @@ defmodule Ysc.Bookings.PricingHelpers do
     if can_select_multiple_rooms_fn.(socket.assigns) do
       socket.assigns.selected_room_ids || []
     else
-      if socket.assigns.selected_room_id, do: [socket.assigns.selected_room_id], else: []
+      if socket.assigns.selected_room_id,
+        do: [socket.assigns.selected_room_id],
+        else: []
     end
   end
 
@@ -239,7 +258,12 @@ defmodule Ysc.Bookings.PricingHelpers do
     room_count = length(room_ids)
 
     if room_count > 1 do
-      calculate_billable_people_multiple_rooms(socket, room_ids, guests_count, children_count)
+      calculate_billable_people_multiple_rooms(
+        socket,
+        room_ids,
+        guests_count,
+        children_count
+      )
     else
       calculate_billable_people_single_room(
         socket,
@@ -250,13 +274,20 @@ defmodule Ysc.Bookings.PricingHelpers do
     end
   end
 
-  defp calculate_billable_people_multiple_rooms(socket, room_ids, guests_count, children_count) do
+  defp calculate_billable_people_multiple_rooms(
+         socket,
+         room_ids,
+         guests_count,
+         children_count
+       ) do
     available_rooms = socket.assigns[:available_rooms] || []
 
     room_minimums =
       room_ids
       |> Enum.map(fn room_id ->
-        room = find_room_in_available(available_rooms, room_id) || fetch_room_safely(room_id)
+        room =
+          find_room_in_available(available_rooms, room_id) ||
+            fetch_room_safely(room_id)
 
         case room do
           nil -> 1
@@ -264,7 +295,9 @@ defmodule Ysc.Bookings.PricingHelpers do
         end
       end)
 
-    total_min_occupancy = if Enum.empty?(room_minimums), do: 1, else: Enum.sum(room_minimums)
+    total_min_occupancy =
+      if Enum.empty?(room_minimums), do: 1, else: Enum.sum(room_minimums)
+
     total_people = guests_count + children_count
 
     if total_people >= total_min_occupancy do
@@ -275,9 +308,17 @@ defmodule Ysc.Bookings.PricingHelpers do
     end
   end
 
-  defp calculate_billable_people_single_room(socket, room_id, guests_count, children_count) do
+  defp calculate_billable_people_single_room(
+         socket,
+         room_id,
+         guests_count,
+         children_count
+       ) do
     available_rooms = socket.assigns[:available_rooms] || []
-    room = Enum.find(available_rooms, &(&1.id == room_id)) || fetch_room_safely(room_id)
+
+    room =
+      Enum.find(available_rooms, &(&1.id == room_id)) ||
+        fetch_room_safely(room_id)
 
     if room do
       min_occupancy = room.min_billable_occupancy || 1

@@ -68,20 +68,28 @@ defmodule Ysc.BookingsTest do
       season = create_season_fixture()
       update_attrs = %{name: "Updated Summer"}
 
-      assert {:ok, %Season{} = season} = Bookings.update_season(season, update_attrs)
+      assert {:ok, %Season{} = season} =
+               Bookings.update_season(season, update_attrs)
+
       assert season.name == "Updated Summer"
     end
 
     test "update_season/2 with invalid data returns error changeset" do
       season = create_season_fixture()
-      assert {:error, %Ecto.Changeset{}} = Bookings.update_season(season, %{name: nil})
+
+      assert {:error, %Ecto.Changeset{}} =
+               Bookings.update_season(season, %{name: nil})
+
       assert season == Bookings.get_season!(season.id)
     end
 
     test "delete_season/1 deletes the season" do
       season = create_season_fixture()
       assert {:ok, %Season{}} = Bookings.delete_season(season)
-      assert_raise Ecto.NoResultsError, fn -> Bookings.get_season!(season.id) end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Bookings.get_season!(season.id)
+      end
     end
   end
 
@@ -117,7 +125,8 @@ defmodule Ysc.BookingsTest do
 
       checkout = Date.add(checkin, 2)
 
-      booking1 = booking_fixture(%{checkin_date: checkin, checkout_date: checkout})
+      booking1 =
+        booking_fixture(%{checkin_date: checkin, checkout_date: checkout})
 
       _booking2 =
         booking_fixture(%{
@@ -182,13 +191,18 @@ defmodule Ysc.BookingsTest do
       booking = booking_fixture() |> Ysc.Repo.preload(:rooms)
       update_attrs = %{guests_count: 4}
 
-      assert {:ok, %Booking{} = booking} = Bookings.update_booking(booking, update_attrs)
+      assert {:ok, %Booking{} = booking} =
+               Bookings.update_booking(booking, update_attrs)
+
       assert booking.guests_count == 4
     end
 
     test "update_booking/2 with invalid data returns error changeset" do
       booking = booking_fixture() |> Ysc.Repo.preload(:rooms)
-      assert {:error, %Ecto.Changeset{}} = Bookings.update_booking(booking, %{user_id: nil})
+
+      assert {:error, %Ecto.Changeset{}} =
+               Bookings.update_booking(booking, %{user_id: nil})
+
       # Compare by ID only since associations may differ
       reloaded = Bookings.get_booking!(booking.id)
       assert reloaded.id == booking.id
@@ -197,7 +211,10 @@ defmodule Ysc.BookingsTest do
     test "delete_booking/1 deletes the booking" do
       booking = booking_fixture()
       assert {:ok, %Booking{}} = Bookings.delete_booking(booking)
-      assert_raise Ecto.NoResultsError, fn -> Bookings.get_booking!(booking.id) end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Bookings.get_booking!(booking.id)
+      end
     end
   end
 
@@ -218,7 +235,14 @@ defmodule Ysc.BookingsTest do
           season_id: nil
         })
 
-      result = Bookings.calculate_booking_price(property, checkin, checkout, booking_mode)
+      result =
+        Bookings.calculate_booking_price(
+          property,
+          checkin,
+          checkout,
+          booking_mode
+        )
+
       assert {:ok, total_price, breakdown} = result
       assert is_struct(total_price, Money)
       assert is_map(breakdown)
@@ -245,7 +269,11 @@ defmodule Ysc.BookingsTest do
         })
 
       result =
-        Bookings.calculate_booking_price(property, checkin, checkout, booking_mode,
+        Bookings.calculate_booking_price(
+          property,
+          checkin,
+          checkout,
+          booking_mode,
           room_id: room.id,
           guests_count: 2
         )
@@ -263,7 +291,12 @@ defmodule Ysc.BookingsTest do
       booking_mode = :buyout
 
       assert {:error, :invalid_date_range} =
-               Bookings.calculate_booking_price(property, checkin, checkout, booking_mode)
+               Bookings.calculate_booking_price(
+                 property,
+                 checkin,
+                 checkout,
+                 booking_mode
+               )
     end
   end
 
@@ -308,7 +341,10 @@ defmodule Ysc.BookingsTest do
     test "delete_pricing_rule/1 deletes the pricing rule" do
       rule = create_pricing_rule_fixture()
       assert {:ok, %{}} = Bookings.delete_pricing_rule(rule)
-      assert_raise Ecto.NoResultsError, fn -> Bookings.get_pricing_rule!(rule.id) end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Bookings.get_pricing_rule!(rule.id)
+      end
     end
   end
 
@@ -394,7 +430,9 @@ defmodule Ysc.BookingsTest do
         {1, %{first_name: "Jane", last_name: "Doe"}}
       ]
 
-      assert {:ok, guests} = Bookings.create_booking_guests(booking.id, guests_attrs)
+      assert {:ok, guests} =
+               Bookings.create_booking_guests(booking.id, guests_attrs)
+
       assert length(guests) == 2
     end
 
@@ -433,7 +471,9 @@ defmodule Ysc.BookingsTest do
 
       params = %{page: 1, page_size: 10}
       # Function returns {:ok, {bookings, meta}} tuple
-      assert {:ok, {bookings, _meta}} = Bookings.list_paginated_bookings(params, user.email)
+      assert {:ok, {bookings, _meta}} =
+               Bookings.list_paginated_bookings(params, user.email)
+
       assert is_list(bookings)
     end
 
@@ -444,7 +484,9 @@ defmodule Ysc.BookingsTest do
 
       params = %{page: 1, page_size: 10}
       # Function returns {:ok, {bookings, meta}} tuple
-      assert {:ok, {bookings, meta}} = Bookings.list_user_bookings_paginated(user.id, params)
+      assert {:ok, {bookings, meta}} =
+               Bookings.list_user_bookings_paginated(user.id, params)
+
       assert is_list(bookings)
       assert meta.current_page == 1
     end
@@ -558,7 +600,10 @@ defmodule Ysc.BookingsTest do
     test "delete_blackout/1 deletes a blackout" do
       blackout = create_blackout_fixture()
       assert {:ok, %{}} = Bookings.delete_blackout(blackout)
-      assert_raise Ecto.NoResultsError, fn -> Bookings.get_blackout!(blackout.id) end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Bookings.get_blackout!(blackout.id)
+      end
     end
 
     test "has_blackout?/3 checks if property has blackout for dates" do
@@ -573,7 +618,12 @@ defmodule Ysc.BookingsTest do
         })
 
       assert Bookings.has_blackout?(:tahoe, checkin, checkout) == true
-      assert Bookings.has_blackout?(:tahoe, Date.add(checkin, 10), Date.add(checkin, 12)) == false
+
+      assert Bookings.has_blackout?(
+               :tahoe,
+               Date.add(checkin, 10),
+               Date.add(checkin, 12)
+             ) == false
     end
 
     test "get_overlapping_blackouts/3 returns overlapping blackouts" do
@@ -587,7 +637,9 @@ defmodule Ysc.BookingsTest do
           end_date: checkout
         })
 
-      overlapping = Bookings.get_overlapping_blackouts(:tahoe, checkin, checkout)
+      overlapping =
+        Bookings.get_overlapping_blackouts(:tahoe, checkin, checkout)
+
       assert Enum.any?(overlapping, &(&1.id == blackout.id))
     end
   end
@@ -599,9 +651,19 @@ defmodule Ysc.BookingsTest do
       checkin2 = ~D[2025-06-03]
       checkout2 = ~D[2025-06-07]
 
-      assert Bookings.bookings_overlap?(checkin1, checkout1, checkin2, checkout2) == true
+      assert Bookings.bookings_overlap?(
+               checkin1,
+               checkout1,
+               checkin2,
+               checkout2
+             ) == true
 
-      assert Bookings.bookings_overlap?(checkin1, checkout1, ~D[2025-06-10], ~D[2025-06-12]) ==
+      assert Bookings.bookings_overlap?(
+               checkin1,
+               checkout1,
+               ~D[2025-06-10],
+               ~D[2025-06-12]
+             ) ==
                false
     end
 
@@ -638,7 +700,12 @@ defmodule Ysc.BookingsTest do
       checkout = Date.add(checkin, 2)
 
       results =
-        Bookings.batch_check_room_availability([room1.id, room2.id], :tahoe, checkin, checkout)
+        Bookings.batch_check_room_availability(
+          [room1.id, room2.id],
+          :tahoe,
+          checkin,
+          checkout
+        )
 
       assert %MapSet{} = results
       # Verify both rooms are in the results (they should be available)
@@ -701,8 +768,14 @@ defmodule Ysc.BookingsTest do
     end
 
     test "list_refund_policies/2 filters by property and booking mode" do
-      policy = create_refund_policy_fixture(%{property: :tahoe, booking_mode: :buyout})
-      _other = create_refund_policy_fixture(%{property: :clear_lake, booking_mode: :room})
+      policy =
+        create_refund_policy_fixture(%{property: :tahoe, booking_mode: :buyout})
+
+      _other =
+        create_refund_policy_fixture(%{
+          property: :clear_lake,
+          booking_mode: :room
+        })
 
       policies = Bookings.list_refund_policies(:tahoe, :buyout)
       assert Enum.any?(policies, &(&1.id == policy.id))
@@ -715,10 +788,15 @@ defmodule Ysc.BookingsTest do
     end
 
     test "get_active_refund_policy/2 returns active policy" do
-      _inactive = create_refund_policy_fixture(%{property: :tahoe, is_active: false})
+      _inactive =
+        create_refund_policy_fixture(%{property: :tahoe, is_active: false})
 
       active =
-        create_refund_policy_fixture(%{property: :tahoe, is_active: true, booking_mode: :buyout})
+        create_refund_policy_fixture(%{
+          property: :tahoe,
+          is_active: true,
+          booking_mode: :buyout
+        })
 
       found = Bookings.get_active_refund_policy(:tahoe, :buyout)
       assert found.id == active.id
@@ -740,14 +818,19 @@ defmodule Ysc.BookingsTest do
       policy = create_refund_policy_fixture()
       update_attrs = %{name: "Updated Policy"}
 
-      assert {:ok, updated} = Bookings.update_refund_policy(policy, update_attrs)
+      assert {:ok, updated} =
+               Bookings.update_refund_policy(policy, update_attrs)
+
       assert updated.name == "Updated Policy"
     end
 
     test "delete_refund_policy/1 deletes a refund policy" do
       policy = create_refund_policy_fixture()
       assert {:ok, %{}} = Bookings.delete_refund_policy(policy)
-      assert_raise Ecto.NoResultsError, fn -> Bookings.get_refund_policy!(policy.id) end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Bookings.get_refund_policy!(policy.id)
+      end
     end
   end
 
@@ -783,7 +866,9 @@ defmodule Ysc.BookingsTest do
       rule = create_refund_policy_rule_fixture()
       update_attrs = %{refund_percentage: 75}
 
-      assert {:ok, updated} = Bookings.update_refund_policy_rule(rule, update_attrs)
+      assert {:ok, updated} =
+               Bookings.update_refund_policy_rule(rule, update_attrs)
+
       # refund_percentage is stored as Decimal, so compare with Decimal
       assert Decimal.equal?(updated.refund_percentage, Decimal.new(75))
     end
@@ -791,7 +876,10 @@ defmodule Ysc.BookingsTest do
     test "delete_refund_policy_rule/1 deletes a rule" do
       rule = create_refund_policy_rule_fixture()
       assert {:ok, %{}} = Bookings.delete_refund_policy_rule(rule)
-      assert_raise Ecto.NoResultsError, fn -> Bookings.get_refund_policy_rule!(rule.id) end
+
+      assert_raise Ecto.NoResultsError, fn ->
+        Bookings.get_refund_policy_rule!(rule.id)
+      end
     end
   end
 
@@ -803,6 +891,7 @@ defmodule Ysc.BookingsTest do
       result = Bookings.calculate_refund(booking, cancellation_date)
       # Function returns {:ok, refund_amount, rule} or {:ok, nil, nil}
       assert {:ok, refund_amount, _rule} = result
+
       # If there's no policy, refund_amount will be nil, otherwise it's a Money struct
       if refund_amount == nil do
         assert refund_amount == nil
@@ -859,7 +948,9 @@ defmodule Ysc.BookingsTest do
 
     test "returns nil when booking has no payment" do
       booking = booking_fixture()
-      assert {:error, :payment_not_found} = Bookings.get_booking_payment(booking)
+
+      assert {:error, :payment_not_found} =
+               Bookings.get_booking_payment(booking)
     end
   end
 
@@ -883,7 +974,9 @@ defmodule Ysc.BookingsTest do
       start_date = Date.utc_today() |> Date.add(30)
       end_date = Date.add(start_date, 7)
 
-      availability = Bookings.get_clear_lake_daily_availability(start_date, end_date)
+      availability =
+        Bookings.get_clear_lake_daily_availability(start_date, end_date)
+
       assert is_map(availability)
       # Verify it has the expected structure for each date
       Enum.each(Date.range(start_date, end_date), fn date ->
@@ -992,7 +1085,9 @@ defmodule Ysc.BookingsTest do
   defp create_door_code_fixture(attrs \\ %{}) do
     # Generate a 4-5 character alphanumeric code
     unique_suffix =
-      System.unique_integer([:positive]) |> Integer.to_string() |> String.slice(-1, 1)
+      System.unique_integer([:positive])
+      |> Integer.to_string()
+      |> String.slice(-1, 1)
 
     code = "123#{unique_suffix}"
 

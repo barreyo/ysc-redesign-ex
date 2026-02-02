@@ -78,7 +78,10 @@ defmodule YscWeb.AdminMoneyLive do
       |> assign(:per_page, 20)
       |> assign(:show_expense_report_modal, false)
       |> assign(:selected_expense_report, nil)
-      |> assign(:expense_report_status_form, to_form(%{}, as: :expense_report_status))
+      |> assign(
+        :expense_report_status_form,
+        to_form(%{}, as: :expense_report_status)
+      )
       # Placeholder values for paginated data
       |> assign(:recent_payments, [])
       |> assign(:payments_end?, true)
@@ -102,7 +105,9 @@ defmodule YscWeb.AdminMoneyLive do
     start_date = socket.assigns.start_date
     end_date = socket.assigns.end_date
 
-    accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+    accounts_with_balances =
+      Ledgers.get_accounts_with_balances(start_date, end_date)
+
     ledger_accounts = Ledgers.list_accounts()
 
     sections_loaded = Map.put(socket.assigns.sections_loaded, :accounts, true)
@@ -136,7 +141,9 @@ defmodule YscWeb.AdminMoneyLive do
     socket =
       if params["start_date"] && params["end_date"] do
         try do
-          start_date = parse_date_to_datetime(params["start_date"], ~T[00:00:00])
+          start_date =
+            parse_date_to_datetime(params["start_date"], ~T[00:00:00])
+
           end_date = parse_date_to_datetime(params["end_date"], ~T[23:59:59])
 
           socket
@@ -237,10 +244,16 @@ defmodule YscWeb.AdminMoneyLive do
              release_availability: :boolean,
              ticket_ids: {:array, :string}
            }}
-          |> Ecto.Changeset.cast(%{}, [:amount, :reason, :release_availability, :ticket_ids])
+          |> Ecto.Changeset.cast(%{}, [
+            :amount,
+            :reason,
+            :release_availability,
+            :ticket_ids
+          ])
           |> to_form(as: :refund)
         else
-          {%{}, %{amount: :string, reason: :string, release_availability: :boolean}}
+          {%{},
+           %{amount: :string, reason: :string, release_availability: :boolean}}
           |> Ecto.Changeset.cast(%{}, [:amount, :reason, :release_availability])
           |> to_form(as: :refund)
         end
@@ -286,12 +299,15 @@ defmodule YscWeb.AdminMoneyLive do
   # Helper to build money path with date range preserved
   defp build_money_path(socket, sub_path \\ "") do
     base_path = ~p"/admin/money"
-    full_path = if sub_path != "", do: "#{base_path}#{sub_path}", else: base_path
+
+    full_path =
+      if sub_path != "", do: "#{base_path}#{sub_path}", else: base_path
 
     query_params =
       if socket.assigns[:start_date] && socket.assigns[:end_date] do
         %{
-          "start_date" => Calendar.strftime(socket.assigns.start_date, "%Y-%m-%d"),
+          "start_date" =>
+            Calendar.strftime(socket.assigns.start_date, "%Y-%m-%d"),
           "end_date" => Calendar.strftime(socket.assigns.end_date, "%Y-%m-%d")
         }
       else
@@ -487,11 +503,16 @@ defmodule YscWeb.AdminMoneyLive do
     %{selected_payment: payment, ticket_order: ticket_order} = socket.assigns
 
     # Check if this is a partial ticket refund
-    ticket_ids = if refund_params["ticket_ids"], do: refund_params["ticket_ids"], else: []
+    ticket_ids =
+      if refund_params["ticket_ids"], do: refund_params["ticket_ids"], else: []
 
     # If ticket IDs are provided, refund individual tickets
     if ticket_order && ticket_ids != [] do
-      case Tickets.refund_tickets(ticket_order, ticket_ids, refund_params["reason"]) do
+      case Tickets.refund_tickets(
+             ticket_order,
+             ticket_ids,
+             refund_params["reason"]
+           ) do
         {:ok, %{refund_amount: calculated_refund_amount}} ->
           # Process the ledger refund with the calculated amount
           refund_attrs = %{
@@ -505,7 +526,9 @@ defmodule YscWeb.AdminMoneyLive do
             {:ok, {_refund, _transaction, _entries}} ->
               # Refresh data
               %{start_date: start_date, end_date: end_date} = socket.assigns
-              accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+
+              accounts_with_balances =
+                Ledgers.get_accounts_with_balances(start_date, end_date)
 
               # Navigate to payment details view to show the refund
               payment_path = build_money_path(socket, "/payments/#{payment.id}")
@@ -562,7 +585,9 @@ defmodule YscWeb.AdminMoneyLive do
 
               # Refresh data with current date range
               %{start_date: start_date, end_date: end_date} = socket.assigns
-              accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+
+              accounts_with_balances =
+                Ledgers.get_accounts_with_balances(start_date, end_date)
 
               flash_message =
                 case release_result do
@@ -578,7 +603,8 @@ defmodule YscWeb.AdminMoneyLive do
                   {:error, reason} ->
                     require Logger
 
-                    Logger.warning("Refund processed but failed to release availability",
+                    Logger.warning(
+                      "Refund processed but failed to release availability",
                       payment_id: payment.id,
                       reason: reason
                     )
@@ -628,7 +654,8 @@ defmodule YscWeb.AdminMoneyLive do
           user_id: user.id,
           amount: amount,
           reason: credit_params["reason"],
-          entity_type: String.to_atom(credit_params["entity_type"] || "administration"),
+          entity_type:
+            String.to_atom(credit_params["entity_type"] || "administration"),
           entity_id: credit_params["entity_id"]
         }
 
@@ -636,7 +663,9 @@ defmodule YscWeb.AdminMoneyLive do
           {:ok, _payment, _transaction, _entries} ->
             # Refresh data with current date range
             %{start_date: start_date, end_date: end_date} = socket.assigns
-            accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+
+            accounts_with_balances =
+              Ledgers.get_accounts_with_balances(start_date, end_date)
 
             {:noreply,
              socket
@@ -682,7 +711,8 @@ defmodule YscWeb.AdminMoneyLive do
 
     # If this is a ticket order and tickets are selected, calculate the refund amount
     refund_params =
-      if ticket_order && refund_params["ticket_ids"] && refund_params["ticket_ids"] != [] do
+      if ticket_order && refund_params["ticket_ids"] &&
+           refund_params["ticket_ids"] != [] do
         # Convert ticket_ids from strings to proper format for comparison
         ticket_ids = refund_params["ticket_ids"]
 
@@ -690,7 +720,8 @@ defmodule YscWeb.AdminMoneyLive do
         refund_amount =
           ticket_order.tickets
           |> Enum.filter(fn ticket ->
-            to_string(ticket.id) in ticket_ids && ticket.status in [:confirmed, :pending]
+            to_string(ticket.id) in ticket_ids &&
+              ticket.status in [:confirmed, :pending]
           end)
           |> Enum.reduce(Money.new(0, :USD), fn ticket, acc ->
             case ticket.ticket_tier.type do
@@ -703,12 +734,16 @@ defmodule YscWeb.AdminMoneyLive do
                   donation_tickets_count =
                     ticket_order.tickets
                     |> Enum.filter(fn t ->
-                      t.ticket_tier.type == :donation && t.status in [:confirmed, :pending]
+                      t.ticket_tier.type == :donation &&
+                        t.status in [:confirmed, :pending]
                     end)
                     |> length()
 
                   if donation_tickets_count > 0 do
-                    case Money.div(ticket_order.total_amount, donation_tickets_count) do
+                    case Money.div(
+                           ticket_order.total_amount,
+                           donation_tickets_count
+                         ) do
                       {:ok, ticket_amount} ->
                         case Money.add(acc, ticket_amount) do
                           {:ok, new_total} -> new_total
@@ -775,7 +810,9 @@ defmodule YscWeb.AdminMoneyLive do
     was_loaded = socket.assigns.sections_loaded[section_atom]
 
     updated_sections =
-      Map.update!(socket.assigns.sections_collapsed, section_atom, fn _ -> !current_state end)
+      Map.update!(socket.assigns.sections_collapsed, section_atom, fn _ ->
+        !current_state
+      end)
 
     socket =
       socket
@@ -784,7 +821,8 @@ defmodule YscWeb.AdminMoneyLive do
     # Load data when expanding a section for the first time
     socket =
       if is_expanding and not was_loaded do
-        sections_loaded = Map.put(socket.assigns.sections_loaded, section_atom, true)
+        sections_loaded =
+          Map.put(socket.assigns.sections_loaded, section_atom, true)
 
         socket
         |> load_section_data(section_atom)
@@ -812,13 +850,15 @@ defmodule YscWeb.AdminMoneyLive do
 
   @impl true
   def handle_event("ledger_entries_next-page", _, socket) do
-    {:noreply, paginate_ledger_entries(socket, socket.assigns.ledger_entries_page + 1)}
+    {:noreply,
+     paginate_ledger_entries(socket, socket.assigns.ledger_entries_page + 1)}
   end
 
   @impl true
   def handle_event("ledger_entries_prev-page", _, socket) do
     if socket.assigns.ledger_entries_page > 1 do
-      {:noreply, paginate_ledger_entries(socket, socket.assigns.ledger_entries_page - 1)}
+      {:noreply,
+       paginate_ledger_entries(socket, socket.assigns.ledger_entries_page - 1)}
     else
       {:noreply, socket}
     end
@@ -840,13 +880,15 @@ defmodule YscWeb.AdminMoneyLive do
 
   @impl true
   def handle_event("expense_reports_next-page", _, socket) do
-    {:noreply, paginate_expense_reports(socket, socket.assigns.expense_reports_page + 1)}
+    {:noreply,
+     paginate_expense_reports(socket, socket.assigns.expense_reports_page + 1)}
   end
 
   @impl true
   def handle_event("expense_reports_prev-page", _, socket) do
     if socket.assigns.expense_reports_page > 1 do
-      {:noreply, paginate_expense_reports(socket, socket.assigns.expense_reports_page - 1)}
+      {:noreply,
+       paginate_expense_reports(socket, socket.assigns.expense_reports_page - 1)}
     else
       {:noreply, socket}
     end
@@ -861,7 +903,14 @@ defmodule YscWeb.AdminMoneyLive do
     expense_report =
       from(er in ExpenseReport,
         where: er.id == ^expense_report_id,
-        preload: [:user, :expense_items, :income_items, :address, :bank_account, :event]
+        preload: [
+          :user,
+          :expense_items,
+          :income_items,
+          :address,
+          :bank_account,
+          :event
+        ]
       )
       |> Repo.one()
 
@@ -889,7 +938,10 @@ defmodule YscWeb.AdminMoneyLive do
      socket
      |> assign(:show_expense_report_modal, false)
      |> assign(:selected_expense_report, nil)
-     |> assign(:expense_report_status_form, to_form(%{}, as: :expense_report_status))}
+     |> assign(
+       :expense_report_status_form,
+       to_form(%{}, as: :expense_report_status)
+     )}
   end
 
   @impl true
@@ -904,7 +956,14 @@ defmodule YscWeb.AdminMoneyLive do
     expense_report =
       from(er in ExpenseReport,
         where: er.id == ^expense_report.id,
-        preload: [:user, :expense_items, :income_items, :address, :bank_account, :event]
+        preload: [
+          :user,
+          :expense_items,
+          :income_items,
+          :address,
+          :bank_account,
+          :event
+        ]
       )
       |> Repo.one()
 
@@ -918,7 +977,10 @@ defmodule YscWeb.AdminMoneyLive do
            |> assign(:selected_expense_report, nil)
            |> assign(:expense_reports_page, 1)
            |> paginate_expense_reports(1)
-           |> assign(:expense_report_status_form, to_form(%{}, as: :expense_report_status))}
+           |> assign(
+             :expense_report_status_form,
+             to_form(%{}, as: :expense_report_status)
+           )}
 
         {:error, changeset} ->
           error_message =
@@ -930,7 +992,10 @@ defmodule YscWeb.AdminMoneyLive do
           {:noreply,
            socket
            |> put_flash(:error, error_message)
-           |> assign(:expense_report_status_form, to_form(changeset, as: :expense_report_status))}
+           |> assign(
+             :expense_report_status_form,
+             to_form(changeset, as: :expense_report_status)
+           )}
       end
     else
       {:noreply,
@@ -952,7 +1017,8 @@ defmodule YscWeb.AdminMoneyLive do
     end_date = parse_date_to_datetime(end_date_str, ~T[23:59:59])
 
     # Get updated data with new date range
-    accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+    accounts_with_balances =
+      Ledgers.get_accounts_with_balances(start_date, end_date)
 
     {:noreply,
      socket
@@ -971,7 +1037,9 @@ defmodule YscWeb.AdminMoneyLive do
 
   # Pagination helpers
   defp paginate_payments(socket, page) when page >= 1 do
-    %{per_page: per_page, start_date: start_date, end_date: end_date} = socket.assigns
+    %{per_page: per_page, start_date: start_date, end_date: end_date} =
+      socket.assigns
+
     offset = (page - 1) * per_page
 
     recent_payments =
@@ -993,7 +1061,9 @@ defmodule YscWeb.AdminMoneyLive do
   end
 
   defp paginate_ledger_entries(socket, page) when page >= 1 do
-    %{per_page: per_page, start_date: start_date, end_date: end_date} = socket.assigns
+    %{per_page: per_page, start_date: start_date, end_date: end_date} =
+      socket.assigns
+
     offset = (page - 1) * per_page
 
     ledger_entries =
@@ -1014,7 +1084,9 @@ defmodule YscWeb.AdminMoneyLive do
   end
 
   defp paginate_webhooks(socket, page) when page >= 1 do
-    %{per_page: per_page, start_date: start_date, end_date: end_date} = socket.assigns
+    %{per_page: per_page, start_date: start_date, end_date: end_date} =
+      socket.assigns
+
     offset = (page - 1) * per_page
 
     webhook_events =
@@ -1035,7 +1107,9 @@ defmodule YscWeb.AdminMoneyLive do
   end
 
   defp paginate_expense_reports(socket, page) when page >= 1 do
-    %{per_page: per_page, start_date: start_date, end_date: end_date} = socket.assigns
+    %{per_page: per_page, start_date: start_date, end_date: end_date} =
+      socket.assigns
+
     offset = (page - 1) * per_page
 
     expense_reports =
@@ -1096,7 +1170,10 @@ defmodule YscWeb.AdminMoneyLive do
         <h3 class="text-lg font-medium text-zinc-900 mb-4">Date Range Filter</h3>
         <form phx-submit="update_date_range" class="flex gap-4 items-end">
           <div>
-            <label for="start_date" class="block text-sm font-medium text-zinc-700 mb-1">
+            <label
+              for="start_date"
+              class="block text-sm font-medium text-zinc-700 mb-1"
+            >
               Start Date
             </label>
             <input
@@ -1108,7 +1185,10 @@ defmodule YscWeb.AdminMoneyLive do
             />
           </div>
           <div>
-            <label for="end_date" class="block text-sm font-medium text-zinc-700 mb-1">
+            <label
+              for="end_date"
+              class="block text-sm font-medium text-zinc-700 mb-1"
+            >
               End Date
             </label>
             <input
@@ -1119,7 +1199,11 @@ defmodule YscWeb.AdminMoneyLive do
               class="block w-full rounded-md border-zinc-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
             />
           </div>
-          <.button type="submit" phx-disable-with="Updating..." class="bg-blue-600 hover:bg-blue-700">
+          <.button
+            type="submit"
+            phx-disable-with="Updating..."
+            class="bg-blue-600 hover:bg-blue-700"
+          >
             Update
           </.button>
         </form>
@@ -1140,21 +1224,32 @@ defmodule YscWeb.AdminMoneyLive do
           <h2 class="text-xl font-semibold text-zinc-800">Account Balances</h2>
           <.icon
             name={
-              if @sections_collapsed.accounts, do: "hero-chevron-right", else: "hero-chevron-down"
+              if @sections_collapsed.accounts,
+                do: "hero-chevron-right",
+                else: "hero-chevron-down"
             }
             class="w-5 h-5 text-zinc-600"
           />
         </button>
         <div :if={!@sections_collapsed.accounts} class="p-4 pt-0">
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div :for={account_data <- @accounts_with_balances} class="bg-white p-4 rounded border">
+            <div
+              :for={account_data <- @accounts_with_balances}
+              class="bg-white p-4 rounded border"
+            >
               <div class="flex justify-between items-start mb-2">
-                <h3 class="font-medium text-zinc-900"><%= account_data.account.name %></h3>
+                <h3 class="font-medium text-zinc-900">
+                  <%= account_data.account.name %>
+                </h3>
                 <span class={"px-2 py-1 text-xs font-semibold rounded #{get_normal_balance_badge_color(account_data.account.normal_balance)}"}>
-                  <%= String.capitalize(to_string(account_data.account.normal_balance || "debit")) %>-normal
+                  <%= String.capitalize(
+                    to_string(account_data.account.normal_balance || "debit")
+                  ) %>-normal
                 </span>
               </div>
-              <p class="text-sm text-zinc-600 mb-2"><%= account_data.account.description %></p>
+              <p class="text-sm text-zinc-600 mb-2">
+                <%= account_data.account.description %>
+              </p>
               <p class={"text-lg font-semibold mt-2 #{get_balance_color(account_data.balance, account_data.account.normal_balance)}"}>
                 <%= Money.to_string!(account_data.balance || Money.new(0, :USD)) %>
               </p>
@@ -1175,7 +1270,9 @@ defmodule YscWeb.AdminMoneyLive do
           <h2 class="text-xl font-semibold text-zinc-800">Recent Payments</h2>
           <.icon
             name={
-              if @sections_collapsed.payments, do: "hero-chevron-right", else: "hero-chevron-down"
+              if @sections_collapsed.payments,
+                do: "hero-chevron-right",
+                else: "hero-chevron-down"
             }
             class="w-5 h-5 text-zinc-600"
           />
@@ -1473,7 +1570,9 @@ defmodule YscWeb.AdminMoneyLive do
           <h2 class="text-xl font-semibold text-zinc-800">Stripe Webhook Events</h2>
           <.icon
             name={
-              if @sections_collapsed.webhooks, do: "hero-chevron-right", else: "hero-chevron-down"
+              if @sections_collapsed.webhooks,
+                do: "hero-chevron-right",
+                else: "hero-chevron-down"
             }
             class="w-5 h-5 text-zinc-600"
           />
@@ -1636,16 +1735,22 @@ defmodule YscWeb.AdminMoneyLive do
                   </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <.badge type={get_expense_report_status_badge_type(expense_report.status)}>
+                  <.badge type={
+                    get_expense_report_status_badge_type(expense_report.status)
+                  }>
                     <%= String.capitalize(expense_report.status || "unknown") %>
                   </.badge>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex flex-col">
                     <.badge type={
-                      get_quickbooks_sync_status_badge_type(expense_report.quickbooks_sync_status)
+                      get_quickbooks_sync_status_badge_type(
+                        expense_report.quickbooks_sync_status
+                      )
                     }>
-                      <%= String.capitalize(expense_report.quickbooks_sync_status || "unknown") %>
+                      <%= String.capitalize(
+                        expense_report.quickbooks_sync_status || "unknown"
+                      ) %>
                     </.badge>
                     <%= if expense_report.quickbooks_sync_error do %>
                       <.tooltip
@@ -1670,7 +1775,10 @@ defmodule YscWeb.AdminMoneyLive do
                   <% end %>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900">
-                  <%= Calendar.strftime(expense_report.inserted_at, "%Y-%m-%d %H:%M") %>
+                  <%= Calendar.strftime(
+                    expense_report.inserted_at,
+                    "%Y-%m-%d %H:%M"
+                  ) %>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <.button
@@ -1692,7 +1800,9 @@ defmodule YscWeb.AdminMoneyLive do
           <!-- Pagination Controls for Expense Reports -->
           <div class="flex items-center justify-between px-6 py-4 border-t border-zinc-200">
             <div class="text-sm text-zinc-600">
-              Page <%= @expense_reports_page %> • Showing <%= length(@expense_reports) %> entries
+              Page <%= @expense_reports_page %> • Showing <%= length(
+                @expense_reports
+              ) %> entries
             </div>
             <div class="flex gap-2">
               <.button
@@ -1737,9 +1847,16 @@ defmodule YscWeb.AdminMoneyLive do
           </p>
         </div>
 
-        <.form for={@refund_form} phx-submit="process_refund" phx-change="validate_refund">
+        <.form
+          for={@refund_form}
+          phx-submit="process_refund"
+          phx-change="validate_refund"
+        >
           <!-- Ticket Selection for Ticket Orders -->
-          <div :if={@ticket_order} class="mb-4 p-4 bg-blue-50 rounded border border-blue-200">
+          <div
+            :if={@ticket_order}
+            class="mb-4 p-4 bg-blue-50 rounded border border-blue-200"
+          >
             <h4 class="text-sm font-semibold text-zinc-800 mb-3">
               Select Tickets to Refund
             </h4>
@@ -1762,9 +1879,13 @@ defmodule YscWeb.AdminMoneyLive do
                   class="mt-1 mr-3"
                   checked={
                     ticket_id_str = to_string(ticket.id)
+
                     # Get ticket_ids from changeset changes first, then from params, then from data
                     ticket_ids =
-                      case Ecto.Changeset.get_change(@refund_form.source, :ticket_ids) do
+                      case Ecto.Changeset.get_change(
+                             @refund_form.source,
+                             :ticket_ids
+                           ) do
                         nil ->
                           # Try to get from params (for form state)
                           case @refund_form.source.params do
@@ -1773,7 +1894,10 @@ defmodule YscWeb.AdminMoneyLive do
 
                             _ ->
                               # Fall back to data
-                              case Ecto.Changeset.get_field(@refund_form.source, :ticket_ids) do
+                              case Ecto.Changeset.get_field(
+                                     @refund_form.source,
+                                     :ticket_ids
+                                   ) do
                                 nil -> []
                                 ids when is_list(ids) -> ids
                                 _ -> []
@@ -1799,9 +1923,16 @@ defmodule YscWeb.AdminMoneyLive do
                   </div>
                   <div class="text-xs font-medium text-zinc-700 mt-1">
                     <%= cond do
-                      ticket.ticket_tier.type == :free -> "Free"
-                      ticket.ticket_tier.type == :donation -> "Donation"
-                      true -> Money.to_string!(ticket.ticket_tier.price || Money.new(0, :USD))
+                      ticket.ticket_tier.type == :free ->
+                        "Free"
+
+                      ticket.ticket_tier.type == :donation ->
+                        "Donation"
+
+                      true ->
+                        Money.to_string!(
+                          ticket.ticket_tier.price || Money.new(0, :USD)
+                        )
                     end %>
                   </div>
                 </div>
@@ -1877,7 +2008,11 @@ defmodule YscWeb.AdminMoneyLive do
           </p>
         </div>
 
-        <.form for={@credit_form} phx-submit="process_credit" phx-change="validate_credit">
+        <.form
+          for={@credit_form}
+          phx-submit="process_credit"
+          phx-change="validate_credit"
+        >
           <div :if={!@selected_user} class="mb-4">
             <.input
               field={@credit_form[:user_id]}
@@ -1952,7 +2087,9 @@ defmodule YscWeb.AdminMoneyLive do
       </.modal>
       <!-- Webhook Details Modal -->
       <.modal :if={@show_webhook_modal && @selected_webhook} id="webhook-modal" show>
-        <h3 class="text-lg font-medium text-zinc-900 mb-4">Webhook Event Details</h3>
+        <h3 class="text-lg font-medium text-zinc-900 mb-4">
+          Webhook Event Details
+        </h3>
 
         <div class="mb-4 space-y-2">
           <div>
@@ -1966,13 +2103,17 @@ defmodule YscWeb.AdminMoneyLive do
           <div>
             <p class="text-sm">
               <strong class="text-zinc-900">Event Type:</strong>
-              <span class="text-zinc-600 ml-2"><%= @selected_webhook.event_type %></span>
+              <span class="text-zinc-600 ml-2">
+                <%= @selected_webhook.event_type %>
+              </span>
             </p>
           </div>
           <div>
             <p class="text-sm">
               <strong class="text-zinc-900">Provider:</strong>
-              <span class="text-zinc-600 ml-2 capitalize"><%= @selected_webhook.provider %></span>
+              <span class="text-zinc-600 ml-2 capitalize">
+                <%= @selected_webhook.provider %>
+              </span>
             </p>
           </div>
           <div>
@@ -1987,7 +2128,10 @@ defmodule YscWeb.AdminMoneyLive do
             <p class="text-sm">
               <strong class="text-zinc-900">Received At:</strong>
               <span class="text-zinc-600 ml-2">
-                <%= Calendar.strftime(@selected_webhook.inserted_at, "%Y-%m-%d %H:%M:%S UTC") %>
+                <%= Calendar.strftime(
+                  @selected_webhook.inserted_at,
+                  "%Y-%m-%d %H:%M:%S UTC"
+                ) %>
               </span>
             </p>
           </div>
@@ -1995,25 +2139,38 @@ defmodule YscWeb.AdminMoneyLive do
             <p class="text-sm">
               <strong class="text-zinc-900">Last Updated:</strong>
               <span class="text-zinc-600 ml-2">
-                <%= Calendar.strftime(@selected_webhook.updated_at, "%Y-%m-%d %H:%M:%S UTC") %>
+                <%= Calendar.strftime(
+                  @selected_webhook.updated_at,
+                  "%Y-%m-%d %H:%M:%S UTC"
+                ) %>
               </span>
             </p>
           </div>
         </div>
 
         <div class="mb-4">
-          <label class="block text-sm font-medium text-zinc-900 mb-2">Payload</label>
+          <label class="block text-sm font-medium text-zinc-900 mb-2">
+            Payload
+          </label>
           <pre class="bg-zinc-50 border border-zinc-200 rounded p-4 text-xs overflow-auto max-h-96 font-mono text-zinc-800"><%= Jason.encode!(@selected_webhook.payload, pretty: true) %></pre>
         </div>
 
         <div class="flex justify-end gap-2">
-          <.button type="button" phx-click="close_webhook_modal" class="bg-zinc-500 hover:bg-zinc-600">
+          <.button
+            type="button"
+            phx-click="close_webhook_modal"
+            class="bg-zinc-500 hover:bg-zinc-600"
+          >
             Close
           </.button>
         </div>
       </.modal>
       <!-- Payout Details Modal -->
-      <.modal :if={@live_action == :view_payout && @selected_payout} id="payout-modal" show>
+      <.modal
+        :if={@live_action == :view_payout && @selected_payout}
+        id="payout-modal"
+        show
+      >
         <h3 class="text-lg font-medium text-zinc-900 mb-4">Payout Details</h3>
 
         <div class="mb-6 space-y-3">
@@ -2039,14 +2196,19 @@ defmodule YscWeb.AdminMoneyLive do
             <div>
               <p class="text-sm font-medium text-zinc-700">Total Fees</p>
               <p class="text-sm text-zinc-900 font-semibold text-red-600">
-                <%= Money.to_string!(@selected_payout.fee_total || Money.new(0, :USD)) %>
+                <%= Money.to_string!(
+                  @selected_payout.fee_total || Money.new(0, :USD)
+                ) %>
               </p>
             </div>
             <div>
               <p class="text-sm font-medium text-zinc-700">Arrival Date</p>
               <p class="text-sm text-zinc-900">
                 <%= if @selected_payout.arrival_date do %>
-                  <%= Calendar.strftime(@selected_payout.arrival_date, "%Y-%m-%d %H:%M") %>
+                  <%= Calendar.strftime(
+                    @selected_payout.arrival_date,
+                    "%Y-%m-%d %H:%M"
+                  ) %>
                 <% else %>
                   N/A
                 <% end %>
@@ -2055,7 +2217,10 @@ defmodule YscWeb.AdminMoneyLive do
             <div>
               <p class="text-sm font-medium text-zinc-700">Created</p>
               <p class="text-sm text-zinc-900">
-                <%= Calendar.strftime(@selected_payout.inserted_at, "%Y-%m-%d %H:%M") %>
+                <%= Calendar.strftime(
+                  @selected_payout.inserted_at,
+                  "%Y-%m-%d %H:%M"
+                ) %>
               </p>
             </div>
           </div>
@@ -2065,7 +2230,10 @@ defmodule YscWeb.AdminMoneyLive do
           <h4 class="text-md font-semibold text-zinc-800 mb-3">
             Associated Payments (<%= length(@selected_payout.payments || []) %>)
           </h4>
-          <div :if={length(@selected_payout.payments || []) > 0} class="overflow-x-auto">
+          <div
+            :if={length(@selected_payout.payments || []) > 0}
+            class="overflow-x-auto"
+          >
             <table class="min-w-full divide-y divide-zinc-200 text-sm">
               <thead class="bg-zinc-50">
                 <tr>
@@ -2120,7 +2288,10 @@ defmodule YscWeb.AdminMoneyLive do
               </tbody>
             </table>
           </div>
-          <p :if={length(@selected_payout.payments || []) == 0} class="text-sm text-zinc-500 italic">
+          <p
+            :if={length(@selected_payout.payments || []) == 0}
+            class="text-sm text-zinc-500 italic"
+          >
             No payments associated with this payout.
           </p>
         </div>
@@ -2129,7 +2300,10 @@ defmodule YscWeb.AdminMoneyLive do
           <h4 class="text-md font-semibold text-zinc-800 mb-3">
             Associated Refunds (<%= length(@selected_payout.refunds || []) %>)
           </h4>
-          <div :if={length(@selected_payout.refunds || []) > 0} class="overflow-x-auto">
+          <div
+            :if={length(@selected_payout.refunds || []) > 0}
+            class="overflow-x-auto"
+          >
             <table class="min-w-full divide-y divide-zinc-200 text-sm">
               <thead class="bg-zinc-50">
                 <tr>
@@ -2192,7 +2366,10 @@ defmodule YscWeb.AdminMoneyLive do
               </tbody>
             </table>
           </div>
-          <p :if={length(@selected_payout.refunds || []) == 0} class="text-sm text-zinc-500 italic">
+          <p
+            :if={length(@selected_payout.refunds || []) == 0}
+            class="text-sm text-zinc-500 italic"
+          >
             No refunds associated with this payout.
           </p>
         </div>
@@ -2237,20 +2414,30 @@ defmodule YscWeb.AdminMoneyLive do
             <div>
               <p class="text-zinc-600">Stripe Fees:</p>
               <p class="font-semibold text-red-600">
-                <%= Money.to_string!(@selected_payout.fee_total || Money.new(0, :USD)) %>
+                <%= Money.to_string!(
+                  @selected_payout.fee_total || Money.new(0, :USD)
+                ) %>
               </p>
             </div>
           </div>
         </div>
 
         <div class="flex justify-end gap-2">
-          <.button type="button" phx-click="close_payout_modal" class="bg-zinc-500 hover:bg-zinc-600">
+          <.button
+            type="button"
+            phx-click="close_payout_modal"
+            class="bg-zinc-500 hover:bg-zinc-600"
+          >
             Close
           </.button>
         </div>
       </.modal>
       <!-- Payment Details Modal -->
-      <.modal :if={@live_action == :view_payment && @selected_payment} id="payment-modal" show>
+      <.modal
+        :if={@live_action == :view_payment && @selected_payment}
+        id="payment-modal"
+        show
+      >
         <h3 class="text-lg font-medium text-zinc-900 mb-4">Payment Details</h3>
 
         <div class="mb-6 space-y-4">
@@ -2265,7 +2452,9 @@ defmodule YscWeb.AdminMoneyLive do
             <div>
               <p class="text-sm font-medium text-zinc-700">Status</p>
               <span class={"px-2 inline-flex text-xs leading-5 font-semibold rounded-full #{if @selected_payment.status == :completed, do: "bg-green-100 text-green-800", else: "bg-yellow-100 text-yellow-800"}"}>
-                <%= String.capitalize(to_string(@selected_payment.status || "unknown")) %>
+                <%= String.capitalize(
+                  to_string(@selected_payment.status || "unknown")
+                ) %>
               </span>
             </div>
             <div>
@@ -2277,7 +2466,10 @@ defmodule YscWeb.AdminMoneyLive do
             <div>
               <p class="text-sm font-medium text-zinc-700">Payment Date</p>
               <p class="text-sm text-zinc-900">
-                <%= Calendar.strftime(@selected_payment.payment_date, "%Y-%m-%d %H:%M") %>
+                <%= Calendar.strftime(
+                  @selected_payment.payment_date,
+                  "%Y-%m-%d %H:%M"
+                ) %>
               </p>
             </div>
             <div>
@@ -2337,9 +2529,15 @@ defmodule YscWeb.AdminMoneyLive do
               <% {:booking, booking} -> %>
                 <div class="text-sm text-zinc-700">
                   <p><strong>Type:</strong> Booking</p>
-                  <p><strong>Reference:</strong> <%= booking.reference_id || booking.id %></p>
                   <p>
-                    <strong>Check-in:</strong> <%= Calendar.strftime(booking.checkin_date, "%Y-%m-%d") %>
+                    <strong>Reference:</strong> <%= booking.reference_id ||
+                      booking.id %>
+                  </p>
+                  <p>
+                    <strong>Check-in:</strong> <%= Calendar.strftime(
+                      booking.checkin_date,
+                      "%Y-%m-%d"
+                    ) %>
                   </p>
                   <p>
                     <strong>Check-out:</strong> <%= Calendar.strftime(
@@ -2347,20 +2545,29 @@ defmodule YscWeb.AdminMoneyLive do
                       "%Y-%m-%d"
                     ) %>
                   </p>
-                  <p><strong>Status:</strong> <%= String.capitalize(to_string(booking.status)) %></p>
+                  <p>
+                    <strong>Status:</strong> <%= String.capitalize(
+                      to_string(booking.status)
+                    ) %>
+                  </p>
                 </div>
               <% {:ticket_order, ticket_order} -> %>
                 <div class="text-sm text-zinc-700">
                   <p><strong>Type:</strong> Ticket Order</p>
                   <p>
-                    <strong>Reference:</strong> <%= ticket_order.reference_id || ticket_order.id %>
+                    <strong>Reference:</strong> <%= ticket_order.reference_id ||
+                      ticket_order.id %>
                   </p>
                   <%= if ticket_order.event do %>
                     <p><strong>Event:</strong> <%= ticket_order.event.title %></p>
                   <% end %>
-                  <p><strong>Tickets:</strong> <%= length(ticket_order.tickets || []) %></p>
                   <p>
-                    <strong>Status:</strong> <%= String.capitalize(to_string(ticket_order.status)) %>
+                    <strong>Tickets:</strong> <%= length(ticket_order.tickets || []) %>
+                  </p>
+                  <p>
+                    <strong>Status:</strong> <%= String.capitalize(
+                      to_string(ticket_order.status)
+                    ) %>
                   </p>
                 </div>
             <% end %>
@@ -2416,7 +2623,10 @@ defmodule YscWeb.AdminMoneyLive do
                 </tbody>
               </table>
             </div>
-            <p :if={length(@payment_refunds || []) == 0} class="text-sm text-zinc-500 italic">
+            <p
+              :if={length(@payment_refunds || []) == 0}
+              class="text-sm text-zinc-500 italic"
+            >
               No refunds for this payment.
             </p>
           </div>
@@ -2425,7 +2635,10 @@ defmodule YscWeb.AdminMoneyLive do
             <h4 class="text-md font-semibold text-zinc-800 mb-3">
               Ledger Entries (<%= length(@payment_ledger_entries || []) %>)
             </h4>
-            <div :if={length(@payment_ledger_entries || []) > 0} class="overflow-x-auto">
+            <div
+              :if={length(@payment_ledger_entries || []) > 0}
+              class="overflow-x-auto"
+            >
               <table class="min-w-full divide-y divide-zinc-200 text-sm">
                 <thead class="bg-zinc-50">
                   <tr>
@@ -2454,7 +2667,9 @@ defmodule YscWeb.AdminMoneyLive do
                           <%= entry.account.name %>
                         </span>
                         <span class="text-xs text-zinc-500">
-                          <%= String.capitalize(to_string(entry.account.account_type)) %>
+                          <%= String.capitalize(
+                            to_string(entry.account.account_type)
+                          ) %>
                         </span>
                       </div>
                     </td>
@@ -2478,14 +2693,21 @@ defmodule YscWeb.AdminMoneyLive do
                 </tbody>
               </table>
             </div>
-            <p :if={length(@payment_ledger_entries || []) == 0} class="text-sm text-zinc-500 italic">
+            <p
+              :if={length(@payment_ledger_entries || []) == 0}
+              class="text-sm text-zinc-500 italic"
+            >
               No ledger entries for this payment.
             </p>
           </div>
         </div>
 
         <div class="flex justify-end gap-2">
-          <.button type="button" phx-click="close_payment_modal" class="bg-zinc-500 hover:bg-zinc-600">
+          <.button
+            type="button"
+            phx-click="close_payment_modal"
+            class="bg-zinc-500 hover:bg-zinc-600"
+          >
             Close
           </.button>
         </div>
@@ -2521,18 +2743,28 @@ defmodule YscWeb.AdminMoneyLive do
             </p>
             <p>
               <strong>Current Type:</strong>
-              <span class="ml-2 capitalize"><%= @selected_entry.debit_credit %></span>
+              <span class="ml-2 capitalize">
+                <%= @selected_entry.debit_credit %>
+              </span>
             </p>
           </div>
         </div>
 
-        <.form for={@entry_form} phx-submit="update_entry" phx-change="validate_entry">
+        <.form
+          for={@entry_form}
+          phx-submit="update_entry"
+          phx-change="validate_entry"
+        >
           <div class="mb-4">
             <.input
               field={@entry_form[:account_id]}
               type="select"
               label="Account"
-              options={Enum.map(@ledger_accounts, fn account -> {account.name, account.id} end)}
+              options={
+                Enum.map(@ledger_accounts, fn account ->
+                  {account.name, account.id}
+                end)
+              }
               required
             />
           </div>
@@ -2568,7 +2800,11 @@ defmodule YscWeb.AdminMoneyLive do
           </div>
 
           <div class="flex justify-end gap-2">
-            <.button type="button" phx-click="close_entry_modal" class="bg-zinc-500 hover:bg-zinc-600">
+            <.button
+              type="button"
+              phx-click="close_entry_modal"
+              class="bg-zinc-500 hover:bg-zinc-600"
+            >
               Cancel
             </.button>
             <.button
@@ -2587,12 +2823,16 @@ defmodule YscWeb.AdminMoneyLive do
         id="expense-report-modal"
         show
       >
-        <h3 class="text-lg font-medium text-zinc-900 mb-4">Expense Report Details</h3>
+        <h3 class="text-lg font-medium text-zinc-900 mb-4">
+          Expense Report Details
+        </h3>
 
         <% totals = ExpenseReports.calculate_totals(@selected_expense_report) %>
         <!-- Basic Information -->
         <div class="mb-6 space-y-3">
-          <h4 class="text-md font-semibold text-zinc-800 mb-3">Basic Information</h4>
+          <h4 class="text-md font-semibold text-zinc-800 mb-3">
+            Basic Information
+          </h4>
           <div class="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p class="font-medium text-zinc-700">Expense Report ID</p>
@@ -2617,40 +2857,58 @@ defmodule YscWeb.AdminMoneyLive do
             <div>
               <p class="font-medium text-zinc-700">Reimbursement Method</p>
               <p class="text-zinc-900">
-                <%= String.capitalize(@selected_expense_report.reimbursement_method || "unknown") %>
+                <%= String.capitalize(
+                  @selected_expense_report.reimbursement_method || "unknown"
+                ) %>
               </p>
             </div>
             <div>
               <p class="font-medium text-zinc-700">Status</p>
               <p class="text-zinc-900">
-                <.badge type={get_expense_report_status_badge_type(@selected_expense_report.status)}>
-                  <%= String.capitalize(@selected_expense_report.status || "unknown") %>
+                <.badge type={
+                  get_expense_report_status_badge_type(
+                    @selected_expense_report.status
+                  )
+                }>
+                  <%= String.capitalize(
+                    @selected_expense_report.status || "unknown"
+                  ) %>
                 </.badge>
               </p>
             </div>
             <div>
               <p class="font-medium text-zinc-700">Certification Accepted</p>
               <p class="text-zinc-900">
-                <%= if @selected_expense_report.certification_accepted, do: "Yes", else: "No" %>
+                <%= if @selected_expense_report.certification_accepted,
+                  do: "Yes",
+                  else: "No" %>
               </p>
             </div>
             <div>
               <p class="font-medium text-zinc-700">Created At</p>
               <p class="text-zinc-900">
-                <%= Calendar.strftime(@selected_expense_report.inserted_at, "%Y-%m-%d %H:%M:%S") %>
+                <%= Calendar.strftime(
+                  @selected_expense_report.inserted_at,
+                  "%Y-%m-%d %H:%M:%S"
+                ) %>
               </p>
             </div>
             <div>
               <p class="font-medium text-zinc-700">Updated At</p>
               <p class="text-zinc-900">
-                <%= Calendar.strftime(@selected_expense_report.updated_at, "%Y-%m-%d %H:%M:%S") %>
+                <%= Calendar.strftime(
+                  @selected_expense_report.updated_at,
+                  "%Y-%m-%d %H:%M:%S"
+                ) %>
               </p>
             </div>
           </div>
         </div>
         <!-- Reimbursement Details -->
         <div class="mb-6 space-y-3">
-          <h4 class="text-md font-semibold text-zinc-800 mb-3">Reimbursement Details</h4>
+          <h4 class="text-md font-semibold text-zinc-800 mb-3">
+            Reimbursement Details
+          </h4>
           <div class="grid grid-cols-2 gap-4 text-sm">
             <%= if @selected_expense_report.reimbursement_method == "check" do %>
               <div>
@@ -2680,14 +2938,18 @@ defmodule YscWeb.AdminMoneyLive do
             <%= if Ecto.assoc_loaded?(@selected_expense_report.event) && @selected_expense_report.event do %>
               <div>
                 <p class="font-medium text-zinc-700">Related Event</p>
-                <p class="text-zinc-900"><%= @selected_expense_report.event.title %></p>
+                <p class="text-zinc-900">
+                  <%= @selected_expense_report.event.title %>
+                </p>
               </div>
             <% end %>
           </div>
         </div>
         <!-- QuickBooks Information -->
         <div class="mb-6 space-y-3">
-          <h4 class="text-md font-semibold text-zinc-800 mb-3">QuickBooks Information</h4>
+          <h4 class="text-md font-semibold text-zinc-800 mb-3">
+            QuickBooks Information
+          </h4>
           <div class="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p class="font-medium text-zinc-700">Sync Status</p>
@@ -2697,7 +2959,9 @@ defmodule YscWeb.AdminMoneyLive do
                     @selected_expense_report.quickbooks_sync_status
                   )
                 }>
-                  <%= String.capitalize(@selected_expense_report.quickbooks_sync_status || "unknown") %>
+                  <%= String.capitalize(
+                    @selected_expense_report.quickbooks_sync_status || "unknown"
+                  ) %>
                 </.badge>
               </p>
             </div>
@@ -2894,7 +3158,10 @@ defmodule YscWeb.AdminMoneyLive do
           </div>
         </div>
         <!-- Status Update Form -->
-        <.form for={@expense_report_status_form} phx-submit="update_expense_report_status">
+        <.form
+          for={@expense_report_status_form}
+          phx-submit="update_expense_report_status"
+        >
           <div class="mb-4">
             <.input
               field={@expense_report_status_form[:status]}
@@ -2968,7 +3235,8 @@ defmodule YscWeb.AdminMoneyLive do
         {nil, last_name} when is_binary(last_name) ->
           last_name
 
-        {first_name, last_name} when is_binary(first_name) and is_binary(last_name) ->
+        {first_name, last_name}
+        when is_binary(first_name) and is_binary(last_name) ->
           "#{first_name} #{last_name}"
 
         _ ->
@@ -3034,7 +3302,11 @@ defmodule YscWeb.AdminMoneyLive do
             end
 
           {:error, _} ->
-            Ecto.Changeset.add_error(changeset, :amount, "invalid amount format")
+            Ecto.Changeset.add_error(
+              changeset,
+              :amount,
+              "invalid amount format"
+            )
         end
     end
   end
@@ -3050,16 +3322,23 @@ defmodule YscWeb.AdminMoneyLive do
   end
 
   defp get_normal_balance_badge_color("credit"), do: "bg-blue-100 text-blue-800"
-  defp get_normal_balance_badge_color("debit"), do: "bg-purple-100 text-purple-800"
+
+  defp get_normal_balance_badge_color("debit"),
+    do: "bg-purple-100 text-purple-800"
+
   defp get_normal_balance_badge_color(:credit), do: "bg-blue-100 text-blue-800"
-  defp get_normal_balance_badge_color(:debit), do: "bg-purple-100 text-purple-800"
+
+  defp get_normal_balance_badge_color(:debit),
+    do: "bg-purple-100 text-purple-800"
+
   defp get_normal_balance_badge_color(_), do: "bg-zinc-100 text-zinc-800"
 
   # Determine balance color based on whether it's positive or negative
   # For credit-normal accounts, positive is good (green)
   # For debit-normal accounts, positive is good (green)
   # Negative balances are shown in red for both types
-  defp get_balance_color(balance, _normal_balance) when is_nil(balance), do: "text-zinc-600"
+  defp get_balance_color(balance, _normal_balance) when is_nil(balance),
+    do: "text-zinc-600"
 
   defp get_balance_color(balance, _normal_balance) do
     is_positive = Money.positive?(balance)
@@ -3072,7 +3351,9 @@ defmodule YscWeb.AdminMoneyLive do
     end
   end
 
-  defp get_debit_credit_badge_color("debit"), do: "bg-purple-100 text-purple-800"
+  defp get_debit_credit_badge_color("debit"),
+    do: "bg-purple-100 text-purple-800"
+
   defp get_debit_credit_badge_color("credit"), do: "bg-blue-100 text-blue-800"
   defp get_debit_credit_badge_color(:debit), do: "bg-purple-100 text-purple-800"
   defp get_debit_credit_badge_color(:credit), do: "bg-blue-100 text-blue-800"
@@ -3104,7 +3385,12 @@ defmodule YscWeb.AdminMoneyLive do
 
     {%{}, types}
     |> Ecto.Changeset.cast(params, Map.keys(types))
-    |> Ecto.Changeset.validate_required([:account_id, :amount, :description, :debit_credit])
+    |> Ecto.Changeset.validate_required([
+      :account_id,
+      :amount,
+      :description,
+      :debit_credit
+    ])
     |> Ecto.Changeset.validate_length(:description, min: 1, max: 1000)
     |> Ecto.Changeset.validate_inclusion(:debit_credit, ["debit", "credit"])
     |> validate_entry_amount()
@@ -3126,7 +3412,11 @@ defmodule YscWeb.AdminMoneyLive do
             end
 
           {:error, _} ->
-            Ecto.Changeset.add_error(changeset, :amount, "invalid amount format")
+            Ecto.Changeset.add_error(
+              changeset,
+              :amount,
+              "invalid amount format"
+            )
         end
     end
   end
@@ -3229,11 +3519,15 @@ defmodule YscWeb.AdminMoneyLive do
         |> Repo.one()
 
       if ticket_order do
-        case Tickets.cancel_ticket_order(ticket_order, "Refund processed - tickets released") do
+        case Tickets.cancel_ticket_order(
+               ticket_order,
+               "Refund processed - tickets released"
+             ) do
           {:ok, _canceled_order} ->
             require Logger
 
-            Logger.info("Ticket order canceled and tickets released after refund",
+            Logger.info(
+              "Ticket order canceled and tickets released after refund",
               ticket_order_id: ticket_order.id,
               payment_id: payment_id
             )

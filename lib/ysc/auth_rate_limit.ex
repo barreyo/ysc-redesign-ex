@@ -21,7 +21,8 @@ defmodule Ysc.AuthRateLimit do
   end
 
   defp identifier_limit do
-    Application.get_env(:ysc, __MODULE__, [])[:identifier_limit] || @default_identifier_limit
+    Application.get_env(:ysc, __MODULE__, [])[:identifier_limit] ||
+      @default_identifier_limit
   end
 
   @doc """
@@ -38,8 +39,11 @@ defmodule Ysc.AuthRateLimit do
     key = "auth:ip:#{normalize_ip(ip)}"
 
     case hit(key, @ip_scale_ms, ip_limit()) do
-      {:allow, _count} -> :ok
-      {:deny, retry_after_ms} -> {:error, :rate_limited, div(retry_after_ms, 1000)}
+      {:allow, _count} ->
+        :ok
+
+      {:deny, retry_after_ms} ->
+        {:error, :rate_limited, div(retry_after_ms, 1000)}
     end
   end
 
@@ -53,8 +57,11 @@ defmodule Ysc.AuthRateLimit do
     key = "auth:id:#{normalize_identifier(identifier)}"
 
     case hit(key, @identifier_scale_ms, identifier_limit()) do
-      {:allow, _count} -> :ok
-      {:deny, retry_after_ms} -> {:error, :rate_limited, div(retry_after_ms, 1000)}
+      {:allow, _count} ->
+        :ok
+
+      {:deny, retry_after_ms} ->
+        {:error, :rate_limited, div(retry_after_ms, 1000)}
     end
   end
 

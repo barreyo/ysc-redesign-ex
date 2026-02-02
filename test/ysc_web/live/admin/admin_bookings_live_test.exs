@@ -48,7 +48,10 @@ defmodule YscWeb.Admin.AdminBookingsLiveTest do
       |> element("button", "New Pricing Rule")
       |> render_click()
 
-      assert_redirected(view, "/admin/bookings/pricing-rules/new?property=tahoe&section=config")
+      assert_redirected(
+        view,
+        "/admin/bookings/pricing-rules/new?property=tahoe&section=config"
+      )
     end
   end
 end

@@ -25,6 +25,7 @@ defmodule Ysc.Bookings.PropertyInventoryTest do
 
       changeset = PropertyInventory.changeset(%PropertyInventory{}, attrs)
       refute changeset.valid?
+
       assert "must be greater than or equal to 0" in errors_on(changeset).capacity_total
     end
 

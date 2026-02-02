@@ -37,7 +37,8 @@ defmodule YscWeb.Workers.QuickbooksSyncPaymentWorkerTest do
         attempt: 1
       }
 
-      assert {:discard, :payment_not_found} = QuickbooksSyncPaymentWorker.perform(job)
+      assert {:discard, :payment_not_found} =
+               QuickbooksSyncPaymentWorker.perform(job)
     end
 
     test "returns ok when payment already synced", %{user: user} do

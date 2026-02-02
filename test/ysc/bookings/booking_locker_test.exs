@@ -231,7 +231,10 @@ defmodule Ysc.Bookings.BookingLockerTest do
       booking = Ysc.Repo.preload(booking, :rooms)
 
       booking
-      |> Booking.changeset(%{status: :complete}, rooms: booking.rooms, skip_validation: true)
+      |> Booking.changeset(%{status: :complete},
+        rooms: booking.rooms,
+        skip_validation: true
+      )
       |> Ysc.Repo.update!()
 
       assert {:ok, _} = BookingLocker.cancel_complete_booking(booking.id)

@@ -30,7 +30,9 @@ defmodule YscWeb.ConductViolationReportLive do
             <p class="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-2">
               Your Submitted Report
             </p>
-            <p class="text-sm text-zinc-700 whitespace-pre-wrap"><%= @submitted_summary %></p>
+            <p class="text-sm text-zinc-700 whitespace-pre-wrap">
+              <%= @submitted_summary %>
+            </p>
           </div>
           <div class="flex flex-col sm:flex-row gap-4 justify-center">
             <.link
@@ -81,13 +83,23 @@ defmodule YscWeb.ConductViolationReportLive do
 
           <%!-- Form Card --%>
           <div class="bg-white rounded-xl shadow-sm border border-zinc-200 p-6 lg:p-10">
-            <.simple_form for={@form} phx-change="validate" phx-submit="save" id="violation-form">
+            <.simple_form
+              for={@form}
+              phx-change="validate"
+              phx-submit="save"
+              id="violation-form"
+            >
               <%!-- Contact Information Section --%>
               <div class="mb-8">
-                <h2 class="text-xl font-bold text-zinc-900 mb-6">Your Contact Information</h2>
+                <h2 class="text-xl font-bold text-zinc-900 mb-6">
+                  Your Contact Information
+                </h2>
 
                 <%!-- Logged in user display --%>
-                <div :if={@logged_in?} class="bg-zinc-50 border border-zinc-200 rounded-lg p-6">
+                <div
+                  :if={@logged_in?}
+                  class="bg-zinc-50 border border-zinc-200 rounded-lg p-6"
+                >
                   <p class="text-sm text-zinc-500 mb-4">
                     You are submitting this report as:
                   </p>
@@ -124,22 +136,39 @@ defmodule YscWeb.ConductViolationReportLive do
                   <input
                     type="hidden"
                     name={@form[:first_name].name}
-                    value={Phoenix.HTML.Form.normalize_value("text", @form[:first_name].value)}
+                    value={
+                      Phoenix.HTML.Form.normalize_value(
+                        "text",
+                        @form[:first_name].value
+                      )
+                    }
                   />
                   <input
                     type="hidden"
                     name={@form[:last_name].name}
-                    value={Phoenix.HTML.Form.normalize_value("text", @form[:last_name].value)}
+                    value={
+                      Phoenix.HTML.Form.normalize_value(
+                        "text",
+                        @form[:last_name].value
+                      )
+                    }
                   />
                   <input
                     type="hidden"
                     name={@form[:email].name}
-                    value={Phoenix.HTML.Form.normalize_value("email", @form[:email].value)}
+                    value={
+                      Phoenix.HTML.Form.normalize_value(
+                        "email",
+                        @form[:email].value
+                      )
+                    }
                   />
                   <input
                     type="hidden"
                     name={@form[:phone].name}
-                    value={Phoenix.HTML.Form.normalize_value("text", @form[:phone].value)}
+                    value={
+                      Phoenix.HTML.Form.normalize_value("text", @form[:phone].value)
+                    }
                   />
                 </div>
 
@@ -155,7 +184,11 @@ defmodule YscWeb.ConductViolationReportLive do
                   </div>
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                     <div phx-feedback-for={@form[:email].id}>
-                      <.input field={@form[:email]} type="email" label="Email Address*" />
+                      <.input
+                        field={@form[:email]}
+                        type="email"
+                        label="Email Address*"
+                      />
                     </div>
                     <div phx-feedback-for={@form[:phone].id}>
                       <.input field={@form[:phone]} label="Phone Number*" />
@@ -166,12 +199,16 @@ defmodule YscWeb.ConductViolationReportLive do
 
               <%!-- Incident Details Section --%>
               <div class="mb-8">
-                <h2 class="text-xl font-bold text-zinc-900 mb-2">Incident Details</h2>
+                <h2 class="text-xl font-bold text-zinc-900 mb-2">
+                  Incident Details
+                </h2>
                 <p class="text-sm text-zinc-500 mb-3">
                   Don't worry about perfect formatting—just describe the event as you remember it. If you know which part of the Code of Conduct was violated, feel free to mention it.
                 </p>
                 <div class="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                  <p class="text-xs font-semibold text-blue-900 mb-2">Helpful details to include:</p>
+                  <p class="text-xs font-semibold text-blue-900 mb-2">
+                    Helpful details to include:
+                  </p>
                   <ul class="text-xs text-blue-800 space-y-1 list-disc list-inside">
                     <li>Approximate time and date</li>
                     <li>Location (Tahoe Cabin, event name, etc.)</li>
@@ -197,13 +234,22 @@ defmodule YscWeb.ConductViolationReportLive do
               >
                 <div class="flex items-start gap-3">
                   <div class="flex items-center h-6 pt-0.5 flex-shrink-0">
-                    <input type="hidden" name={@form[:anonymous].name} value="false" />
+                    <input
+                      type="hidden"
+                      name={@form[:anonymous].name}
+                      value="false"
+                    />
                     <input
                       type="checkbox"
                       id={@form[:anonymous].id}
                       name={@form[:anonymous].name}
                       value="true"
-                      checked={Phoenix.HTML.Form.normalize_value("checkbox", @form[:anonymous].value)}
+                      checked={
+                        Phoenix.HTML.Form.normalize_value(
+                          "checkbox",
+                          @form[:anonymous].value
+                        )
+                      }
                       class="mt-0.5 rounded border-zinc-300 text-zinc-900 focus:ring-0 w-5 h-5"
                     />
                   </div>

@@ -157,7 +157,8 @@ defmodule Ysc.Settings do
 
               if has_unique_error? do
                 # Race condition: another process created the setting, fetch it
-                Logger.debug("[Settings] Race condition detected, fetching existing setting",
+                Logger.debug(
+                  "[Settings] Race condition detected, fetching existing setting",
                   name: name
                 )
 
@@ -168,7 +169,12 @@ defmodule Ysc.Settings do
 
                   setting ->
                     # Found it, cache and return
-                    Cachex.put(:ysc_cache, setting_cache_key(name), setting.value)
+                    Cachex.put(
+                      :ysc_cache,
+                      setting_cache_key(name),
+                      setting.value
+                    )
+
                     setting.value
                 end
               else
@@ -191,7 +197,8 @@ defmodule Ysc.Settings do
             if String.contains?(error_message, "unique") or
                  String.contains?(error_message, "duplicate") do
               # Likely a race condition, try fetching the existing setting
-              Logger.debug("[Settings] Database constraint violation, fetching existing setting",
+              Logger.debug(
+                "[Settings] Database constraint violation, fetching existing setting",
                 name: name,
                 error: error_message
               )
@@ -199,7 +206,8 @@ defmodule Ysc.Settings do
               case Repo.get_by(SiteSetting, name: name) do
                 nil ->
                   # Still not found, return default
-                  Logger.warning("[Settings] Setting not found after constraint violation",
+                  Logger.warning(
+                    "[Settings] Setting not found after constraint violation",
                     name: name
                   )
 
@@ -300,13 +308,21 @@ defmodule Ysc.Settings do
     default_settings = [
       %{group: "general", name: "site_name", value: "YSC"},
       %{group: "general", name: "contact_email", value: "support@ysc.org"},
-      %{group: "socials", name: "instagram", value: "https://www.instagram.com/theysc"},
+      %{
+        group: "socials",
+        name: "instagram",
+        value: "https://www.instagram.com/theysc"
+      },
       %{
         group: "socials",
         name: "facebook",
         value: "https://www.facebook.com/YoungScandinaviansClub/"
       },
-      %{group: "socials", name: "discord", value: "https://discord.gg/dn2gdXRZbW"}
+      %{
+        group: "socials",
+        name: "discord",
+        value: "https://discord.gg/dn2gdXRZbW"
+      }
     ]
 
     for setting <- default_settings do

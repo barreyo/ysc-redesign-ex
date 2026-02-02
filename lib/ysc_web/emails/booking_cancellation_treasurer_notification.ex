@@ -5,7 +5,8 @@ defmodule YscWeb.Emails.BookingCancellationTreasurerNotification do
   Sends an internal notification email to the Treasurer when a booking is cancelled at any property.
   """
   use MjmlEEx,
-    mjml_template: "templates/booking_cancellation_treasurer_notification.mjml.eex",
+    mjml_template:
+      "templates/booking_cancellation_treasurer_notification.mjml.eex",
     layout: YscWeb.Emails.BaseLayout
 
   alias Ysc.Repo
@@ -31,7 +32,8 @@ defmodule YscWeb.Emails.BookingCancellationTreasurerNotification do
         _ -> to_string(property)
       end
 
-    YscWeb.Endpoint.url() <> "/admin/bookings?section=pending_refunds&property=#{property_param}"
+    YscWeb.Endpoint.url() <>
+      "/admin/bookings?section=pending_refunds&property=#{property_param}"
   end
 
   @doc """
@@ -46,7 +48,12 @@ defmodule YscWeb.Emails.BookingCancellationTreasurerNotification do
   ## Returns:
   - Map with all necessary data for the email template
   """
-  def prepare_email_data(booking, payment \\ nil, pending_refund \\ nil, reason \\ nil) do
+  def prepare_email_data(
+        booking,
+        payment \\ nil,
+        pending_refund \\ nil,
+        reason \\ nil
+      ) do
     # Validate input
     if is_nil(booking) do
       raise ArgumentError, "Booking cannot be nil"
@@ -89,7 +96,9 @@ defmodule YscWeb.Emails.BookingCancellationTreasurerNotification do
 
     # Determine if review is required
     requires_review = not is_nil(pending_refund)
-    review_url = if requires_review, do: admin_bookings_url(booking.property), else: nil
+
+    review_url =
+      if requires_review, do: admin_bookings_url(booking.property), else: nil
 
     %{
       booking: %{
@@ -101,13 +110,19 @@ defmodule YscWeb.Emails.BookingCancellationTreasurerNotification do
         children_count: booking.children_count || 0
       },
       user: %{
-        name: "#{booking.user.first_name || ""} #{booking.user.last_name || ""}" |> String.trim(),
+        name:
+          "#{booking.user.first_name || ""} #{booking.user.last_name || ""}"
+          |> String.trim(),
         email: booking.user.email
       },
       cancellation: %{
         date: cancellation_date,
         reason:
-          reason || if(pending_refund, do: pending_refund.cancellation_reason, else: nil) ||
+          reason ||
+            if(pending_refund,
+              do: pending_refund.cancellation_reason,
+              else: nil
+            ) ||
             "No reason provided"
       },
       payment: %{
@@ -118,10 +133,14 @@ defmodule YscWeb.Emails.BookingCancellationTreasurerNotification do
         if(pending_refund,
           do: %{
             policy_refund_amount: refund_amount,
-            applied_rule_days_before_checkin: pending_refund.applied_rule_days_before_checkin,
+            applied_rule_days_before_checkin:
+              pending_refund.applied_rule_days_before_checkin,
             applied_rule_refund_percentage:
               if(pending_refund.applied_rule_refund_percentage,
-                do: Decimal.to_float(pending_refund.applied_rule_refund_percentage),
+                do:
+                  Decimal.to_float(
+                    pending_refund.applied_rule_refund_percentage
+                  ),
                 else: nil
               )
           },
@@ -156,7 +175,11 @@ defmodule YscWeb.Emails.BookingCancellationTreasurerNotification do
   end
 
   defp format_money(%Money{} = money) do
-    Money.to_string!(money, separator: ".", delimiter: ",", fractional_digits: 2)
+    Money.to_string!(money,
+      separator: ".",
+      delimiter: ",",
+      fractional_digits: 2
+    )
   end
 
   defp format_money(_), do: "$0.00"

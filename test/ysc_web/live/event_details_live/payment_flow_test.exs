@@ -29,7 +29,10 @@ defmodule YscWeb.EventDetailsLive.PaymentFlowTest do
   end
 
   describe "complete paid ticket purchase flow (E2E)" do
-    test "successfully initiates checkout with payment intent", %{conn: conn, user: user} do
+    test "successfully initiates checkout with payment intent", %{
+      conn: conn,
+      user: user
+    } do
       event = event_with_tickets(tier_count: 2, state: :upcoming)
       event = Repo.preload(event, :ticket_tiers, force: true)
       tier = hd(event.ticket_tiers)
@@ -318,7 +321,9 @@ defmodule YscWeb.EventDetailsLive.PaymentFlowTest do
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
 
-      render_click(view, "increase-ticket-quantity", %{"tier-id" => free_tier.id})
+      render_click(view, "increase-ticket-quantity", %{
+        "tier-id" => free_tier.id
+      })
 
       # Free tickets shouldn't create payment intent
       result = render_click(view, "proceed-to-checkout")

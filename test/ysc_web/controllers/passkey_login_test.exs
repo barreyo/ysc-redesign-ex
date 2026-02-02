@@ -80,7 +80,9 @@ defmodule YscWeb.PasskeyLoginTest do
 
       # The controller should handle the invalid ULID gracefully
       assert redirected_to(conn) == ~p"/users/log-in"
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "Invalid login session"
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
+               "Invalid login session"
     end
 
     test "redirects to login with error for missing user_id", %{conn: conn} do
@@ -89,7 +91,9 @@ defmodule YscWeb.PasskeyLoginTest do
         |> get(~p"/users/log-in/passkey", %{})
 
       assert redirected_to(conn) == ~p"/users/log-in"
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "Invalid login request"
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
+               "Invalid login request"
     end
 
     test "redirects to login for inactive user", %{conn: conn} do
@@ -103,15 +107,22 @@ defmodule YscWeb.PasskeyLoginTest do
         |> get(~p"/users/log-in/passkey", %{"user_id" => encoded_user_id})
 
       assert redirected_to(conn) == ~p"/users/log-in"
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "not currently active"
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
+               "not currently active"
     end
 
-    test "clears failed login attempts on successful login", %{conn: conn, user: user} do
+    test "clears failed login attempts on successful login", %{
+      conn: conn,
+      user: user
+    } do
       encoded_user_id = Base.url_encode64(user.id, padding: false)
 
       # Set failed attempts in session - must init test session first
       conn =
-        conn |> Phoenix.ConnTest.init_test_session(%{}) |> put_session(:failed_login_attempts, 3)
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> put_session(:failed_login_attempts, 3)
 
       conn =
         conn

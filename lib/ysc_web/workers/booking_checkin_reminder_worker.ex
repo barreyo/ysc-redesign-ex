@@ -131,7 +131,10 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
 
     try do
       # Check if user has SMS notifications enabled and has a phone number
-      if Ysc.Accounts.SmsCategories.should_send_sms?(booking.user, "booking_checkin_reminder") &&
+      if Ysc.Accounts.SmsCategories.should_send_sms?(
+           booking.user,
+           "booking_checkin_reminder"
+         ) &&
            Ysc.Accounts.SmsCategories.has_phone_number?(booking.user) do
         sms_module = SmsBookingCheckinReminder
         sms_data = sms_module.prepare_sms_data(booking)
@@ -184,7 +187,8 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
             )
 
             # Report to Sentry
-            Sentry.capture_message("Failed to schedule booking check-in reminder SMS",
+            Sentry.capture_message(
+              "Failed to schedule booking check-in reminder SMS",
               level: :error,
               extra: %{
                 booking_id: booking.id,
@@ -200,7 +204,8 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
             :ok
         end
       else
-        Logger.info("Skipping SMS check-in reminder - user not opted in or no phone number",
+        Logger.info(
+          "Skipping SMS check-in reminder - user not opted in or no phone number",
           booking_id: booking.id,
           user_id: booking.user_id,
           has_phone: Ysc.Accounts.SmsCategories.has_phone_number?(booking.user),
@@ -256,7 +261,8 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
       |> DateTime.new!(~T[08:00:00], "America/Los_Angeles")
 
     # Convert to UTC for Oban scheduling
-    reminder_datetime_utc = DateTime.shift_zone!(reminder_datetime_pst, "Etc/UTC")
+    reminder_datetime_utc =
+      DateTime.shift_zone!(reminder_datetime_pst, "Etc/UTC")
 
     now = DateTime.utc_now()
 
@@ -278,7 +284,8 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
       )
     else
       # If check-in is less than 3 days away, send immediately
-      Logger.info("Check-in is less than 3 days away, sending reminder immediately",
+      Logger.info(
+        "Check-in is less than 3 days away, sending reminder immediately",
         booking_id: booking_id,
         checkin_date: checkin_date
       )
@@ -298,7 +305,8 @@ defmodule YscWeb.Workers.BookingCheckinReminderWorker do
             send_checkin_reminder_email(booking)
             send_checkin_reminder_sms(booking)
           else
-            Logger.info("Booking is not active, skipping immediate check-in reminder",
+            Logger.info(
+              "Booking is not active, skipping immediate check-in reminder",
               booking_id: booking_id,
               status: booking.status
             )

@@ -31,11 +31,18 @@ defmodule YscWeb.Components.ImageCarousel do
   use Phoenix.Component
 
   attr :id, :string, required: true, doc: "Unique ID for the carousel"
-  attr :images, :list, required: true, doc: "List of image maps with :src and :alt keys"
-  attr :class, :string, default: "", doc: "Additional CSS classes for the container"
+
+  attr :images, :list,
+    required: true,
+    doc: "List of image maps with :src and :alt keys"
+
+  attr :class, :string,
+    default: "",
+    doc: "Additional CSS classes for the container"
 
   slot :overlay,
-    doc: "Optional overlay content (e.g., title section) that appears over the carousel"
+    doc:
+      "Optional overlay content (e.g., title section) that appears over the carousel"
 
   def image_carousel(assigns) do
     assigns =
@@ -296,7 +303,12 @@ defmodule YscWeb.Components.ImageCarousel do
               viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
             >
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </label>
         <% end %>

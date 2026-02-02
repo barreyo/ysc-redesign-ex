@@ -102,12 +102,16 @@ defmodule YscWeb.Emails.EventNotification do
 
       {date, nil} ->
         # Convert DateTime to Date if needed
-        date_only = if is_struct(date, DateTime), do: DateTime.to_date(date), else: date
+        date_only =
+          if is_struct(date, DateTime), do: DateTime.to_date(date), else: date
+
         Calendar.strftime(date_only, "%B %d, %Y")
 
       {date, time} ->
         # Convert DateTime to Date if needed
-        date_only = if is_struct(date, DateTime), do: DateTime.to_date(date), else: date
+        date_only =
+          if is_struct(date, DateTime), do: DateTime.to_date(date), else: date
+
         datetime = DateTime.new!(date_only, time, "Etc/UTC")
         # Convert to PST
         pst_datetime = DateTime.shift_zone!(datetime, "America/Los_Angeles")

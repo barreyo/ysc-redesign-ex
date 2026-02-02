@@ -5,10 +5,16 @@ defmodule YscWeb.UserSessionControllerRateLimitTest do
 
   describe "POST /users/log-in identifier rate limiting" do
     setup do
-      Application.put_env(:ysc, Ysc.AuthRateLimit, ip_limit: 10_000, identifier_limit: 2)
+      Application.put_env(:ysc, Ysc.AuthRateLimit,
+        ip_limit: 10_000,
+        identifier_limit: 2
+      )
 
       on_exit(fn ->
-        Application.put_env(:ysc, Ysc.AuthRateLimit, ip_limit: 10_000, identifier_limit: 10_000)
+        Application.put_env(:ysc, Ysc.AuthRateLimit,
+          ip_limit: 10_000,
+          identifier_limit: 10_000
+        )
       end)
 
       :ok
@@ -31,10 +37,16 @@ defmodule YscWeb.UserSessionControllerRateLimitTest do
 
   describe "GET /users/log-in/passkey identifier rate limiting" do
     setup do
-      Application.put_env(:ysc, Ysc.AuthRateLimit, ip_limit: 10_000, identifier_limit: 2)
+      Application.put_env(:ysc, Ysc.AuthRateLimit,
+        ip_limit: 10_000,
+        identifier_limit: 2
+      )
 
       on_exit(fn ->
-        Application.put_env(:ysc, Ysc.AuthRateLimit, ip_limit: 10_000, identifier_limit: 10_000)
+        Application.put_env(:ysc, Ysc.AuthRateLimit,
+          ip_limit: 10_000,
+          identifier_limit: 10_000
+        )
       end)
 
       user = user_fixture()
@@ -49,7 +61,8 @@ defmodule YscWeb.UserSessionControllerRateLimitTest do
       get(conn, ~p"/users/log-in/passkey", %{"user_id" => encoded_user_id})
       get(conn, ~p"/users/log-in/passkey", %{"user_id" => encoded_user_id})
 
-      conn3 = get(conn, ~p"/users/log-in/passkey", %{"user_id" => encoded_user_id})
+      conn3 =
+        get(conn, ~p"/users/log-in/passkey", %{"user_id" => encoded_user_id})
 
       assert conn3.status == 429
       assert get_resp_header(conn3, "retry-after") != []

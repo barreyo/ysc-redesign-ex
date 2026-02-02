@@ -7,7 +7,8 @@ defmodule Ysc.EventsFixtures do
   alias Ysc.Events
 
   def event_fixture(attrs \\ %{}) do
-    organizer_id = attrs[:organizer_id] || Ysc.AccountsFixtures.user_fixture().id
+    organizer_id =
+      attrs[:organizer_id] || Ysc.AccountsFixtures.user_fixture().id
 
     {:ok, event} =
       attrs
@@ -16,8 +17,12 @@ defmodule Ysc.EventsFixtures do
         description: "A test event description",
         state: :published,
         organizer_id: organizer_id,
-        start_date: DateTime.add(DateTime.utc_now(), 1, :day) |> DateTime.truncate(:second),
-        end_date: DateTime.add(DateTime.utc_now(), 2, :day) |> DateTime.truncate(:second),
+        start_date:
+          DateTime.add(DateTime.utc_now(), 1, :day)
+          |> DateTime.truncate(:second),
+        end_date:
+          DateTime.add(DateTime.utc_now(), 2, :day)
+          |> DateTime.truncate(:second),
         max_attendees: 100,
         published_at: DateTime.utc_now() |> DateTime.truncate(:second)
       })

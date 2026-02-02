@@ -25,14 +25,18 @@ defmodule Ysc.Customers do
       stripe_customer = %Stripe.Customer{id: "cus_test_#{user.id}"}
 
       user = Repo.get!(User, user.id)
-      changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
+
+      changeset =
+        User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
+
       _ = Repo.update(changeset)
 
       {:ok, stripe_customer}
     else
       customer_params = %{
         email: user.email,
-        name: "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
+        name:
+          "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
         phone: user.phone_number,
         description: "User ID: #{user.id}",
         metadata: %{
@@ -47,7 +51,8 @@ defmodule Ysc.Customers do
           user = Repo.get!(User, user.id)
 
           # Update user with Stripe customer ID directly (bypass authorization for system operation)
-          changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
+          changeset =
+            User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
 
           case Repo.update(changeset) do
             {:ok, _updated_user} ->
@@ -57,21 +62,27 @@ defmodule Ysc.Customers do
               # User was updated concurrently, reload and retry once
               require Logger
 
-              Logger.warning("Stale user entry when updating stripe_id, retrying",
+              Logger.warning(
+                "Stale user entry when updating stripe_id, retrying",
                 user_id: user.id,
                 stripe_customer_id: stripe_customer.id
               )
 
               # Reload and retry once
               user = Repo.get!(User, user.id)
-              changeset = User.update_user_changeset(user, %{stripe_id: stripe_customer.id})
+
+              changeset =
+                User.update_user_changeset(user, %{
+                  stripe_id: stripe_customer.id
+                })
 
               case Repo.update(changeset) do
                 {:ok, _updated_user} ->
                   {:ok, stripe_customer}
 
                 {:error, changeset} ->
-                  Logger.error("Failed to update user with stripe_id after retry",
+                  Logger.error(
+                    "Failed to update user with stripe_id after retry",
                     user_id: user.id,
                     stripe_customer_id: stripe_customer.id,
                     changeset_errors: inspect(changeset.errors)
@@ -125,7 +136,8 @@ defmodule Ysc.Customers do
 
         customer_params = %{
           email: user.email,
-          name: "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
+          name:
+            "#{String.capitalize(user.first_name)} #{String.capitalize(user.last_name)}",
           phone: user.phone_number,
           description: "User ID: #{user.id}",
           metadata: %{

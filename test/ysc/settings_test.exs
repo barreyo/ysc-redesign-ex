@@ -17,16 +17,21 @@ defmodule Ysc.SettingsTest do
       # Clear cache before test to ensure fresh state
       Settings.clear_cache()
 
-      setting1 = %SiteSetting{name: "setting1", value: "value1"} |> Repo.insert!()
+      setting1 =
+        %SiteSetting{name: "setting1", value: "value1"} |> Repo.insert!()
+
       # Add a small delay to ensure setting2 gets a later ULID
       Process.sleep(1)
-      setting2 = %SiteSetting{name: "setting2", value: "value2"} |> Repo.insert!()
+
+      setting2 =
+        %SiteSetting{name: "setting2", value: "value2"} |> Repo.insert!()
 
       # Clear cache again to force fresh query from DB
       Settings.clear_cache()
 
       settings = Settings.settings()
       assert length(settings) == 2
+
       # Since setting2 was created after setting1, its ID should be "greater" (newer ULID)
       # and thus come first when ordered by desc
       # Check that both settings are present and setting2 comes first
@@ -111,14 +116,17 @@ defmodule Ysc.SettingsTest do
 
   describe "get_or_create_setting/3" do
     test "returns existing setting value" do
-      %SiteSetting{name: "existing", value: "existing_value", group: "test"} |> Repo.insert!()
+      %SiteSetting{name: "existing", value: "existing_value", group: "test"}
+      |> Repo.insert!()
 
       value = Settings.get_or_create_setting("existing", "test", "default")
       assert value == "existing_value"
     end
 
     test "creates setting with default value if not exists" do
-      value = Settings.get_or_create_setting("new_setting", "test", "default_value")
+      value =
+        Settings.get_or_create_setting("new_setting", "test", "default_value")
+
       assert value == "default_value"
 
       # Verify it was created in DB
@@ -137,7 +145,9 @@ defmodule Ysc.SettingsTest do
       assert value2 == "default"
 
       # Should only have one setting in DB
-      settings = Repo.all(from s in SiteSetting, where: s.name == "race_setting")
+      settings =
+        Repo.all(from s in SiteSetting, where: s.name == "race_setting")
+
       assert length(settings) == 1
     end
   end
@@ -153,7 +163,8 @@ defmodule Ysc.SettingsTest do
     end
 
     test "uses cache when available" do
-      setting = %SiteSetting{name: "cached_safe", value: "cached"} |> Repo.insert!()
+      setting =
+        %SiteSetting{name: "cached_safe", value: "cached"} |> Repo.insert!()
 
       # First call populates cache
       assert Settings.get_setting_safe("cached_safe") == "cached"
@@ -170,9 +181,14 @@ defmodule Ysc.SettingsTest do
 
   describe "settings_grouped_by_scope/0" do
     test "groups settings by scope" do
-      %SiteSetting{name: "setting1", value: "value1", group: "group1"} |> Repo.insert!()
-      %SiteSetting{name: "setting2", value: "value2", group: "group1"} |> Repo.insert!()
-      %SiteSetting{name: "setting3", value: "value3", group: "group2"} |> Repo.insert!()
+      %SiteSetting{name: "setting1", value: "value1", group: "group1"}
+      |> Repo.insert!()
+
+      %SiteSetting{name: "setting2", value: "value2", group: "group1"}
+      |> Repo.insert!()
+
+      %SiteSetting{name: "setting3", value: "value3", group: "group2"}
+      |> Repo.insert!()
 
       Settings.clear_cache()
       grouped = Settings.settings_grouped_by_scope()
@@ -228,7 +244,8 @@ defmodule Ysc.SettingsTest do
     end
 
     test "does not overwrite existing settings" do
-      %SiteSetting{name: "site_name", value: "Custom Name", group: "general"} |> Repo.insert!()
+      %SiteSetting{name: "site_name", value: "Custom Name", group: "general"}
+      |> Repo.insert!()
 
       Settings.ensure_settings_exist()
 

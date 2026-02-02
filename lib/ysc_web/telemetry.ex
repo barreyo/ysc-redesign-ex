@@ -97,7 +97,8 @@ defmodule YscWeb.Telemetry do
       ),
       summary("ysc.repo.query.decode_time",
         unit: {:native, :millisecond},
-        description: "The time spent decoding the data received from the database"
+        description:
+          "The time spent decoding the data received from the database"
       ),
       summary("ysc.repo.query.query_time",
         unit: {:native, :millisecond},

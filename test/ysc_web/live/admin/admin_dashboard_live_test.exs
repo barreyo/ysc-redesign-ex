@@ -22,7 +22,11 @@ defmodule YscWeb.AdminDashboardLiveTest do
     test "navigates to user review from pending applications", %{conn: conn} do
       # Create a pending user
       pending_user =
-        user_fixture(%{state: "pending_approval", first_name: "Pending", last_name: "User"})
+        user_fixture(%{
+          state: "pending_approval",
+          first_name: "Pending",
+          last_name: "User"
+        })
 
       # We need to ensure the user has a registration form if the dashboard expects it for some UI elements,
       # but let's see if it renders without it first.
@@ -46,7 +50,10 @@ defmodule YscWeb.AdminDashboardLiveTest do
         "search" => ""
       }
 
-      assert_redirected(view, ~p"/admin/users/#{pending_user.id}/review?#{params}")
+      assert_redirected(
+        view,
+        ~p"/admin/users/#{pending_user.id}/review?#{params}"
+      )
     end
   end
 end

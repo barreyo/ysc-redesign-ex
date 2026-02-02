@@ -17,7 +17,8 @@ defmodule YscWeb.OrderConfirmationLiveTest do
     {:ok, user} =
       user
       |> Ecto.Changeset.change(%{
-        lifetime_membership_awarded_at: DateTime.utc_now() |> DateTime.truncate(:second)
+        lifetime_membership_awarded_at:
+          DateTime.utc_now() |> DateTime.truncate(:second)
       })
       |> Repo.update()
 
@@ -143,7 +144,8 @@ defmodule YscWeb.OrderConfirmationLiveTest do
 
   describe "mount/3 - authentication" do
     test "redirects unauthenticated users to login page", %{conn: conn} do
-      {:error, {:redirect, %{to: path}}} = live(conn, ~p"/orders/01KG5TEST123/confirmation")
+      {:error, {:redirect, %{to: path}}} =
+        live(conn, ~p"/orders/01KG5TEST123/confirmation")
 
       # Redirects to login (handled by LiveView authentication plug)
       assert path == "/users/log-in"
@@ -250,7 +252,8 @@ defmodule YscWeb.OrderConfirmationLiveTest do
 
       conn = log_in_user(conn, user)
 
-      {:ok, _view, html} = live(conn, ~p"/orders/#{order.id}/confirmation?confetti=true")
+      {:ok, _view, html} =
+        live(conn, ~p"/orders/#{order.id}/confirmation?confetti=true")
 
       assert html =~ "data-show-confetti=\"true\""
     end
@@ -287,7 +290,13 @@ defmodule YscWeb.OrderConfirmationLiveTest do
   describe "event details display" do
     test "displays event title and description", %{conn: conn} do
       user = create_user_with_membership()
-      event = create_event(%{title: "Annual Gala", description: "A wonderful evening"})
+
+      event =
+        create_event(%{
+          title: "Annual Gala",
+          description: "A wonderful evening"
+        })
+
       tier = create_ticket_tier(event)
       order = create_ticket_order(user, event)
       _ticket = create_ticket(order, tier)
@@ -318,7 +327,10 @@ defmodule YscWeb.OrderConfirmationLiveTest do
       user = create_user_with_membership()
 
       event =
-        create_event(%{location_name: "Grand Hall", address: "123 Main St, San Francisco, CA"})
+        create_event(%{
+          location_name: "Grand Hall",
+          address: "123 Main St, San Francisco, CA"
+        })
 
       tier = create_ticket_tier(event)
       order = create_ticket_order(user, event)
@@ -395,7 +407,13 @@ defmodule YscWeb.OrderConfirmationLiveTest do
     test "displays ticket price", %{conn: conn} do
       user = create_user_with_membership()
       event = create_event(%{})
-      tier = create_ticket_tier(event, %{price: Money.new(2500, :USD), name: "General Admission"})
+
+      tier =
+        create_ticket_tier(event, %{
+          price: Money.new(2500, :USD),
+          name: "General Admission"
+        })
+
       order = create_ticket_order(user, event)
       _ticket = create_ticket(order, tier)
 
@@ -412,7 +430,10 @@ defmodule YscWeb.OrderConfirmationLiveTest do
       user = create_user_with_membership()
       event = create_event(%{})
       tier = create_ticket_tier(event, %{price: Money.new(0, :USD)})
-      order = create_ticket_order(user, event, %{total_amount: Money.new(0, :USD)})
+
+      order =
+        create_ticket_order(user, event, %{total_amount: Money.new(0, :USD)})
+
       _ticket = create_ticket(order, tier)
 
       conn = log_in_user(conn, user)
@@ -514,7 +535,9 @@ defmodule YscWeb.OrderConfirmationLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/orders/#{order.id}/confirmation")
 
-      assert {:error, {:redirect, %{to: path}}} = render_click(view, "view-tickets")
+      assert {:error, {:redirect, %{to: path}}} =
+               render_click(view, "view-tickets")
+
       assert path == "/users/tickets"
     end
 
@@ -529,7 +552,9 @@ defmodule YscWeb.OrderConfirmationLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/orders/#{order.id}/confirmation")
 
-      assert {:error, {:redirect, %{to: path}}} = render_click(view, "view-event")
+      assert {:error, {:redirect, %{to: path}}} =
+               render_click(view, "view-event")
+
       assert path == "/events/#{event.id}"
     end
   end

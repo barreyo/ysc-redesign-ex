@@ -25,7 +25,8 @@ defmodule Ysc.Messages.Requeue do
 
     query =
       from(j in Job,
-        where: j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
+        where:
+          j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
         where: j.state in ["discarded", "retryable"],
         order_by: [
           desc: fragment("COALESCE(?, ?)", j.discarded_at, j.inserted_at),
@@ -36,7 +37,11 @@ defmodule Ysc.Messages.Requeue do
 
     query =
       if since do
-        where(query, [j], fragment("COALESCE(?, ?)", j.discarded_at, j.inserted_at) >= ^since)
+        where(
+          query,
+          [j],
+          fragment("COALESCE(?, ?)", j.discarded_at, j.inserted_at) >= ^since
+        )
       else
         query
       end
@@ -51,7 +56,8 @@ defmodule Ysc.Messages.Requeue do
     # Total failed (discarded + retryable)
     total_failed =
       from(j in Job,
-        where: j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
+        where:
+          j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
         where: j.state in ["discarded", "retryable"],
         select: count()
       )
@@ -60,7 +66,8 @@ defmodule Ysc.Messages.Requeue do
     # Discarded (exhausted retries)
     discarded =
       from(j in Job,
-        where: j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
+        where:
+          j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
         where: j.state == "discarded",
         select: count()
       )
@@ -69,7 +76,8 @@ defmodule Ysc.Messages.Requeue do
     # Retryable (can still retry)
     retryable =
       from(j in Job,
-        where: j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
+        where:
+          j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
         where: j.state == "retryable",
         select: count()
       )
@@ -78,7 +86,8 @@ defmodule Ysc.Messages.Requeue do
     # By template - load jobs and group in Elixir for reliability
     jobs_for_template_stats =
       from(j in Job,
-        where: j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
+        where:
+          j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
         where: j.state in ["discarded", "retryable"],
         select: j.args
       )
@@ -94,9 +103,12 @@ defmodule Ysc.Messages.Requeue do
 
     recent_failures =
       from(j in Job,
-        where: j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
+        where:
+          j.queue == "mailers" and j.worker == "YscWeb.Workers.EmailNotifier",
         where: j.state in ["discarded", "retryable"],
-        where: fragment("COALESCE(?, ?)", j.discarded_at, j.inserted_at) >= ^since_24h,
+        where:
+          fragment("COALESCE(?, ?)", j.discarded_at, j.inserted_at) >=
+            ^since_24h,
         select: count()
       )
       |> Repo.one()

@@ -60,7 +60,12 @@ defmodule YscWeb.EventsLiveTest do
       image_id: if(image, do: image.id, else: nil)
     }
 
-    attrs = attrs |> Map.delete(:organizer) |> Map.delete(:with_image) |> Map.delete(:past)
+    attrs =
+      attrs
+      |> Map.delete(:organizer)
+      |> Map.delete(:with_image)
+      |> Map.delete(:past)
+
     attrs = Map.merge(default_attrs, attrs)
 
     {:ok, event} =
@@ -183,7 +188,9 @@ defmodule YscWeb.EventsLiveTest do
   end
 
   describe "past events gallery" do
-    test "does not show past events section when no past events exist", %{conn: conn} do
+    test "does not show past events section when no past events exist", %{
+      conn: conn
+    } do
       {:ok, view, _html} = live(conn, ~p"/events")
 
       # Wait for async data
@@ -369,7 +376,8 @@ defmodule YscWeb.EventsLiveTest do
 
   describe "image handling" do
     test "displays blur hash for past events without image", %{conn: conn} do
-      _past_event = create_event(%{title: "No Image Event", past: true, with_image: false})
+      _past_event =
+        create_event(%{title: "No Image Event", past: true, with_image: false})
 
       {:ok, view, _html} = live(conn, ~p"/events")
 
@@ -383,7 +391,8 @@ defmodule YscWeb.EventsLiveTest do
     end
 
     test "displays optimized image when available", %{conn: conn} do
-      _past_event = create_event(%{title: "Event With Image", past: true, with_image: true})
+      _past_event =
+        create_event(%{title: "Event With Image", past: true, with_image: true})
 
       {:ok, view, _html} = live(conn, ~p"/events")
 
@@ -418,7 +427,8 @@ defmodule YscWeb.EventsLiveTest do
 
       html = render(view)
       # Should have alt attributes
-      assert html =~ "alt=" or html =~ "Accessible Event" or not (html =~ "Accessible Event")
+      assert html =~ "alt=" or html =~ "Accessible Event" or
+               not (html =~ "Accessible Event")
     end
 
     test "includes proper heading hierarchy", %{conn: conn} do

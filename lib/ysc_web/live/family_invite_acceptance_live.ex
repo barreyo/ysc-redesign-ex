@@ -17,7 +17,10 @@ defmodule YscWeb.FamilyInviteAcceptanceLive do
       not FamilyInvite.valid?(invite) ->
         {:ok,
          socket
-         |> put_flash(:error, "This invitation has expired or has already been used.")
+         |> put_flash(
+           :error,
+           "This invitation has expired or has already been used."
+         )
          |> redirect(to: ~p"/")}
 
       true ->
@@ -95,7 +98,10 @@ defmodule YscWeb.FamilyInviteAcceptanceLive do
       {:error, :invite_expired_or_used} ->
         {:noreply,
          socket
-         |> put_flash(:error, "This invitation has expired or has already been used.")
+         |> put_flash(
+           :error,
+           "This invitation has expired or has already been used."
+         )
          |> redirect(to: ~p"/")}
 
       {:error, changeset} ->
@@ -111,7 +117,9 @@ defmodule YscWeb.FamilyInviteAcceptanceLive do
         <h1>Accept Family Invitation</h1>
 
         <p>
-          You've been invited by <strong><%= @invite.primary_user.first_name %></strong> to join
+          You've been invited by
+          <strong><%= @invite.primary_user.first_name %></strong>
+          to join
           their YSC family membership!
         </p>
 
@@ -121,13 +129,32 @@ defmodule YscWeb.FamilyInviteAcceptanceLive do
         </p>
 
         <div class="mt-8">
-          <.simple_form for={@form} id="accept-invite-form" phx-submit="save" phx-change="validate">
+          <.simple_form
+            for={@form}
+            id="accept-invite-form"
+            phx-submit="save"
+            phx-change="validate"
+          >
             <.input field={@form[:email]} type="email" label="Email" required />
             <.input field={@form[:first_name]} label="First Name" required />
             <.input field={@form[:last_name]} label="Last Name" required />
-            <.input field={@form[:date_of_birth]} type="date" label="Date of Birth" required />
-            <.input type="phone-input" label="Phone Number" field={@form[:phone_number]} />
-            <.input field={@form[:password]} type="password-toggle" label="Password" required />
+            <.input
+              field={@form[:date_of_birth]}
+              type="date"
+              label="Date of Birth"
+              required
+            />
+            <.input
+              type="phone-input"
+              label="Phone Number"
+              field={@form[:phone_number]}
+            />
+            <.input
+              field={@form[:password]}
+              type="password-toggle"
+              label="Password"
+              required
+            />
             <.input
               field={@form[:password_confirmation]}
               type="password-toggle"
@@ -136,7 +163,9 @@ defmodule YscWeb.FamilyInviteAcceptanceLive do
             />
 
             <:actions>
-              <.button type="submit" phx-disable-with="Creating...">Create Account</.button>
+              <.button type="submit" phx-disable-with="Creating...">
+                Create Account
+              </.button>
             </:actions>
           </.simple_form>
         </div>

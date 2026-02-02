@@ -57,7 +57,8 @@ defmodule LivePhoneTest do
 
       {:ok, updated_socket} = LivePhone.update(assigns, socket)
 
-      assert is_binary(updated_socket.assigns.masks) || is_nil(updated_socket.assigns.masks)
+      assert is_binary(updated_socket.assigns.masks) ||
+               is_nil(updated_socket.assigns.masks)
     end
 
     test "does not set masks when apply_format? is false" do
@@ -209,7 +210,8 @@ defmodule LivePhoneTest do
 
       assert updated_socket.assigns.opened? == true
 
-      {:noreply, updated_socket2} = LivePhone.handle_event("toggle", %{}, updated_socket)
+      {:noreply, updated_socket2} =
+        LivePhone.handle_event("toggle", %{}, updated_socket)
 
       assert updated_socket2.assigns.opened? == false
     end

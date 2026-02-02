@@ -19,7 +19,8 @@ defmodule Ysc.Tickets.StripeServiceTest do
     user =
       user
       |> Ecto.Changeset.change(
-        lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        lifetime_membership_awarded_at:
+          DateTime.truncate(DateTime.utc_now(), :second)
       )
       |> Ysc.Repo.update!()
 
@@ -27,7 +28,9 @@ defmodule Ysc.Tickets.StripeServiceTest do
     tier = ticket_tier_fixture(%{event_id: event.id})
 
     ticket_selections = %{tier.id => 1}
-    {:ok, ticket_order} = Ysc.Tickets.create_ticket_order(user.id, event.id, ticket_selections)
+
+    {:ok, ticket_order} =
+      Ysc.Tickets.create_ticket_order(user.id, event.id, ticket_selections)
 
     # Configure Stripe client mock
     Application.put_env(:ysc, :stripe_client, Ysc.StripeMock)
@@ -36,7 +39,9 @@ defmodule Ysc.Tickets.StripeServiceTest do
   end
 
   describe "create_payment_intent/2" do
-    test "creates payment intent with correct parameters", %{ticket_order: ticket_order} do
+    test "creates payment intent with correct parameters", %{
+      ticket_order: ticket_order
+    } do
       expect(Ysc.StripeMock, :create_payment_intent, fn params, _opts ->
         # $50.00 in cents
         assert params.amount == 5000
@@ -46,7 +51,9 @@ defmodule Ysc.Tickets.StripeServiceTest do
         {:ok, %{id: "pi_test_123", status: "requires_payment_method"}}
       end)
 
-      assert {:ok, payment_intent} = StripeService.create_payment_intent(ticket_order)
+      assert {:ok, payment_intent} =
+               StripeService.create_payment_intent(ticket_order)
+
       assert payment_intent.id == "pi_test_123"
     end
 
@@ -57,15 +64,23 @@ defmodule Ysc.Tickets.StripeServiceTest do
       end)
 
       assert {:ok, _} =
-               StripeService.create_payment_intent(ticket_order, customer_id: "cus_test_123")
+               StripeService.create_payment_intent(ticket_order,
+                 customer_id: "cus_test_123"
+               )
     end
 
     test "handles Stripe errors gracefully", %{ticket_order: ticket_order} do
       expect(Ysc.StripeMock, :create_payment_intent, fn _params, _opts ->
-        {:error, %Stripe.Error{message: "Card declined", source: :api, code: "card_declined"}}
+        {:error,
+         %Stripe.Error{
+           message: "Card declined",
+           source: :api,
+           code: "card_declined"
+         }}
       end)
 
-      assert {:error, "Card declined"} = StripeService.create_payment_intent(ticket_order)
+      assert {:error, "Card declined"} =
+               StripeService.create_payment_intent(ticket_order)
     end
   end
 

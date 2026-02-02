@@ -96,7 +96,10 @@ defmodule YscWeb.AuthorizationTest do
       }
     end
 
-    test "user can access their own booking checkout", %{conn: conn, booking: booking} do
+    test "user can access their own booking checkout", %{
+      conn: conn,
+      booking: booking
+    } do
       {:ok, _view, html} = live(conn, ~p"/bookings/checkout/#{booking.id}")
 
       assert html =~ "Complete Your Booking"
@@ -120,7 +123,9 @@ defmodule YscWeb.AuthorizationTest do
       ticket_order = ticket_order_fixture(user_id: user.id, status: :pending)
 
       other_user = user_fixture()
-      other_ticket_order = ticket_order_fixture(user_id: other_user.id, status: :pending)
+
+      other_ticket_order =
+        ticket_order_fixture(user_id: other_user.id, status: :pending)
 
       %{
         conn: log_in_user(conn, user),
@@ -181,7 +186,9 @@ defmodule YscWeb.AuthorizationTest do
       ticket_order = ticket_order_fixture(user_id: user.id, status: :completed)
 
       other_user = user_fixture()
-      other_ticket_order = ticket_order_fixture(user_id: other_user.id, status: :completed)
+
+      other_ticket_order =
+        ticket_order_fixture(user_id: other_user.id, status: :completed)
 
       %{
         conn: log_in_user(conn, user),
@@ -196,7 +203,8 @@ defmodule YscWeb.AuthorizationTest do
       conn: conn,
       ticket_order: ticket_order
     } do
-      {:ok, _view, html} = live(conn, ~p"/orders/#{ticket_order.id}/confirmation")
+      {:ok, _view, html} =
+        live(conn, ~p"/orders/#{ticket_order.id}/confirmation")
 
       assert html =~ "Order Confirmation"
     end
@@ -229,7 +237,10 @@ defmodule YscWeb.AuthorizationTest do
       }
     end
 
-    test "user can access their own booking receipt", %{conn: conn, booking: booking} do
+    test "user can access their own booking receipt", %{
+      conn: conn,
+      booking: booking
+    } do
       {:ok, _view, html} = live(conn, ~p"/bookings/#{booking.id}/receipt")
 
       assert html =~ "Booking Confirmation"
@@ -252,7 +263,9 @@ defmodule YscWeb.AuthorizationTest do
       ticket_order = ticket_order_fixture(user_id: user.id, status: :completed)
 
       other_user = user_fixture()
-      other_ticket_order = ticket_order_fixture(user_id: other_user.id, status: :completed)
+
+      other_ticket_order =
+        ticket_order_fixture(user_id: other_user.id, status: :completed)
 
       %{
         user: user,

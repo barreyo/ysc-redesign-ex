@@ -100,6 +100,7 @@ defmodule Ysc.Accounts.AddressTest do
 
       changeset = Address.changeset(%Address{}, attrs)
       refute changeset.valid?
+
       assert "should be at most 255 character(s)" in errors_on(changeset).address
     end
 
@@ -152,6 +153,7 @@ defmodule Ysc.Accounts.AddressTest do
 
       changeset = Address.changeset(%Address{}, attrs)
       refute changeset.valid?
+
       assert "should be at most 20 character(s)" in errors_on(changeset).postal_code
     end
 
@@ -165,6 +167,7 @@ defmodule Ysc.Accounts.AddressTest do
 
       changeset = Address.changeset(%Address{}, attrs)
       refute changeset.valid?
+
       assert "should be at most 100 character(s)" in errors_on(changeset).country
     end
 
@@ -204,7 +207,12 @@ defmodule Ysc.Accounts.AddressTest do
         country: "United States"
       }
 
-      changeset = Address.from_signup_application_changeset(%Address{}, signup_application)
+      changeset =
+        Address.from_signup_application_changeset(
+          %Address{},
+          signup_application
+        )
+
       assert changeset.valid?
       assert Ecto.Changeset.get_change(changeset, :address) == "789 Elm St"
       assert Ecto.Changeset.get_change(changeset, :city) == "Los Angeles"
@@ -222,7 +230,12 @@ defmodule Ysc.Accounts.AddressTest do
         country: "Canada"
       }
 
-      changeset = Address.from_signup_application_changeset(%Address{}, signup_application)
+      changeset =
+        Address.from_signup_application_changeset(
+          %Address{},
+          signup_application
+        )
+
       assert changeset.valid?
       assert Ecto.Changeset.get_change(changeset, :region) == nil
     end
@@ -236,7 +249,12 @@ defmodule Ysc.Accounts.AddressTest do
         country: "United States"
       }
 
-      changeset = Address.from_signup_application_changeset(%Address{}, signup_application)
+      changeset =
+        Address.from_signup_application_changeset(
+          %Address{},
+          signup_application
+        )
+
       refute changeset.valid?
       assert "can't be blank" in errors_on(changeset).city
     end
@@ -250,8 +268,14 @@ defmodule Ysc.Accounts.AddressTest do
         country: "United States"
       }
 
-      changeset = Address.from_signup_application_changeset(%Address{}, signup_application)
+      changeset =
+        Address.from_signup_application_changeset(
+          %Address{},
+          signup_application
+        )
+
       refute changeset.valid?
+
       assert "should be at most 255 character(s)" in errors_on(changeset).address
     end
   end

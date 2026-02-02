@@ -99,12 +99,19 @@ defmodule YscWeb.Components.Autocomplete do
 
     ~H"""
     <div class={["relative", @class]} id={@id} phx-hook="Autocomplete">
-      <label :if={@label != ""} class="block text-sm font-semibold leading-6 text-zinc-800">
+      <label
+        :if={@label != ""}
+        class="block text-sm font-semibold leading-6 text-zinc-800"
+      >
         <%= @label %>
       </label>
 
       <%!-- Hidden input for form submission --%>
-      <input type="hidden" name={@name} value={if @selected, do: @value_fn.(@selected), else: ""} />
+      <input
+        type="hidden"
+        name={@name}
+        value={if @selected, do: @value_fn.(@selected), else: ""}
+      />
 
       <%!-- Selected item display --%>
       <div :if={@selected} class="mt-2">

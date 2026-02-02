@@ -70,12 +70,21 @@ defmodule Ysc.WebhooksTest do
       }
 
       event = Webhooks.create_webhook_event!(attrs)
-      found = Webhooks.get_webhook_event_by_provider_and_event_id(:stripe, "evt_provider")
+
+      found =
+        Webhooks.get_webhook_event_by_provider_and_event_id(
+          :stripe,
+          "evt_provider"
+        )
+
       assert found.id == event.id
     end
 
     test "returns nil for non-existent event" do
-      assert Webhooks.get_webhook_event_by_provider_and_event_id(:stripe, "evt_nonexistent") ==
+      assert Webhooks.get_webhook_event_by_provider_and_event_id(
+               :stripe,
+               "evt_nonexistent"
+             ) ==
                nil
     end
   end
@@ -168,7 +177,9 @@ defmodule Ysc.WebhooksTest do
       event = Webhooks.create_webhook_event!(attrs)
       # Note: The function accepts :complete but enum only has :processed
       # Using :processed to match the enum definition
-      assert {:ok, updated} = Webhooks.update_webhook_event_state(event.id, :processed)
+      assert {:ok, updated} =
+               Webhooks.update_webhook_event_state(event.id, :processed)
+
       assert updated.state == :processed
     end
 
@@ -182,13 +193,19 @@ defmodule Ysc.WebhooksTest do
       }
 
       event = Webhooks.create_webhook_event!(attrs)
-      assert {:ok, updated} = Webhooks.update_webhook_event_state(event.id, :failed)
+
+      assert {:ok, updated} =
+               Webhooks.update_webhook_event_state(event.id, :failed)
+
       assert updated.state == :failed
     end
 
     test "returns error for non-existent event" do
       assert {:error, :not_found} =
-               Webhooks.update_webhook_event_state(Ecto.ULID.generate(), :processed)
+               Webhooks.update_webhook_event_state(
+                 Ecto.ULID.generate(),
+                 :processed
+               )
     end
   end
 
@@ -211,7 +228,8 @@ defmodule Ysc.WebhooksTest do
     end
 
     test "returns error for non-existent event" do
-      assert {:error, :not_found} = Webhooks.lock_webhook_event(Ecto.ULID.generate())
+      assert {:error, :not_found} =
+               Webhooks.lock_webhook_event(Ecto.ULID.generate())
     end
 
     test "returns error for already processing event" do
@@ -224,7 +242,9 @@ defmodule Ysc.WebhooksTest do
       }
 
       event = Webhooks.create_webhook_event!(attrs)
-      assert {:error, :already_processing} = Webhooks.lock_webhook_event(event.id)
+
+      assert {:error, :already_processing} =
+               Webhooks.lock_webhook_event(event.id)
     end
   end
 
@@ -244,7 +264,8 @@ defmodule Ysc.WebhooksTest do
     end
 
     test "returns error for non-existent webhook" do
-      assert {:error, :not_found} = Webhooks.get_and_lock_webhook(Ecto.ULID.generate())
+      assert {:error, :not_found} =
+               Webhooks.get_and_lock_webhook(Ecto.ULID.generate())
     end
   end
 end

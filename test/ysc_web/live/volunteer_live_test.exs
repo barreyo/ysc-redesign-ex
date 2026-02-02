@@ -23,7 +23,9 @@ defmodule YscWeb.VolunteerLiveTest do
       assert has_element?(view, "#volunteer-form")
     end
 
-    test "displays name and email fields for unauthenticated users", %{conn: conn} do
+    test "displays name and email fields for unauthenticated users", %{
+      conn: conn
+    } do
       {:ok, view, _html} = live(conn, ~p"/volunteer")
 
       assert has_element?(view, "input[name='volunteer[name]']")
@@ -54,7 +56,13 @@ defmodule YscWeb.VolunteerLiveTest do
     end
 
     test "pre-fills name and email for authenticated users", %{conn: conn} do
-      user = user_fixture(%{first_name: "Alice", last_name: "Smith", email: "alice@example.com"})
+      user =
+        user_fixture(%{
+          first_name: "Alice",
+          last_name: "Smith",
+          email: "alice@example.com"
+        })
+
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} = live(conn, ~p"/volunteer")
@@ -64,7 +72,8 @@ defmodule YscWeb.VolunteerLiveTest do
       assert html =~ "alice@example.com"
     end
 
-    test "does not show visible name and email fields for authenticated users", %{conn: conn} do
+    test "does not show visible name and email fields for authenticated users",
+         %{conn: conn} do
       user = user_fixture()
       conn = log_in_user(conn, user)
 

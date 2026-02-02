@@ -21,14 +21,31 @@ defmodule YscWeb.Sms.Notifier do
 
   Checks user preferences and phone number before scheduling.
   """
-  @spec schedule_sms(String.t(), String.t(), String.t(), map(), String.t() | nil) ::
+  @spec schedule_sms(
+          String.t(),
+          String.t(),
+          String.t(),
+          map(),
+          String.t() | nil
+        ) ::
           {:ok, Oban.Job.t()} | {:error, atom()}
-  def schedule_sms(phone_number, idempotency_key, template, variables, user_id \\ nil) do
+  def schedule_sms(
+        phone_number,
+        idempotency_key,
+        template,
+        variables,
+        user_id \\ nil
+      ) do
     # Get category for this template
     category = Ysc.Accounts.SmsCategories.get_category(template)
 
     # Check user preferences and validate phone number
-    case validate_and_get_phone_number(phone_number, template, user_id, category) do
+    case validate_and_get_phone_number(
+           phone_number,
+           template,
+           user_id,
+           category
+         ) do
       {:ok, validated_phone_number} ->
         # Oban jobs require string keys in args
         job =
@@ -44,7 +61,8 @@ defmodule YscWeb.Sms.Notifier do
 
         case Oban.insert(job) do
           {:ok, %Oban.Job{} = inserted_job} ->
-            Logger.debug("Sms.Notifier.schedule_sms: SMS job inserted successfully",
+            Logger.debug(
+              "Sms.Notifier.schedule_sms: SMS job inserted successfully",
               job_id: inserted_job.id,
               phone_number: validated_phone_number,
               template: template,
@@ -93,7 +111,11 @@ defmodule YscWeb.Sms.Notifier do
       phone_number_type:
         if(is_binary(phone_number),
           do: "binary",
-          else: if(is_struct(phone_number), do: inspect(phone_number.__struct__), else: "unknown")
+          else:
+            if(is_struct(phone_number),
+              do: inspect(phone_number.__struct__),
+              else: "unknown"
+            )
         ),
       phone_number_inspect: inspect(phone_number),
       template: template,
@@ -105,7 +127,8 @@ defmodule YscWeb.Sms.Notifier do
     if user_id do
       case Ysc.Accounts.get_user(user_id) do
         nil ->
-          Logger.warning("SMS scheduled without user validation - user not found",
+          Logger.warning(
+            "SMS scheduled without user validation - user not found",
             user_id: user_id,
             template: template
           )
@@ -151,7 +174,8 @@ defmodule YscWeb.Sms.Notifier do
               if is_valid do
                 {:ok, normalized}
               else
-                Logger.warning("SMS not scheduled - invalid phone number format",
+                Logger.warning(
+                  "SMS not scheduled - invalid phone number format",
                   phone_number: validated_phone,
                   normalized: normalized,
                   template: template
@@ -207,9 +231,21 @@ defmodule YscWeb.Sms.Notifier do
 
   Checks user preferences and phone number before sending.
   """
-  @spec send_sms_idempotent(String.t(), String.t(), String.t(), map(), String.t() | nil) ::
+  @spec send_sms_idempotent(
+          String.t(),
+          String.t(),
+          String.t(),
+          map(),
+          String.t() | nil
+        ) ::
           {:ok, map()} | {:error, String.t()}
-  def send_sms_idempotent(phone_number, idempotency_key, template, variables, user_id \\ nil) do
+  def send_sms_idempotent(
+        phone_number,
+        idempotency_key,
+        template,
+        variables,
+        user_id \\ nil
+      ) do
     # Get template module
     template_module = get_template_module(template)
 
@@ -237,7 +273,11 @@ defmodule YscWeb.Sms.Notifier do
             user_id: user_id
           }
 
-          Ysc.Messages.run_send_sms_idempotent(validated_phone_number, body, attrs)
+          Ysc.Messages.run_send_sms_idempotent(
+            validated_phone_number,
+            body,
+            attrs
+          )
 
         {:error, _reason} = error ->
           error

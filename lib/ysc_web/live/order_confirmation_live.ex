@@ -98,7 +98,9 @@ defmodule YscWeb.OrderConfirmationLive do
           <%= if @ticket_order.status == :cancelled do %>
             <div class="flex items-center gap-2 text-red-600 mb-2">
               <.icon name="hero-x-circle" class="w-6 h-6" />
-              <span class="font-bold uppercase tracking-wider text-sm">Order Cancelled</span>
+              <span class="font-bold uppercase tracking-wider text-sm">
+                Order Cancelled
+              </span>
             </div>
             <h1 class="text-4xl font-bold text-zinc-900">
               Order Cancelled
@@ -108,7 +110,9 @@ defmodule YscWeb.OrderConfirmationLive do
               has been cancelled.
               <%= if @refund_data && @refund_data.total_refunded do %>
                 A refund of
-                <strong><%= MoneyHelper.format_money!(@refund_data.total_refunded) %></strong>
+                <strong>
+                  <%= MoneyHelper.format_money!(@refund_data.total_refunded) %>
+                </strong>
                 has been processed.
               <% else %>
                 Refund information is shown in the payment summary on the right.
@@ -117,7 +121,9 @@ defmodule YscWeb.OrderConfirmationLive do
           <% else %>
             <div class="flex items-center gap-2 text-green-600 mb-2">
               <.icon name="hero-check-circle-solid" class="w-6 h-6" />
-              <span class="font-bold uppercase tracking-wider text-sm">Order Confirmed</span>
+              <span class="font-bold uppercase tracking-wider text-sm">
+                Order Confirmed
+              </span>
             </div>
             <h1 class="text-4xl font-bold text-zinc-900">
               See you at the Event, <%= @user_first_name %>!
@@ -129,7 +135,9 @@ defmodule YscWeb.OrderConfirmationLive do
           <% end %>
         </div>
         <div class="text-left md:text-right">
-          <p class="text-xs font-bold text-zinc-400 uppercase tracking-widest">Order Reference</p>
+          <p class="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+            Order Reference
+          </p>
           <p class="font-mono text-lg font-semibold text-zinc-900 whitespace-nowrap">
             <%= @ticket_order.reference_id %>
           </p>
@@ -155,7 +163,10 @@ defmodule YscWeb.OrderConfirmationLive do
               <% else %>
                 <div class="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center relative z-0">
                   <div class="text-center text-white">
-                    <.icon name="hero-calendar" class="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <.icon
+                      name="hero-calendar"
+                      class="w-16 h-16 mx-auto mb-4 opacity-50"
+                    />
                     <p class="text-xl font-semibold"><%= @event.title %></p>
                   </div>
                 </div>
@@ -163,10 +174,13 @@ defmodule YscWeb.OrderConfirmationLive do
               <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent flex items-end p-6 z-10">
                 <div class="flex items-center justify-between w-full">
                   <h2 class="text-white text-xl font-bold flex items-center gap-2">
-                    <.icon name="hero-information-circle" class="w-8 h-8" /> Event Details
+                    <.icon name="hero-information-circle" class="w-8 h-8" />
+                    Event Details
                   </h2>
                   <span class="text-sm font-medium bg-blue-100 text-blue-700 px-3 py-1 rounded-full">
-                    <%= length(@ticket_order.tickets) %> <%= if length(@ticket_order.tickets) == 1 do
+                    <%= length(@ticket_order.tickets) %> <%= if length(
+                                                                  @ticket_order.tickets
+                                                                ) == 1 do
                       "Ticket"
                     else
                       "Tickets"
@@ -182,7 +196,9 @@ defmodule YscWeb.OrderConfirmationLive do
                 <p class="text-sm text-zinc-500"><%= @event.description %></p>
               </div>
               <div>
-                <p class="text-xs font-bold text-zinc-400 uppercase mb-1">Date & Time</p>
+                <p class="text-xs font-bold text-zinc-400 uppercase mb-1">
+                  Date & Time
+                </p>
                 <p class="text-xl font-bold text-zinc-900">
                   <%= if @event.start_date do %>
                     <%= Calendar.strftime(@event.start_date, "%B %d, %Y") %>
@@ -199,7 +215,9 @@ defmodule YscWeb.OrderConfirmationLive do
                 </p>
               </div>
               <div>
-                <p class="text-xs font-bold text-zinc-400 uppercase mb-1">Location</p>
+                <p class="text-xs font-bold text-zinc-400 uppercase mb-1">
+                  Location
+                </p>
                 <p class="text-xl font-bold text-zinc-900">
                   <%= if @event.location_name do %>
                     <%= @event.location_name %>
@@ -224,7 +242,8 @@ defmodule YscWeb.OrderConfirmationLive do
               <div class="space-y-3">
                 <%= for ticket <- @ticket_order.tickets do %>
                   <% is_refunded = ticket.status == :cancelled %>
-                  <% requires_registration = ticket.ticket_tier.requires_registration == true %>
+                  <% requires_registration =
+                    ticket.ticket_tier.requires_registration == true %>
                   <% ticket_detail = ticket.registration %>
                   <div class={[
                     "p-4 rounded-lg border",
@@ -238,7 +257,10 @@ defmodule YscWeb.OrderConfirmationLive do
                         <div class="flex items-center gap-2">
                           <p class={[
                             "font-semibold",
-                            if(is_refunded, do: "text-zinc-500 line-through", else: "text-zinc-900")
+                            if(is_refunded,
+                              do: "text-zinc-500 line-through",
+                              else: "text-zinc-900"
+                            )
                           ]}>
                             <%= ticket.ticket_tier.name %>
                           </p>
@@ -250,15 +272,20 @@ defmodule YscWeb.OrderConfirmationLive do
                         </div>
                         <p class={[
                           "text-sm font-mono",
-                          if(is_refunded, do: "text-zinc-400", else: "text-zinc-500")
+                          if(is_refunded,
+                            do: "text-zinc-400",
+                            else: "text-zinc-500"
+                          )
                         ]}>
                           Ticket #<%= ticket.reference_id %>
                         </p>
                       </div>
                       <div class="text-right">
-                        <% ticket_discount = ticket.discount_amount || Money.new(0, :USD) %>
+                        <% ticket_discount =
+                          ticket.discount_amount || Money.new(0, :USD) %>
                         <% has_discount = Money.positive?(ticket_discount) %>
-                        <% original_price = ticket.ticket_tier.price || Money.new(0, :USD) %>
+                        <% original_price =
+                          ticket.ticket_tier.price || Money.new(0, :USD) %>
                         <% final_price =
                           if has_discount do
                             case Money.sub(original_price, ticket_discount) do
@@ -277,7 +304,10 @@ defmodule YscWeb.OrderConfirmationLive do
                         ]}>
                           <%= cond do %>
                             <% ticket.ticket_tier.type == "donation" || ticket.ticket_tier.type == :donation -> %>
-                              <%= get_donation_amount_for_ticket(ticket, @ticket_order) %>
+                              <%= get_donation_amount_for_ticket(
+                                ticket,
+                                @ticket_order
+                              ) %>
                             <% ticket.ticket_tier.price == nil -> %>
                               Free
                             <% Money.zero?(ticket.ticket_tier.price) -> %>
@@ -288,7 +318,9 @@ defmodule YscWeb.OrderConfirmationLive do
                                   <span class="line-through text-zinc-400 text-sm">
                                     <%= MoneyHelper.format_money!(original_price) %>
                                   </span>
-                                  <span><%= MoneyHelper.format_money!(final_price) %></span>
+                                  <span>
+                                    <%= MoneyHelper.format_money!(final_price) %>
+                                  </span>
                                 </div>
                               <% else %>
                                 <%= MoneyHelper.format_money!(original_price) %>
@@ -300,7 +332,8 @@ defmodule YscWeb.OrderConfirmationLive do
                     <% has_ticket_discount = has_discount && !is_refunded %>
                     <%= if has_ticket_discount do %>
                       <% discount_percentage =
-                        if ticket.ticket_tier.price && Money.positive?(ticket.ticket_tier.price) do
+                        if ticket.ticket_tier.price &&
+                             Money.positive?(ticket.ticket_tier.price) do
                           case Money.div(ticket_discount, ticket.ticket_tier.price) do
                             {:ok, ratio} ->
                               Decimal.mult(ratio.amount, Decimal.new(100))
@@ -362,14 +395,18 @@ defmodule YscWeb.OrderConfirmationLive do
           <!-- Payment Summary -->
           <div class={[
             "rounded-lg p-8 shadow-xl",
-            if(@ticket_order.status == :cancelled || (@refund_data && @refund_data.total_refunded),
+            if(
+              @ticket_order.status == :cancelled ||
+                (@refund_data && @refund_data.total_refunded),
               do: "bg-red-50 border-2 border-red-200",
               else: "bg-zinc-900 text-white"
             )
           ]}>
             <h3 class={[
               "text-xs font-bold uppercase tracking-widest mb-6",
-              if(@ticket_order.status == :cancelled || (@refund_data && @refund_data.total_refunded),
+              if(
+                @ticket_order.status == :cancelled ||
+                  (@refund_data && @refund_data.total_refunded),
                 do: "text-red-700",
                 else: "text-zinc-400"
               )
@@ -381,12 +418,15 @@ defmodule YscWeb.OrderConfirmationLive do
             </h3>
             <div class={[
               "space-y-4 text-sm",
-              if(@ticket_order.status == :cancelled || (@refund_data && @refund_data.total_refunded),
+              if(
+                @ticket_order.status == :cancelled ||
+                  (@refund_data && @refund_data.total_refunded),
                 do: "text-zinc-900",
                 else: ""
               )
             ]}>
-              <% total_discount = @ticket_order.discount_amount || Money.new(0, :USD) %>
+              <% total_discount =
+                @ticket_order.discount_amount || Money.new(0, :USD) %>
               <% has_discount = Money.positive?(total_discount) %>
               <%= if has_discount do %>
                 <% gross_total =
@@ -486,8 +526,10 @@ defmodule YscWeb.OrderConfirmationLive do
                             <span class="text-zinc-400">
                               • <%= String.slice(refund.reason, 0, 30) %><%= if String.length(
                                                                                   refund.reason
-                                                                                ) > 30,
-                                                                                do: "..." %>
+                                                                                ) >
+                                                                                  30,
+                                                                                do:
+                                                                                  "..." %>
                             </span>
                           <% end %>
                         </span>
@@ -513,8 +555,12 @@ defmodule YscWeb.OrderConfirmationLive do
                     </p>
                     <%= for ticket <- @refund_data.refunded_tickets do %>
                       <div class="text-xs text-zinc-600">
-                        <span class="font-medium"><%= ticket.ticket_tier.name %></span>
-                        <span class="text-zinc-400 font-mono">• #<%= ticket.reference_id %></span>
+                        <span class="font-medium">
+                          <%= ticket.ticket_tier.name %>
+                        </span>
+                        <span class="text-zinc-400 font-mono">
+                          • #<%= ticket.reference_id %>
+                        </span>
                       </div>
                     <% end %>
                   </div>
@@ -522,7 +568,10 @@ defmodule YscWeb.OrderConfirmationLive do
                 <div class="flex justify-between border-t-2 border-red-300 pt-4 mt-4">
                   <span class="font-semibold text-zinc-900">Net Amount</span>
                   <span class="font-bold text-red-600 text-xl">
-                    <%= case Money.sub(@ticket_order.total_amount, @refund_data.total_refunded) do
+                    <%= case Money.sub(
+                               @ticket_order.total_amount,
+                               @refund_data.total_refunded
+                             ) do
                       {:ok, net} -> MoneyHelper.format_money!(net)
                       _ -> MoneyHelper.format_money!(@ticket_order.total_amount)
                     end %>
@@ -532,7 +581,8 @@ defmodule YscWeb.OrderConfirmationLive do
               <div class={[
                 "flex justify-between",
                 if(
-                  @ticket_order.status == :cancelled || (@refund_data && @refund_data.total_refunded),
+                  @ticket_order.status == :cancelled ||
+                    (@refund_data && @refund_data.total_refunded),
                   do: "border-t border-red-200 pt-4",
                   else: "border-t border-zinc-800 pt-4"
                 )
@@ -567,7 +617,11 @@ defmodule YscWeb.OrderConfirmationLive do
                   Tickets
                 </span>
                 <span>
-                  <%= length(Enum.filter(@ticket_order.tickets, fn t -> t.status != :cancelled end)) %>
+                  <%= length(
+                    Enum.filter(@ticket_order.tickets, fn t ->
+                      t.status != :cancelled
+                    end)
+                  ) %>
                   <%= if @refund_data && @refund_data.refunded_tickets && length(@refund_data.refunded_tickets) > 0 do %>
                     <span class="text-zinc-400">
                       (<%= length(@refund_data.refunded_tickets) %> refunded)
@@ -582,7 +636,12 @@ defmodule YscWeb.OrderConfirmationLive do
             <.button phx-click="view-tickets" class="w-full py-3">
               <.icon name="hero-ticket" class="w-5 h-5 -mt-0.5 me-2" />View All My Tickets
             </.button>
-            <.button phx-click="view-event" class="w-full py-3" variant="outline" color="zinc">
+            <.button
+              phx-click="view-event"
+              class="w-full py-3"
+              variant="outline"
+              color="zinc"
+            >
               <.icon name="hero-arrow-left" class="w-5 h-5 -mt-0.5 me-2" />Back to Event
             </.button>
           </div>
@@ -592,7 +651,10 @@ defmodule YscWeb.OrderConfirmationLive do
       <div class="mt-12 pt-8 border-t border-zinc-100">
         <p class="text-sm text-zinc-500 text-center">
           Need help? Contact us at
-          <a href="mailto:info@ysc.org" class="text-blue-600 hover:text-blue-500 underline">
+          <a
+            href="mailto:info@ysc.org"
+            class="text-blue-600 hover:text-blue-500 underline"
+          >
             info@ysc.org
           </a>
         </p>
@@ -683,6 +745,7 @@ defmodule YscWeb.OrderConfirmationLive do
           :card ->
             if payment_method.last_four do
               brand = payment_method.display_brand || "Card"
+
               "#{String.capitalize(brand)} ending in #{payment_method.last_four}"
             else
               "Credit Card"
@@ -710,7 +773,8 @@ defmodule YscWeb.OrderConfirmationLive do
   # Get payment method type from Stripe payment intent when not synced to database
   defp get_payment_method_from_stripe(payment) do
     if payment.external_payment_id do
-      stripe_client = Application.get_env(:ysc, :stripe_client, Ysc.StripeClient)
+      stripe_client =
+        Application.get_env(:ysc, :stripe_client, Ysc.StripeClient)
 
       case stripe_client.retrieve_payment_intent(payment.external_payment_id, %{
              expand: ["payment_method", "charges.data.payment_method"]
@@ -726,7 +790,9 @@ defmodule YscWeb.OrderConfirmationLive do
 
               # Payment method is a string ID - retrieve it
               is_binary(payment_intent.payment_method) ->
-                case Stripe.PaymentMethod.retrieve(payment_intent.payment_method) do
+                case Stripe.PaymentMethod.retrieve(
+                       payment_intent.payment_method
+                     ) do
                   {:ok, pm} -> pm.type
                   _ -> nil
                 end
@@ -742,7 +808,9 @@ defmodule YscWeb.OrderConfirmationLive do
                     first_charge.payment_method.type
 
                   is_binary(first_charge.payment_method) ->
-                    case Stripe.PaymentMethod.retrieve(first_charge.payment_method) do
+                    case Stripe.PaymentMethod.retrieve(
+                           first_charge.payment_method
+                         ) do
                       {:ok, pm} -> pm.type
                       _ -> nil
                     end
@@ -769,7 +837,8 @@ defmodule YscWeb.OrderConfirmationLive do
   end
 
   # Format alternative payment method names for display
-  defp format_alternative_payment_method(type, _payment_method) when is_atom(type) do
+  defp format_alternative_payment_method(type, _payment_method)
+       when is_atom(type) do
     case type do
       :klarna ->
         "Klarna"
@@ -811,7 +880,8 @@ defmodule YscWeb.OrderConfirmationLive do
     end
   end
 
-  defp format_alternative_payment_method(type, _payment_method) when is_binary(type) do
+  defp format_alternative_payment_method(type, _payment_method)
+       when is_binary(type) do
     format_alternative_payment_method(String.to_atom(type), nil)
   end
 
@@ -872,7 +942,8 @@ defmodule YscWeb.OrderConfirmationLive do
       %{
         processed_refunds: processed_refunds,
         refunded_tickets: refunded_tickets,
-        total_refunded: if(Money.positive?(processed_total), do: processed_total, else: nil)
+        total_refunded:
+          if(Money.positive?(processed_total), do: processed_total, else: nil)
       }
     else
       nil

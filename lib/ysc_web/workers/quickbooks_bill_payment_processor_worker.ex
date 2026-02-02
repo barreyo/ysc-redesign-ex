@@ -21,7 +21,10 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{
-        args: %{"webhook_event_id" => webhook_event_id, "bill_payment_id" => bill_payment_id}
+        args: %{
+          "webhook_event_id" => webhook_event_id,
+          "bill_payment_id" => bill_payment_id
+        }
       }) do
     Logger.info("Processing QuickBooks BillPayment",
       webhook_event_id: webhook_event_id,
@@ -109,7 +112,8 @@ defmodule YscWeb.Workers.QuickbooksBillPaymentProcessorWorker do
                     # Mark webhook event as failed
                     Webhooks.update_webhook_state(webhook_event, :failed)
 
-                    Sentry.capture_message("Failed to mark expense report as paid",
+                    Sentry.capture_message(
+                      "Failed to mark expense report as paid",
                       level: :error,
                       extra: %{
                         expense_report_id: expense_report.id,

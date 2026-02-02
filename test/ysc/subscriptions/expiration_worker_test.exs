@@ -58,7 +58,8 @@ defmodule Ysc.Subscriptions.ExpirationWorkerTest do
 
       # Note: This will try to call Stripe API and fail, but that's expected in this test
       # The subscription will still be found by the query
-      {expired_count, failed_count} = ExpirationWorker.check_and_expire_subscriptions()
+      {expired_count, failed_count} =
+        ExpirationWorker.check_and_expire_subscriptions()
 
       # Should find the subscription and try to process it (will fail without Stripe mock)
       assert expired_count + failed_count >= 0
@@ -79,7 +80,8 @@ defmodule Ysc.Subscriptions.ExpirationWorkerTest do
           ends_at: past_date
         })
 
-      {expired_count, failed_count} = ExpirationWorker.check_and_expire_subscriptions()
+      {expired_count, failed_count} =
+        ExpirationWorker.check_and_expire_subscriptions()
 
       # Should find the subscription
       assert expired_count + failed_count >= 0
@@ -99,7 +101,8 @@ defmodule Ysc.Subscriptions.ExpirationWorkerTest do
           ends_at: nil
         })
 
-      {expired_count, failed_count} = ExpirationWorker.check_and_expire_subscriptions()
+      {expired_count, failed_count} =
+        ExpirationWorker.check_and_expire_subscriptions()
 
       # Valid subscription should not be processed
       assert expired_count == 0
@@ -124,7 +127,8 @@ defmodule Ysc.Subscriptions.ExpirationWorkerTest do
           ends_at: past_date
         })
 
-      {expired_count, failed_count} = ExpirationWorker.check_and_expire_subscriptions()
+      {expired_count, failed_count} =
+        ExpirationWorker.check_and_expire_subscriptions()
 
       # Already cancelled subscription should not be processed
       assert expired_count == 0
@@ -187,7 +191,8 @@ defmodule Ysc.Subscriptions.ExpirationWorkerTest do
       # The worker will find expired1 and expired2 (both have expired dates)
       # but only expired1 will pass the status check (active/trialing)
       # The actual expiration will fail without Stripe mocking
-      {_expired_count, _failed_count} = ExpirationWorker.check_and_expire_subscriptions()
+      {_expired_count, _failed_count} =
+        ExpirationWorker.check_and_expire_subscriptions()
     end
   end
 
@@ -199,7 +204,9 @@ defmodule Ysc.Subscriptions.ExpirationWorkerTest do
   end
 
   describe "subscription status checks" do
-    test "cancelled? returns true for subscriptions with ends_at in past", %{user: user} do
+    test "cancelled? returns true for subscriptions with ends_at in past", %{
+      user: user
+    } do
       now = DateTime.utc_now()
       past_date = DateTime.add(now, -1, :day)
 
@@ -233,7 +240,9 @@ defmodule Ysc.Subscriptions.ExpirationWorkerTest do
       refute Subscriptions.valid?(sub)
     end
 
-    test "valid? returns true for active subscriptions with future dates", %{user: user} do
+    test "valid? returns true for active subscriptions with future dates", %{
+      user: user
+    } do
       now = DateTime.utc_now()
       future_date = DateTime.add(now, 30, :day)
 

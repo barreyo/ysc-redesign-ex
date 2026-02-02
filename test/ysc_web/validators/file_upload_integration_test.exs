@@ -10,14 +10,23 @@ defmodule YscWeb.Validators.FileUploadIntegrationTest do
   alias YscWeb.Validators.FileValidator
 
   # Test files from static directory
-  @test_image_jpg Path.join([Application.app_dir(:ysc, "priv/static/images"), "404.jpg"])
+  @test_image_jpg Path.join([
+                    Application.app_dir(:ysc, "priv/static/images"),
+                    "404.jpg"
+                  ])
 
   describe "file validation in upload context" do
     test "valid image file passes validation" do
       if File.exists?(@test_image_jpg) do
         # Simulate what happens in consume_entry
         result =
-          FileValidator.validate_image(@test_image_jpg, [".jpg", ".jpeg", ".png", ".gif", ".webp"])
+          FileValidator.validate_image(@test_image_jpg, [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp"
+          ])
 
         assert {:ok, "image/jpeg"} = result
       end
@@ -29,11 +38,20 @@ defmodule YscWeb.Validators.FileUploadIntegrationTest do
 
       try do
         # Write Windows PE executable header
-        File.write!(tmp_file, <<0x4D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00>>)
+        File.write!(
+          tmp_file,
+          <<0x4D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00>>
+        )
 
         # This is what would happen in consume_entry before upload
         result =
-          FileValidator.validate_image(tmp_file, [".jpg", ".jpeg", ".png", ".gif", ".webp"])
+          FileValidator.validate_image(tmp_file, [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp"
+          ])
 
         # Should be rejected even though it has .jpg extension
         assert {:error, reason} = result
@@ -54,7 +72,13 @@ defmodule YscWeb.Validators.FileUploadIntegrationTest do
         File.write!(tmp_file, "#!/bin/bash\nrm -rf /\n")
 
         result =
-          FileValidator.validate_image(tmp_file, [".jpg", ".jpeg", ".png", ".gif", ".webp"])
+          FileValidator.validate_image(tmp_file, [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp"
+          ])
 
         # Should be rejected
         assert {:error, reason} = result
@@ -74,14 +98,18 @@ defmodule YscWeb.Validators.FileUploadIntegrationTest do
       try do
         # Copy a valid PNG but with .txt extension
         png_file =
-          Path.join([Application.app_dir(:ysc, "priv/static/images"), "vikings/viking_beer.png"])
+          Path.join([
+            Application.app_dir(:ysc, "priv/static/images"),
+            "vikings/viking_beer.png"
+          ])
 
         if File.exists?(png_file) do
           File.cp!(png_file, tmp_file)
 
           # FileType detects PNG from content, so validation passes
           # This is correct behavior - we validate content, not filename
-          result = FileValidator.validate_image(tmp_file, [".png", ".jpg", ".jpeg"])
+          result =
+            FileValidator.validate_image(tmp_file, [".png", ".jpg", ".jpeg"])
 
           assert {:ok, "image/png"} = result
         end
@@ -115,7 +143,13 @@ defmodule YscWeb.Validators.FileUploadIntegrationTest do
         File.write!(tmp_file, "This is not a receipt document")
 
         result =
-          FileValidator.validate_document(tmp_file, [".pdf", ".jpg", ".jpeg", ".png", ".webp"])
+          FileValidator.validate_document(tmp_file, [
+            ".pdf",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp"
+          ])
 
         # Should be rejected
         assert {:error, reason} = result

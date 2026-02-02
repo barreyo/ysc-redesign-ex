@@ -26,8 +26,10 @@ defmodule YscWeb.Emails.Notifier do
     "change_email" => YscWeb.Emails.ChangeEmail,
     "email_changed" => YscWeb.Emails.EmailChanged,
     "admin_application_submitted" => YscWeb.Emails.AdminApplicationSubmitted,
-    "conduct_violation_confirmation" => YscWeb.Emails.ConductViolationConfirmation,
-    "conduct_violation_board_notification" => YscWeb.Emails.ConductViolationBoardNotification,
+    "conduct_violation_confirmation" =>
+      YscWeb.Emails.ConductViolationConfirmation,
+    "conduct_violation_board_notification" =>
+      YscWeb.Emails.ConductViolationBoardNotification,
     "ticket_purchase_confirmation" => YscWeb.Emails.TicketPurchaseConfirmation,
     "ticket_order_refund" => YscWeb.Emails.TicketOrderRefund,
     "booking_confirmation" => YscWeb.Emails.BookingConfirmation,
@@ -35,27 +37,41 @@ defmodule YscWeb.Emails.Notifier do
     "booking_refund_pending" => YscWeb.Emails.BookingRefundPending,
     "volunteer_confirmation" => YscWeb.Emails.VolunteerConfirmation,
     "volunteer_board_notification" => YscWeb.Emails.VolunteerBoardNotification,
-    "contact_form_board_notification" => YscWeb.Emails.ContactFormBoardNotification,
+    "contact_form_board_notification" =>
+      YscWeb.Emails.ContactFormBoardNotification,
     "outage_notification" => YscWeb.Emails.OutageNotification,
     "membership_payment_failure" => YscWeb.Emails.MembershipPaymentFailure,
-    "membership_payment_confirmation" => YscWeb.Emails.MembershipPaymentConfirmation,
+    "membership_payment_confirmation" =>
+      YscWeb.Emails.MembershipPaymentConfirmation,
     "membership_renewal_success" => YscWeb.Emails.MembershipRenewalSuccess,
-    "membership_payment_reminder_7day" => YscWeb.Emails.MembershipPaymentReminder7Day,
-    "membership_payment_reminder_30day" => YscWeb.Emails.MembershipPaymentReminder30Day,
+    "membership_payment_reminder_7day" =>
+      YscWeb.Emails.MembershipPaymentReminder7Day,
+    "membership_payment_reminder_30day" =>
+      YscWeb.Emails.MembershipPaymentReminder30Day,
     "family_invite" => YscWeb.Emails.FamilyInvite,
     "booking_checkin_reminder" => YscWeb.Emails.BookingCheckinReminder,
     "booking_checkout_reminder" => YscWeb.Emails.BookingCheckoutReminder,
     "event_notification" => YscWeb.Emails.EventNotification,
     "expense_report_confirmation" => YscWeb.Emails.ExpenseReportConfirmation,
-    "expense_report_treasurer_notification" => YscWeb.Emails.ExpenseReportTreasurerNotification,
+    "expense_report_treasurer_notification" =>
+      YscWeb.Emails.ExpenseReportTreasurerNotification,
     "booking_cancellation_cabin_master_notification" =>
       YscWeb.Emails.BookingCancellationCabinMasterNotification,
     "booking_cancellation_treasurer_notification" =>
       YscWeb.Emails.BookingCancellationTreasurerNotification,
-    "booking_cancellation_confirmation" => YscWeb.Emails.BookingCancellationConfirmation
+    "booking_cancellation_confirmation" =>
+      YscWeb.Emails.BookingCancellationConfirmation
   }
 
-  def schedule_email(recipient, idempotency_key, subject, template, variables, text_body, user_id) do
+  def schedule_email(
+        recipient,
+        idempotency_key,
+        subject,
+        template,
+        variables,
+        text_body,
+        user_id
+      ) do
     require Logger
 
     # Get category for this template
@@ -101,7 +117,8 @@ defmodule YscWeb.Emails.Notifier do
 
         # If reason is a changeset, capture it as an exception
         if match?(%Ecto.Changeset{}, reason) do
-          Sentry.capture_message("Failed to insert email job (Oban.insert returned changeset)",
+          Sentry.capture_message(
+            "Failed to insert email job (Oban.insert returned changeset)",
             level: :error,
             extra: %{
               recipient: recipient,
@@ -112,7 +129,10 @@ defmodule YscWeb.Emails.Notifier do
               category: category,
               changeset_valid: reason.valid?,
               changeset_errors:
-                if(reason.valid?, do: :none, else: inspect(reason.errors, limit: :infinity)),
+                if(reason.valid?,
+                  do: :none,
+                  else: inspect(reason.errors, limit: :infinity)
+                ),
               changeset_changes: inspect(reason.changes, limit: :infinity)
             },
             tags: %{
@@ -156,11 +176,27 @@ defmodule YscWeb.Emails.Notifier do
         variables,
         text_body
       ) do
-    schedule_email(recipient, idempotency_key, subject, template, variables, text_body, nil)
+    schedule_email(
+      recipient,
+      idempotency_key,
+      subject,
+      template,
+      variables,
+      text_body,
+      nil
+    )
   end
 
   def schedule_email_to_board(idempotency_key, subject, template, variables) do
-    schedule_email(from_email(), idempotency_key, subject, template, variables, "", nil)
+    schedule_email(
+      from_email(),
+      idempotency_key,
+      subject,
+      template,
+      variables,
+      "",
+      nil
+    )
   end
 
   def send_email_idempotent(
@@ -196,7 +232,14 @@ defmodule YscWeb.Emails.Notifier do
     Ysc.Messages.run_send_message_idempotent(email, attrs)
   end
 
-  def send_email_idempotent(recipient, idempotency_key, subject, template, variables, text_body) do
+  def send_email_idempotent(
+        recipient,
+        idempotency_key,
+        subject,
+        template,
+        variables,
+        text_body
+      ) do
     send_email_idempotent(
       recipient,
       idempotency_key,
@@ -237,7 +280,13 @@ defmodule YscWeb.Emails.Notifier do
     email_module = YscWeb.Emails.MembershipPaymentConfirmation
 
     email_data =
-      email_module.prepare_email_data(user, membership_type, amount, payment_date, opts)
+      email_module.prepare_email_data(
+        user,
+        membership_type,
+        amount,
+        payment_date,
+        opts
+      )
 
     subject = email_module.get_subject()
     template_name = email_module.get_template_name()
@@ -249,7 +298,8 @@ defmodule YscWeb.Emails.Notifier do
         _ -> Date.utc_today() |> Date.to_iso8601()
       end
 
-    idempotency_key = "membership_payment_confirmation_#{user.id}_#{payment_date_for_key}"
+    idempotency_key =
+      "membership_payment_confirmation_#{user.id}_#{payment_date_for_key}"
 
     schedule_email(
       user.email,

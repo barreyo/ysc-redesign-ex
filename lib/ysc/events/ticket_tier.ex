@@ -173,7 +173,8 @@ defmodule Ysc.Events.TicketTier do
   # Private function to validate that end_date is after start_date if both are present
   defp validate_datetime_order(changeset) do
     case {get_field(changeset, :start_date), get_field(changeset, :end_date)} do
-      {start_date, end_date} when not is_nil(start_date) and not is_nil(end_date) ->
+      {start_date, end_date}
+      when not is_nil(start_date) and not is_nil(end_date) ->
         if DateTime.compare(end_date, start_date) == :gt do
           changeset
         else

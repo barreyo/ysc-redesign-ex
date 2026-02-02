@@ -28,7 +28,11 @@ defmodule YscWeb.EventDetailsLiveTest do
 
   describe "mount/3 - event access" do
     test "loads published event successfully", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{title: "Summer Party"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{title: "Summer Party"}
+        )
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -36,12 +40,18 @@ defmodule YscWeb.EventDetailsLiveTest do
     end
 
     test "redirects when event does not exist", %{conn: conn} do
-      assert {:error, {:redirect, %{to: path}}} = live(conn, ~p"/events/#{Ecto.ULID.generate()}")
+      assert {:error, {:redirect, %{to: path}}} =
+               live(conn, ~p"/events/#{Ecto.ULID.generate()}")
+
       assert path == "/events"
     end
 
     test "sets page title to event title", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{title: "Annual Gala"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{title: "Annual Gala"}
+        )
 
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
 
@@ -49,7 +59,11 @@ defmodule YscWeb.EventDetailsLiveTest do
     end
 
     test "loads upcoming event", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{title: "Future Event"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{title: "Future Event"}
+        )
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -57,7 +71,8 @@ defmodule YscWeb.EventDetailsLiveTest do
     end
 
     test "loads past event", %{conn: conn} do
-      event = event_with_state(:past, with_image: true, attrs: %{title: "Past Event"})
+      event =
+        event_with_state(:past, with_image: true, attrs: %{title: "Past Event"})
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -65,7 +80,11 @@ defmodule YscWeb.EventDetailsLiveTest do
     end
 
     test "loads ongoing event", %{conn: conn} do
-      event = event_with_state(:ongoing, with_image: true, attrs: %{title: "Current Event"})
+      event =
+        event_with_state(:ongoing,
+          with_image: true,
+          attrs: %{title: "Current Event"}
+        )
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -75,7 +94,11 @@ defmodule YscWeb.EventDetailsLiveTest do
 
   describe "event display" do
     test "displays event title", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{title: "Mountain Hike"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{title: "Mountain Hike"}
+        )
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -98,7 +121,11 @@ defmodule YscWeb.EventDetailsLiveTest do
     end
 
     test "displays event with image", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{title: "Photo Event"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{title: "Photo Event"}
+        )
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -106,7 +133,11 @@ defmodule YscWeb.EventDetailsLiveTest do
     end
 
     test "displays event without image", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{title: "No Photo Event"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{title: "No Photo Event"}
+        )
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -133,7 +164,11 @@ defmodule YscWeb.EventDetailsLiveTest do
     end
 
     test "can toggle map without authentication", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{location: "123 Main St"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{location: "123 Main St"}
+        )
 
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
@@ -211,7 +246,9 @@ defmodule YscWeb.EventDetailsLiveTest do
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
 
-      result = render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+      result =
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(result)
     end
 
@@ -226,7 +263,9 @@ defmodule YscWeb.EventDetailsLiveTest do
       render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
 
       # Then deselect
-      result = render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier.id})
+      result =
+        render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(result)
     end
 
@@ -237,7 +276,9 @@ defmodule YscWeb.EventDetailsLiveTest do
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
 
-      result = render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+      result =
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(result)
     end
 
@@ -252,7 +293,9 @@ defmodule YscWeb.EventDetailsLiveTest do
       render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
 
       # Then decrement
-      result = render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier.id})
+      result =
+        render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(result)
     end
 
@@ -298,36 +341,56 @@ defmodule YscWeb.EventDetailsLiveTest do
       {:ok, %{conn: conn, user: user, event: event}}
     end
 
-    test "handles set-donation-amount event with valid amount", %{conn: conn, event: event} do
+    test "handles set-donation-amount event with valid amount", %{
+      conn: conn,
+      event: event
+    } do
       tier = hd(event.ticket_tiers)
 
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
 
       result =
-        render_click(view, "set-donation-amount", %{"tier-id" => tier.id, "amount" => "50"})
+        render_click(view, "set-donation-amount", %{
+          "tier-id" => tier.id,
+          "amount" => "50"
+        })
 
       assert is_binary(result)
     end
 
-    test "handles set-donation-amount event with zero", %{conn: conn, event: event} do
-      tier = hd(event.ticket_tiers)
-
-      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
-      :timer.sleep(200)
-
-      result = render_click(view, "set-donation-amount", %{"tier-id" => tier.id, "amount" => "0"})
-      assert is_binary(result)
-    end
-
-    test "handles set-donation-amount event with large amount", %{conn: conn, event: event} do
+    test "handles set-donation-amount event with zero", %{
+      conn: conn,
+      event: event
+    } do
       tier = hd(event.ticket_tiers)
 
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
 
       result =
-        render_click(view, "set-donation-amount", %{"tier-id" => tier.id, "amount" => "1000"})
+        render_click(view, "set-donation-amount", %{
+          "tier-id" => tier.id,
+          "amount" => "0"
+        })
+
+      assert is_binary(result)
+    end
+
+    test "handles set-donation-amount event with large amount", %{
+      conn: conn,
+      event: event
+    } do
+      tier = hd(event.ticket_tiers)
+
+      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
+      :timer.sleep(200)
+
+      result =
+        render_click(view, "set-donation-amount", %{
+          "tier-id" => tier.id,
+          "amount" => "1000"
+        })
 
       assert is_binary(result)
     end
@@ -368,7 +431,11 @@ defmodule YscWeb.EventDetailsLiveTest do
       {:ok, %{conn: conn, user: user, event: event, tier: tier}}
     end
 
-    test "handles update-registration-field event", %{conn: conn, event: event, tier: tier} do
+    test "handles update-registration-field event", %{
+      conn: conn,
+      event: event,
+      tier: tier
+    } do
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
 
@@ -400,7 +467,11 @@ defmodule YscWeb.EventDetailsLiveTest do
       assert is_binary(result)
     end
 
-    test "handles update-registration-field for email", %{conn: conn, event: event, tier: tier} do
+    test "handles update-registration-field for email", %{
+      conn: conn,
+      event: event,
+      tier: tier
+    } do
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
 
@@ -492,19 +563,35 @@ defmodule YscWeb.EventDetailsLiveTest do
       assert html =~ event.title
     end
 
-    test "can select free tickets", %{conn: conn, event: event, free_tier: free_tier} do
+    test "can select free tickets", %{
+      conn: conn,
+      event: event,
+      free_tier: free_tier
+    } do
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
 
-      result = render_click(view, "increase-ticket-quantity", %{"tier-id" => free_tier.id})
+      result =
+        render_click(view, "increase-ticket-quantity", %{
+          "tier-id" => free_tier.id
+        })
+
       assert is_binary(result)
     end
 
-    test "can increment free tickets", %{conn: conn, event: event, free_tier: free_tier} do
+    test "can increment free tickets", %{
+      conn: conn,
+      event: event,
+      free_tier: free_tier
+    } do
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
 
-      result = render_click(view, "increase-ticket-quantity", %{"tier-id" => free_tier.id})
+      result =
+        render_click(view, "increase-ticket-quantity", %{
+          "tier-id" => free_tier.id
+        })
+
       assert is_binary(result)
     end
   end
@@ -575,7 +662,11 @@ defmodule YscWeb.EventDetailsLiveTest do
 
   describe "event states" do
     test "displays upcoming event correctly", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{title: "Upcoming Event"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{title: "Upcoming Event"}
+        )
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -583,7 +674,8 @@ defmodule YscWeb.EventDetailsLiveTest do
     end
 
     test "displays past event correctly", %{conn: conn} do
-      event = event_with_state(:past, with_image: true, attrs: %{title: "Past Event"})
+      event =
+        event_with_state(:past, with_image: true, attrs: %{title: "Past Event"})
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -591,7 +683,11 @@ defmodule YscWeb.EventDetailsLiveTest do
     end
 
     test "displays cancelled event correctly", %{conn: conn} do
-      event = event_with_state(:cancelled, with_image: true, attrs: %{title: "Cancelled Event"})
+      event =
+        event_with_state(:cancelled,
+          with_image: true,
+          attrs: %{title: "Cancelled Event"}
+        )
 
       # Cancelled events might redirect or show special message
       result = live(conn, ~p"/events/#{event.id}")
@@ -673,15 +769,21 @@ defmodule YscWeb.EventDetailsLiveTest do
       :timer.sleep(200)
 
       # Select ticket
-      html = render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+      html =
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(html)
 
       # Increment ticket count
-      html = render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+      html =
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(html)
 
       # Increment again
-      html = render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+      html =
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(html)
     end
 
@@ -698,11 +800,15 @@ defmodule YscWeb.EventDetailsLiveTest do
       render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
 
       # Decrement
-      html = render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier.id})
+      html =
+        render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(html)
 
       # Deselect
-      html = render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier.id})
+      html =
+        render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(html)
     end
 
@@ -744,7 +850,12 @@ defmodule YscWeb.EventDetailsLiveTest do
       render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
 
       # Add donation
-      html = render_click(view, "set-donation-amount", %{"tier-id" => tier.id, "amount" => "25"})
+      html =
+        render_click(view, "set-donation-amount", %{
+          "tier-id" => tier.id,
+          "amount" => "25"
+        })
+
       assert is_binary(html)
     end
 
@@ -755,14 +866,27 @@ defmodule YscWeb.EventDetailsLiveTest do
       :timer.sleep(200)
 
       # Set initial donation
-      render_click(view, "set-donation-amount", %{"tier-id" => tier.id, "amount" => "25"})
+      render_click(view, "set-donation-amount", %{
+        "tier-id" => tier.id,
+        "amount" => "25"
+      })
 
       # Change donation
-      html = render_click(view, "set-donation-amount", %{"tier-id" => tier.id, "amount" => "50"})
+      html =
+        render_click(view, "set-donation-amount", %{
+          "tier-id" => tier.id,
+          "amount" => "50"
+        })
+
       assert is_binary(html)
 
       # Remove donation
-      html = render_click(view, "set-donation-amount", %{"tier-id" => tier.id, "amount" => "0"})
+      html =
+        render_click(view, "set-donation-amount", %{
+          "tier-id" => tier.id,
+          "amount" => "0"
+        })
+
       assert is_binary(html)
     end
   end
@@ -789,7 +913,11 @@ defmodule YscWeb.EventDetailsLiveTest do
       {:ok, %{conn: conn, user: user, event: event, tier: tier}}
     end
 
-    test "user can fill registration fields", %{conn: conn, event: event, tier: tier} do
+    test "user can fill registration fields", %{
+      conn: conn,
+      event: event,
+      tier: tier
+    } do
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
 
@@ -822,7 +950,11 @@ defmodule YscWeb.EventDetailsLiveTest do
 
   describe "navigation and UI interactions" do
     test "can toggle map view", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{location: "123 Test St"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{location: "123 Test St"}
+        )
 
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(200)
@@ -855,7 +987,9 @@ defmodule YscWeb.EventDetailsLiveTest do
   end
 
   describe "complete end-to-end ticket purchase - authenticated user" do
-    test "can complete full ticket purchase flow with paid tickets", %{conn: conn} do
+    test "can complete full ticket purchase flow with paid tickets", %{
+      conn: conn
+    } do
       user = user_with_membership(:lifetime)
       conn = log_in_user(conn, user)
       event = event_with_tickets(tier_count: 2, state: :upcoming)
@@ -868,19 +1002,30 @@ defmodule YscWeb.EventDetailsLiveTest do
       :timer.sleep(200)
 
       # Select first tier
-      html = render_click(view, "increase-ticket-quantity", %{"tier-id" => tier1.id})
+      html =
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => tier1.id})
+
       assert is_binary(html)
 
       # Increase quantity
-      html = render_click(view, "increase-ticket-quantity", %{"tier-id" => tier1.id})
+      html =
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => tier1.id})
+
       assert is_binary(html)
 
       # Also select second tier
-      html = render_click(view, "increase-ticket-quantity", %{"tier-id" => tier2.id})
+      html =
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => tier2.id})
+
       assert is_binary(html)
 
       # Add donation
-      html = render_click(view, "set-donation-amount", %{"tier-id" => tier1.id, "amount" => "50"})
+      html =
+        render_click(view, "set-donation-amount", %{
+          "tier-id" => tier1.id,
+          "amount" => "50"
+        })
+
       assert is_binary(html)
 
       # Proceed to checkout
@@ -907,7 +1052,9 @@ defmodule YscWeb.EventDetailsLiveTest do
       assert is_binary(html)
 
       # Decrease one
-      html = render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier.id})
+      html =
+        render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(html)
     end
 
@@ -927,7 +1074,9 @@ defmodule YscWeb.EventDetailsLiveTest do
 
       # Decrease back to zero
       render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier1.id})
-      html = render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier2.id})
+
+      html =
+        render_click(view, "decrease-ticket-quantity", %{"tier-id" => tier2.id})
 
       assert is_binary(html)
     end
@@ -955,18 +1104,30 @@ defmodule YscWeb.EventDetailsLiveTest do
       :timer.sleep(200)
 
       # Select free tickets
-      html = render_click(view, "increase-ticket-quantity", %{"tier-id" => free_tier.id})
+      html =
+        render_click(view, "increase-ticket-quantity", %{
+          "tier-id" => free_tier.id
+        })
+
       assert is_binary(html)
 
       # Add more
-      html = render_click(view, "increase-ticket-quantity", %{"tier-id" => free_tier.id})
+      html =
+        render_click(view, "increase-ticket-quantity", %{
+          "tier-id" => free_tier.id
+        })
+
       assert is_binary(html)
     end
   end
 
   describe "event with agenda" do
     test "can view event with agenda items", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{title: "Conference 2026"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{title: "Conference 2026"}
+        )
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -1018,7 +1179,9 @@ defmodule YscWeb.EventDetailsLiveTest do
       :timer.sleep(200)
 
       # Select ticket
-      html = render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+      html =
+        render_click(view, "increase-ticket-quantity", %{"tier-id" => tier.id})
+
       assert is_binary(html)
 
       # Fill registration fields
@@ -1047,7 +1210,11 @@ defmodule YscWeb.EventDetailsLiveTest do
 
   describe "edge cases and error handling" do
     test "handles event at capacity", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{max_attendees: 100})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{max_attendees: 100}
+        )
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 
@@ -1103,7 +1270,11 @@ defmodule YscWeb.EventDetailsLiveTest do
     end
 
     test "handles event with no ticket tiers", %{conn: conn} do
-      event = event_with_state(:upcoming, with_image: true, attrs: %{title: "No Tickets Event"})
+      event =
+        event_with_state(:upcoming,
+          with_image: true,
+          attrs: %{title: "No Tickets Event"}
+        )
 
       {:ok, _view, html} = live(conn, ~p"/events/#{event.id}")
 

@@ -46,7 +46,8 @@ defmodule YscWeb.Workers.MembershipPaymentReminderWorkerTest do
       # Give user lifetime membership
       user
       |> Ecto.Changeset.change(
-        lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        lifetime_membership_awarded_at:
+          DateTime.truncate(DateTime.utc_now(), :second)
       )
       |> Ysc.Repo.update!()
 

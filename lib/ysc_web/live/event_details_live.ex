@@ -64,13 +64,17 @@ defmodule YscWeb.EventDetailsLive do
                   </div>
                 <% end %>
 
-                <div :if={@event.state != :cancelled && @async_data_loaded && @event_at_capacity}>
+                <div :if={
+                  @event.state != :cancelled && @async_data_loaded &&
+                    @event_at_capacity
+                }>
                   <.badge type="red">SOLD OUT</.badge>
                 </div>
 
                 <div
                   :if={
-                    @event.start_date != nil && @event.start_date != "" && @event.state != :cancelled
+                    @event.start_date != nil && @event.start_date != "" &&
+                      @event.state != :cancelled
                   }
                   class="flex items-center gap-3 mb-4"
                 >
@@ -113,7 +117,10 @@ defmodule YscWeb.EventDetailsLive do
           <%!-- Left Column: Event Details (8/12 width on desktop) --%>
           <div class="lg:col-span-8 space-y-16">
             <%!-- User's Existing Tickets - Member Pass Style --%>
-            <div :if={@current_user != nil && length(@user_tickets) > 0} class="mb-12 space-y-6">
+            <div
+              :if={@current_user != nil && length(@user_tickets) > 0}
+              class="mb-12 space-y-6"
+            >
               <%= for {order_id, order_tickets} <- group_tickets_by_order(@user_tickets) do %>
                 <% first_ticket = List.first(order_tickets) %>
                 <% ticket_order = first_ticket.ticket_order %>
@@ -128,17 +135,24 @@ defmodule YscWeb.EventDetailsLive do
                     Timex.format!(ticket_order.completed_at, "{Mshort} {D}, {YYYY}")
                   else
                     if first_ticket.inserted_at do
-                      Timex.format!(first_ticket.inserted_at, "{Mshort} {D}, {YYYY}")
+                      Timex.format!(
+                        first_ticket.inserted_at,
+                        "{Mshort} {D}, {YYYY}"
+                      )
                     else
                       nil
                     end
                   end %>
                 <%!-- Load all tickets for this order (including cancelled/refunded) from preloaded data --%>
                 <% all_order_tickets = Map.get(@all_tickets_by_order, order_id, []) %>
-                <% confirmed_tickets = Enum.filter(all_order_tickets, &(&1.status == :confirmed)) %>
-                <% refunded_tickets = Enum.filter(all_order_tickets, &(&1.status == :cancelled)) %>
-                <% all_refunded = length(confirmed_tickets) == 0 && length(refunded_tickets) > 0 %>
-                <% partial_refund = length(confirmed_tickets) > 0 && length(refunded_tickets) > 0 %>
+                <% confirmed_tickets =
+                  Enum.filter(all_order_tickets, &(&1.status == :confirmed)) %>
+                <% refunded_tickets =
+                  Enum.filter(all_order_tickets, &(&1.status == :cancelled)) %>
+                <% all_refunded =
+                  length(confirmed_tickets) == 0 && length(refunded_tickets) > 0 %>
+                <% partial_refund =
+                  length(confirmed_tickets) > 0 && length(refunded_tickets) > 0 %>
                 <%!-- Group all tickets by tier (original counts) and confirmed tickets by tier (new counts) --%>
                 <% all_tiers_by_name = group_tickets_by_tier(all_order_tickets) %>
                 <% confirmed_tiers_by_name =
@@ -160,7 +174,8 @@ defmodule YscWeb.EventDetailsLive do
                           "px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-lg border",
                           if(all_refunded,
                             do: "bg-red-500/20 text-red-400 border-red-500/30",
-                            else: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                            else:
+                              "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                           )
                         ]}>
                           <%= order_label %>
@@ -168,7 +183,10 @@ defmodule YscWeb.EventDetailsLive do
                         <%= if purchase_date do %>
                           <span class={[
                             "text-[10px] uppercase tracking-widest",
-                            if(all_refunded, do: "text-red-300/70", else: "text-zinc-500")
+                            if(all_refunded,
+                              do: "text-red-300/70",
+                              else: "text-zinc-500"
+                            )
                           ]}>
                             • <%= purchase_date %>
                           </span>
@@ -205,7 +223,10 @@ defmodule YscWeb.EventDetailsLive do
                             }
                             class={[
                               "w-8 h-8",
-                              if(all_refunded, do: "text-red-500", else: "text-emerald-500")
+                              if(all_refunded,
+                                do: "text-red-500",
+                                else: "text-emerald-500"
+                              )
                             ]}
                           />
                         </div>
@@ -228,7 +249,9 @@ defmodule YscWeb.EventDetailsLive do
                             <div class="mt-2 space-y-1">
                               <%= if partial_refund do %>
                                 <p class="text-xs text-amber-300/90 uppercase tracking-widest font-bold mb-2">
-                                  <%= length(confirmed_tickets) %> of <%= length(all_order_tickets) %> tickets confirmed
+                                  <%= length(confirmed_tickets) %> of <%= length(
+                                    all_order_tickets
+                                  ) %> tickets confirmed
                                 </p>
                               <% end %>
                               <%= for {tier_name, confirmed_tier_tickets} <- confirmed_tiers_by_name do %>
@@ -236,14 +259,20 @@ defmodule YscWeb.EventDetailsLive do
                                   case Enum.find(all_tiers_by_name, fn {name, _} ->
                                          name == tier_name
                                        end) do
-                                    {_, original_tickets} -> length(original_tickets)
-                                    nil -> length(confirmed_tier_tickets)
+                                    {_, original_tickets} ->
+                                      length(original_tickets)
+
+                                    nil ->
+                                      length(confirmed_tier_tickets)
                                   end %>
                                 <% new_count = length(confirmed_tier_tickets) %>
                                 <% has_refunded_tickets = original_count > new_count %>
                                 <p class={[
                                   "text-xs uppercase tracking-widest font-bold",
-                                  if(all_refunded, do: "text-red-300/70", else: "text-zinc-500")
+                                  if(all_refunded,
+                                    do: "text-red-300/70",
+                                    else: "text-zinc-500"
+                                  )
                                 ]}>
                                   <%= if partial_refund && has_refunded_tickets do %>
                                     <span class="line-through opacity-60">
@@ -325,7 +354,8 @@ defmodule YscWeb.EventDetailsLive do
                 </p>
                 <%= if !event_in_past?(@event) && @event.state != :cancelled do %>
                   <div class="mt-3 inline-flex items-center gap-2 bg-blue-50 px-2 py-1 rounded-full">
-                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse">
+                    </span>
                     <span class="text-[10px] font-black text-blue-600 uppercase tracking-widest">
                       Upcoming
                     </span>
@@ -364,17 +394,25 @@ defmodule YscWeb.EventDetailsLive do
                     Duration
                   </p>
                   <p class="font-black text-xl text-zinc-900 tracking-tighter leading-none">
-                    <%= case {format_time(@event.start_time), format_time(@event.end_time)} do
+                    <%= case {format_time(@event.start_time),
+                              format_time(@event.end_time)} do
                       {%Time{} = start_time, %Time{} = end_time} ->
                         duration_minutes = Time.diff(end_time, start_time, :minute)
                         hours = div(duration_minutes, 60)
                         minutes = rem(duration_minutes, 60)
 
                         cond do
-                          hours > 0 && minutes > 0 -> "#{hours}h #{minutes}m"
-                          hours > 0 -> "#{hours} Hour#{if hours > 1, do: "s", else: ""}"
-                          minutes > 0 -> "#{minutes} Minute#{if minutes > 1, do: "s", else: ""}"
-                          true -> "TBD"
+                          hours > 0 && minutes > 0 ->
+                            "#{hours}h #{minutes}m"
+
+                          hours > 0 ->
+                            "#{hours} Hour#{if hours > 1, do: "s", else: ""}"
+
+                          minutes > 0 ->
+                            "#{minutes} Minute#{if minutes > 1, do: "s", else: ""}"
+
+                          true ->
+                            "TBD"
                         end
 
                       _ ->
@@ -402,7 +440,10 @@ defmodule YscWeb.EventDetailsLive do
                   >
                     <%= @event.location_name %>
                   </p>
-                  <p :if={@event.address != nil && @event.address != ""} class="text-zinc-600">
+                  <p
+                    :if={@event.address != nil && @event.address != ""}
+                    class="text-zinc-600"
+                  >
                     <%= @event.address %>
                   </p>
                 </div>
@@ -410,7 +451,8 @@ defmodule YscWeb.EventDetailsLive do
 
               <div
                 :if={
-                  @event.latitude != nil && @event.longitude != nil && @event.latitude != "" &&
+                  @event.latitude != nil && @event.longitude != nil &&
+                    @event.latitude != "" &&
                     @event.longitude != ""
                 }
                 class="space-y-4"
@@ -487,9 +529,13 @@ defmodule YscWeb.EventDetailsLive do
               </div>
 
               <%= for agenda <- @agendas do %>
-                <div :if={agenda.id == @active_agenda} class="relative pl-8 space-y-12">
+                <div
+                  :if={agenda.id == @active_agenda}
+                  class="relative pl-8 space-y-12"
+                >
                   <%!-- Vertical Timeline Line --%>
-                  <div class="absolute left-3 top-2 bottom-2 w-px bg-zinc-100"></div>
+                  <div class="absolute left-3 top-2 bottom-2 w-px bg-zinc-100">
+                  </div>
 
                   <%= for agenda_item <- agenda.agenda_items do %>
                     <% is_current = agenda_item_current?(agenda_item, @event) %>
@@ -506,7 +552,10 @@ defmodule YscWeb.EventDetailsLive do
                       <div class="flex flex-col md:flex-row md:items-baseline gap-2 md:gap-8">
                         <div class="w-36 flex-shrink-0">
                           <span class="text-xs font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-widest whitespace-nowrap group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                            <%= format_start_end(agenda_item.start_time, agenda_item.end_time) %>
+                            <%= format_start_end(
+                              agenda_item.start_time,
+                              agenda_item.end_time
+                            ) %>
                           </span>
                         </div>
                         <div class="flex-1 min-w-0">
@@ -546,7 +595,10 @@ defmodule YscWeb.EventDetailsLive do
             <div class="h-36 lg:hidden"></div>
 
             <%!-- Desktop: Sticky sidebar --%>
-            <div :if={@event.state != :cancelled} class="hidden lg:block sticky top-24 space-y-8">
+            <div
+              :if={@event.state != :cancelled}
+              class="hidden lg:block sticky top-24 space-y-8"
+            >
               <div class="bg-white rounded-xl shadow-2xl border border-zinc-100 overflow-hidden">
                 <%= if event_in_past?(@event) do %>
                   <div class="p-8 text-center bg-zinc-50/50">
@@ -554,7 +606,9 @@ defmodule YscWeb.EventDetailsLive do
                       <.icon name="hero-clock" class="w-10 h-10 mx-auto" />
                     </div>
                     <p class="text-red-700 font-semibold">Event has ended</p>
-                    <p class="text-red-500 text-sm mt-1">Tickets are no longer available</p>
+                    <p class="text-red-500 text-sm mt-1">
+                      Tickets are no longer available
+                    </p>
                   </div>
                 <% else %>
                   <div class="p-8 text-center bg-zinc-50/50 shadow-[inset_0_-10px_20px_-15px_rgba(0,0,0,0.1)]">
@@ -571,7 +625,10 @@ defmodule YscWeb.EventDetailsLive do
                     ]}>
                       <%= @event.pricing_info.display_text %>
                     </p>
-                    <p :if={@event.start_date != nil} class="text-sm text-zinc-500 mt-2">
+                    <p
+                      :if={@event.start_date != nil}
+                      class="text-sm text-zinc-500 mt-2"
+                    >
                       <%= format_start_date(@event.start_date) %>
                     </p>
                   </div>
@@ -595,7 +652,10 @@ defmodule YscWeb.EventDetailsLive do
                       <div class="p-4 bg-orange-50 rounded-xl border border-orange-100 space-y-3">
                         <div class="flex items-center gap-3">
                           <div class="flex-shrink-0 w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center">
-                            <.icon name="hero-fire-solid" class="w-4 h-4 text-white" />
+                            <.icon
+                              name="hero-fire-solid"
+                              class="w-4 h-4 text-white"
+                            />
                           </div>
                           <p class="text-[11px] font-black text-orange-800 uppercase tracking-tight">
                             Demand is High
@@ -621,7 +681,8 @@ defmodule YscWeb.EventDetailsLive do
                           </div>
                         <% else %>
                           <p class="text-[11px] text-orange-700 font-medium">
-                            <%= if available_capacity != :unlimited && available_capacity <= 10 do
+                            <%= if available_capacity != :unlimited &&
+                                     available_capacity <= 10 do
                               "Less than #{available_capacity} spot#{if available_capacity == 1, do: "", else: "s"} remaining"
                             else
                               "Going Fast"
@@ -653,9 +714,11 @@ defmodule YscWeb.EventDetailsLive do
                         </div>
                         <%= if @async_data_loaded && @active_membership? && @attendees_count != nil && @attendees_count >= 5 && @attendees_list != nil && length(@attendees_list) > 0 do %>
                           <% attendees_to_show = Enum.take(@attendees_list, 5) %>
-                          <% remaining_count = length(@attendees_list) - length(attendees_to_show) %>
+                          <% remaining_count =
+                            length(@attendees_list) - length(attendees_to_show) %>
                           <% names_to_show = Enum.take(@attendees_list, 3) %>
-                          <% names_remaining = length(@attendees_list) - length(names_to_show) %>
+                          <% names_remaining =
+                            length(@attendees_list) - length(names_to_show) %>
                           <button
                             phx-click="show-attendees-modal"
                             class="flex items-center gap-3 text-sm text-zinc-600 font-medium hover:text-zinc-900 transition-colors cursor-pointer w-full text-left"
@@ -670,7 +733,9 @@ defmodule YscWeb.EventDetailsLive do
                                   <.user_avatar_image
                                     email={attendee.email || ""}
                                     user_id={to_string(attendee.id)}
-                                    country={attendee.most_connected_country || "SE"}
+                                    country={
+                                      attendee.most_connected_country || "SE"
+                                    }
                                     class="w-full h-full object-cover"
                                   />
                                 </div>
@@ -700,7 +765,9 @@ defmodule YscWeb.EventDetailsLive do
                                   do: "more is",
                                   else: "more are" %> going
                               <% else %>
-                                <%= if length(@attendees_list) == 1, do: "is", else: "are" %> going
+                                <%= if length(@attendees_list) == 1,
+                                  do: "is",
+                                  else: "are" %> going
                               <% end %>
                             </span>
                           </button>
@@ -708,17 +775,23 @@ defmodule YscWeb.EventDetailsLive do
                       <% end %>
                     </div>
 
-                    <div :if={@current_user == nil && @has_ticket_tiers} class="w-full space-y-4">
+                    <div
+                      :if={@current_user == nil && @has_ticket_tiers}
+                      class="w-full space-y-4"
+                    >
                       <div class="text-sm text-orange-700 px-3 py-2 bg-orange-50 rounded-lg border border-orange-200 text-center">
                         <.icon
                           name="hero-exclamation-circle"
                           class="text-orange-500 w-5 h-5 me-1 -mt-0.5"
-                        /> You need to be signed in and have an active membership to purchase tickets
+                        />
+                        You need to be signed in and have an active membership to purchase tickets
                       </div>
                       <.button
                         class="w-full py-4 uppercase tracking-widest"
                         phx-click={
-                          JS.navigate(~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}")
+                          JS.navigate(
+                            ~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}"
+                          )
                         }
                       >
                         <.icon name="hero-ticket" class="w-5 h-5 me-2 -mt-0.5" />Sign In to Continue
@@ -726,7 +799,10 @@ defmodule YscWeb.EventDetailsLive do
                     </div>
 
                     <div
-                      :if={@current_user != nil && !@active_membership? && @has_ticket_tiers}
+                      :if={
+                        @current_user != nil && !@active_membership? &&
+                          @has_ticket_tiers
+                      }
                       class="w-full"
                     >
                       <div class="text-sm text-orange-700 px-3 py-2 bg-orange-50 rounded-lg border border-orange-200 text-center">
@@ -761,7 +837,9 @@ defmodule YscWeb.EventDetailsLive do
                       <% end %>
                     <% else %>
                       <div class="w-full text-center py-2">
-                        <p class="font-bold text-green-700 text-sm">No registration required</p>
+                        <p class="font-bold text-green-700 text-sm">
+                          No registration required
+                        </p>
                       </div>
                     <% end %>
                   </div>
@@ -858,7 +936,9 @@ defmodule YscWeb.EventDetailsLive do
                       <.button
                         class="flex-shrink-0 px-8 py-3.5 uppercase tracking-widest"
                         phx-click={
-                          JS.navigate(~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}")
+                          JS.navigate(
+                            ~p"/users/log-in?redirect_to=#{~p"/events/#{@event.id}"}"
+                          )
                         }
                       >
                         <.icon name="hero-ticket" class="w-5 h-5 me-2 -mt-0.5" />Sign In to Continue
@@ -875,7 +955,10 @@ defmodule YscWeb.EventDetailsLive do
                               class="flex-shrink-0 px-8 py-3.5 uppercase tracking-widest"
                               phx-click="open-ticket-modal"
                             >
-                              <.icon name="hero-ticket" class="w-5 h-5 me-2 -mt-0.5" />Get Tickets
+                              <.icon
+                                name="hero-ticket"
+                                class="w-5 h-5 me-2 -mt-0.5"
+                              />Get Tickets
                             </.button>
                           <% else %>
                             <div class="text-orange-700 font-black text-sm text-center">
@@ -917,16 +1000,26 @@ defmodule YscWeb.EventDetailsLive do
 
           <div class="space-y-4 h-full lg:overflow-y-auto lg:max-h-[600px] lg:px-4">
             <%= for ticket_tier <- @ticket_tiers do %>
-              <% is_donation = ticket_tier.type == "donation" || ticket_tier.type == :donation %>
+              <% is_donation =
+                ticket_tier.type == "donation" || ticket_tier.type == :donation %>
               <% available = get_available_quantity(ticket_tier) %>
               <% is_event_at_capacity = @event_at_capacity %>
-              <% is_sold_out = if is_donation, do: false, else: available == 0 || is_event_at_capacity %>
-              <% is_on_sale = if is_donation, do: true, else: tier_on_sale?(ticket_tier) %>
-              <% is_sale_ended = if is_donation, do: false, else: tier_sale_ended?(ticket_tier) %>
-              <% days_until_sale = if is_donation, do: nil, else: days_until_sale_starts(ticket_tier) %>
-              <% is_pre_sale = if is_donation, do: false, else: not is_on_sale && !is_sale_ended %>
-              <% has_selected_tickets = get_ticket_quantity(@selected_tickets, ticket_tier.id) > 0 %>
-              <% reserved_quantity = Map.get(@reservations_by_tier, ticket_tier.id, 0) %>
+              <% is_sold_out =
+                if is_donation,
+                  do: false,
+                  else: available == 0 || is_event_at_capacity %>
+              <% is_on_sale =
+                if is_donation, do: true, else: tier_on_sale?(ticket_tier) %>
+              <% is_sale_ended =
+                if is_donation, do: false, else: tier_sale_ended?(ticket_tier) %>
+              <% days_until_sale =
+                if is_donation, do: nil, else: days_until_sale_starts(ticket_tier) %>
+              <% is_pre_sale =
+                if is_donation, do: false, else: not is_on_sale && !is_sale_ended %>
+              <% has_selected_tickets =
+                get_ticket_quantity(@selected_tickets, ticket_tier.id) > 0 %>
+              <% reserved_quantity =
+                Map.get(@reservations_by_tier, ticket_tier.id, 0) %>
               <% has_reservation = reserved_quantity > 0 %>
               <% reservation_info =
                 get_reservation_discount_info(
@@ -952,7 +1045,9 @@ defmodule YscWeb.EventDetailsLive do
                 <div class="flex justify-between items-start mb-4">
                   <div>
                     <div class="flex items-center gap-2">
-                      <h4 class="font-semibold text-lg text-zinc-900"><%= ticket_tier.name %></h4>
+                      <h4 class="font-semibold text-lg text-zinc-900">
+                        <%= ticket_tier.name %>
+                      </h4>
                       <%= if has_reservation do %>
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
                           <.icon name="hero-ticket" class="w-3 h-3" />
@@ -960,28 +1055,35 @@ defmodule YscWeb.EventDetailsLive do
                         </span>
                       <% end %>
                     </div>
-                    <p :if={ticket_tier.description} class="text-base text-zinc-600 mt-2">
+                    <p
+                      :if={ticket_tier.description}
+                      class="text-base text-zinc-600 mt-2"
+                    >
                       <%= ticket_tier.description %>
                     </p>
                     <%= if has_reservation do %>
                       <div class="mt-1 space-y-1">
                         <p class="text-sm text-blue-600 font-medium">
-                          You have <%= reserved_quantity %> <%= if reserved_quantity == 1,
-                            do: "ticket",
-                            else: "tickets" %> reserved for this tier
+                          You have <%= reserved_quantity %> <%= if reserved_quantity ==
+                                                                     1,
+                                                                   do: "ticket",
+                                                                   else: "tickets" %> reserved for this tier
                           <%= if has_discount do %>
                             <.badge
                               type="green"
                               class="inline-flex items-center gap-1 ml-2 py-0.5 rounded-full border border-green-200 text-green-700 me-0"
                             >
                               <.icon name="hero-tag" class="w-3 h-3" />
-                              <%= reservation_info.discount_percentage |> Float.round(2) %>% off
+                              <%= reservation_info.discount_percentage
+                              |> Float.round(2) %>% off
                             </.badge>
                           <% end %>
                         </p>
                         <%= if has_discount && Money.positive?(reservation_info.discount_savings) do %>
                           <p class="text-xs text-green-600">
-                            You'll save <%= format_price(reservation_info.discount_savings) %> with your reserved tickets
+                            You'll save <%= format_price(
+                              reservation_info.discount_savings
+                            ) %> with your reserved tickets
                           </p>
                         <% end %>
                       </div>
@@ -989,7 +1091,10 @@ defmodule YscWeb.EventDetailsLive do
                   </div>
                   <div class="text-right">
                     <p
-                      :if={ticket_tier.type != "donation" && ticket_tier.type != :donation}
+                      :if={
+                        ticket_tier.type != "donation" &&
+                          ticket_tier.type != :donation
+                      }
                       class={[
                         "font-semibold text-xl",
                         if is_event_at_capacity do
@@ -1007,7 +1112,10 @@ defmodule YscWeb.EventDetailsLive do
                       <% end %>
                     </p>
                     <p
-                      :if={ticket_tier.type != "donation" && ticket_tier.type != :donation}
+                      :if={
+                        ticket_tier.type != "donation" &&
+                          ticket_tier.type != :donation
+                      }
                       id={"tier-availability-#{ticket_tier.id}"}
                       class={[
                         "text-base text-sm transition-colors duration-200",
@@ -1023,9 +1131,10 @@ defmodule YscWeb.EventDetailsLive do
                         <% is_sale_ended -> %>
                           Sale ended
                         <% is_pre_sale -> %>
-                          Sale starts in <%= days_until_sale %> <%= if days_until_sale == 1,
-                            do: "day",
-                            else: "days" %>
+                          Sale starts in <%= days_until_sale %> <%= if days_until_sale ==
+                                                                         1,
+                                                                       do: "day",
+                                                                       else: "days" %>
                         <% is_event_at_capacity -> %>
                           Sold Out (Event at capacity)
                         <% available == :unlimited -> %>
@@ -1055,7 +1164,12 @@ defmodule YscWeb.EventDetailsLive do
                             name={"donation_amount_#{ticket_tier.id}"}
                             phx-hook="MoneyInput"
                             data-tier-id={ticket_tier.id}
-                            value={format_donation_amount(@selected_tickets, ticket_tier.id)}
+                            value={
+                              format_donation_amount(
+                                @selected_tickets,
+                                ticket_tier.id
+                              )
+                            }
                             placeholder="0.00"
                             disabled={false}
                             class="w-full sm:w-32 border-0 focus:ring-0 focus:outline-none font-medium text-zinc-900"
@@ -1096,8 +1210,13 @@ defmodule YscWeb.EventDetailsLive do
                   </div>
                   <!-- Donation Disclaimer -->
                   <div class="mt-2 items-center bg-zinc-50 px-3 py-2 rounded-md w-full flex flex-row border border-zinc-200">
-                    <.icon name="hero-exclamation-circle" class="text-zinc-600 w-5 h-5 me-1" />
-                    <p class="text-sm text-zinc-600">A donation is not a ticket to the event</p>
+                    <.icon
+                      name="hero-exclamation-circle"
+                      class="text-zinc-600 w-5 h-5 me-1"
+                    />
+                    <p class="text-sm text-zinc-600">
+                      A donation is not a ticket to the event
+                    </p>
                   </div>
                 <% else %>
                   <!-- Regular Quantity Selector -->
@@ -1111,7 +1230,8 @@ defmodule YscWeb.EventDetailsLive do
                           "w-10 h-10 rounded-full border flex items-center justify-center transition-colors",
                           if(
                             is_sold_out or is_sale_ended or is_pre_sale or
-                              get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0
+                              get_ticket_quantity(@selected_tickets, ticket_tier.id) ==
+                                0
                           ) do
                             "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
                           else
@@ -1120,7 +1240,8 @@ defmodule YscWeb.EventDetailsLive do
                         ]}
                         disabled={
                           is_sold_out or is_sale_ended or is_pre_sale or
-                            get_ticket_quantity(@selected_tickets, ticket_tier.id) == 0
+                            get_ticket_quantity(@selected_tickets, ticket_tier.id) ==
+                              0
                         }
                       >
                         <.icon name="hero-minus" class="w-5 h-5" />
@@ -1134,7 +1255,8 @@ defmodule YscWeb.EventDetailsLive do
                       ]}>
                         <%= get_ticket_quantity(@selected_tickets, ticket_tier.id) %>
                       </span>
-                      <% current_qty = get_ticket_quantity(@selected_tickets, ticket_tier.id) %>
+                      <% current_qty =
+                        get_ticket_quantity(@selected_tickets, ticket_tier.id) %>
                       <% can_increase =
                         can_increase_quantity_cached?(
                           ticket_tier,
@@ -1151,13 +1273,19 @@ defmodule YscWeb.EventDetailsLive do
                         phx-debounce="150"
                         class={[
                           "w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all duration-200 font-semibold",
-                          if(is_sold_out or is_sale_ended or is_pre_sale or !can_increase) do
+                          if(
+                            is_sold_out or is_sale_ended or is_pre_sale or
+                              !can_increase
+                          ) do
                             "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed"
                           else
                             "border-blue-700 bg-blue-700 hover:bg-blue-800 hover:border-blue-800 text-white"
                           end
                         ]}
-                        disabled={is_sold_out or is_sale_ended or is_pre_sale or !can_increase}
+                        disabled={
+                          is_sold_out or is_sale_ended or is_pre_sale or
+                            !can_increase
+                        }
                       >
                         <.icon name="hero-plus" class="w-5 h-5" />
                       </button>
@@ -1168,14 +1296,20 @@ defmodule YscWeb.EventDetailsLive do
                 <div :if={!is_donation && is_pre_sale} class="mt-2">
                   <p class="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md border border-blue-200">
                     <.icon name="hero-clock" class="w-4 h-4 inline me-1" />
-                    Sale starts <%= Timex.format!(ticket_tier.start_date, "{Mshort} {D}, {YYYY}") %>
+                    Sale starts <%= Timex.format!(
+                      ticket_tier.start_date,
+                      "{Mshort} {D}, {YYYY}"
+                    ) %>
                   </p>
                 </div>
 
                 <div :if={!is_donation && is_sale_ended} class="mt-2">
                   <p class="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md border border-red-200">
                     <.icon name="hero-x-circle" class="w-4 h-4 inline me-1" />
-                    Sale ended on <%= Timex.format!(ticket_tier.end_date, "{Mshort} {D}, {YYYY}") %>
+                    Sale ended on <%= Timex.format!(
+                      ticket_tier.end_date,
+                      "{Mshort} {D}, {YYYY}"
+                    ) %>
                   </p>
                 </div>
 
@@ -1190,13 +1324,16 @@ defmodule YscWeb.EventDetailsLive do
                   :if={
                     !is_donation && !is_sold_out && !is_pre_sale && !is_sale_ended &&
                       available != :unlimited &&
-                      get_ticket_quantity(@selected_tickets, ticket_tier.id) >= available
+                      get_ticket_quantity(@selected_tickets, ticket_tier.id) >=
+                        available
                   }
                   class="mt-2"
                 >
                   <p class="text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-md border border-amber-200">
-                    <.icon name="hero-exclamation-triangle" class="w-4 h-4 inline me-1" />
-                    Maximum available tickets selected
+                    <.icon
+                      name="hero-exclamation-triangle"
+                      class="w-4 h-4 inline me-1"
+                    /> Maximum available tickets selected
                   </p>
                 </div>
 
@@ -1206,7 +1343,11 @@ defmodule YscWeb.EventDetailsLive do
                     !is_donation && !is_sold_out && !is_pre_sale && !is_sale_ended &&
                       @event.max_attendees &&
                       available_capacity != :unlimited &&
-                      calculate_total_selected_tickets(@selected_tickets, @event.id, @ticket_tiers) >=
+                      calculate_total_selected_tickets(
+                        @selected_tickets,
+                        @event.id,
+                        @ticket_tiers
+                      ) >=
                         available_capacity
                   }
                   class="mt-2"
@@ -1240,7 +1381,9 @@ defmodule YscWeb.EventDetailsLive do
             </div>
 
             <div>
-              <h2 class="text-lg font-semibold mb-6 hidden lg:block"><%= @event.title %></h2>
+              <h2 class="text-lg font-semibold mb-6 hidden lg:block">
+                <%= @event.title %>
+              </h2>
               <h3 class="font-semibold mb-2">Order Summary</h3>
             </div>
 
@@ -1283,7 +1426,8 @@ defmodule YscWeb.EventDetailsLive do
                     <%= if breakdown.discount_percentage && breakdown.discount_percentage > 0 do %>
                       <div class="flex justify-between text-sm text-green-600">
                         <span>
-                          Reserved discount (<%= breakdown.discount_percentage |> Float.round(2) %>%)
+                          Reserved discount (<%= breakdown.discount_percentage
+                          |> Float.round(2) %>%)
                         </span>
                         <span class="font-medium">
                           -<%= format_price(breakdown.discount_amount) %>
@@ -1391,7 +1535,9 @@ defmodule YscWeb.EventDetailsLive do
             <div class="text-red-500 mb-4">
               <.icon name="hero-clock" class="w-16 h-16 mx-auto" />
             </div>
-            <h2 class="text-2xl font-semibold text-red-700 mb-2">Checkout Session Expired</h2>
+            <h2 class="text-2xl font-semibold text-red-700 mb-2">
+              Checkout Session Expired
+            </h2>
             <p class="text-zinc-600 max-w-md">
               Your checkout session has expired. The tickets you selected may no longer be available.
               Please start over to select your tickets again.
@@ -1438,7 +1584,9 @@ defmodule YscWeb.EventDetailsLive do
           <div class="lg:w-2/3 space-y-6">
             <div class="text-center">
               <h2 class="text-2xl font-semibold">Complete Your Purchase</h2>
-              <p class="text-zinc-600 mt-2">Order: <%= @ticket_order.reference_id %></p>
+              <p class="text-zinc-600 mt-2">
+                Order: <%= @ticket_order.reference_id %>
+              </p>
             </div>
 
             <%!-- Registration Section - Show if tickets require registration --%>
@@ -1471,17 +1619,22 @@ defmodule YscWeb.EventDetailsLive do
                               do:
                                 Enum.find(family_members, fn u ->
                                   u.id == selected_family_member_id ||
-                                    to_string(u.id) == to_string(selected_family_member_id)
+                                    to_string(u.id) ==
+                                      to_string(selected_family_member_id)
                                 end),
                               else: nil
 
-                          has_selected_family_member = not is_nil(selected_family_member)
+                          has_selected_family_member =
+                            not is_nil(selected_family_member)
+
                           ticket_id_str = to_string(ticket.id)
 
                           cond do
                             is_for_me ->
-                              @current_user.first_name && @current_user.first_name != "" &&
-                                (@current_user.last_name && @current_user.last_name != "") &&
+                              @current_user.first_name &&
+                                @current_user.first_name != "" &&
+                                (@current_user.last_name &&
+                                   @current_user.last_name != "") &&
                                 (@current_user.email && @current_user.email != "")
 
                             has_selected_family_member ->
@@ -1489,7 +1642,8 @@ defmodule YscWeb.EventDetailsLive do
                                 selected_family_member.first_name != "" &&
                                 (selected_family_member.last_name &&
                                    selected_family_member.last_name != "") &&
-                                (selected_family_member.email && selected_family_member.email != "")
+                                (selected_family_member.email &&
+                                   selected_family_member.email != "")
 
                             true ->
                               form_map =
@@ -1497,13 +1651,17 @@ defmodule YscWeb.EventDetailsLive do
                                   Map.get(@ticket_details_form, ticket.id) || %{}
 
                               first_name =
-                                Map.get(form_map, :first_name) || Map.get(form_map, "first_name") ||
+                                Map.get(form_map, :first_name) ||
+                                  Map.get(form_map, "first_name") ||
                                   ""
 
                               last_name =
-                                Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || ""
+                                Map.get(form_map, :last_name) ||
+                                  Map.get(form_map, "last_name") || ""
 
-                              email = Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+                              email =
+                                Map.get(form_map, :email) ||
+                                  Map.get(form_map, "email") || ""
 
                               first_name != "" && last_name != "" && email != "" &&
                                 String.contains?(email, "@")
@@ -1546,7 +1704,11 @@ defmodule YscWeb.EventDetailsLive do
                     |> Enum.any?(fn other_ticket ->
                       other_ticket.id != ticket.id &&
                         (Map.get(tickets_for_me, other_ticket.id, false) ||
-                           Map.get(tickets_for_me, to_string(other_ticket.id), false))
+                           Map.get(
+                             tickets_for_me,
+                             to_string(other_ticket.id),
+                             false
+                           ))
                     end) %>
 
                   <% selected_family_members = @selected_family_members || %{} %>
@@ -1576,9 +1738,12 @@ defmodule YscWeb.EventDetailsLive do
 
                       has_selected_family_member ->
                         # Family member is selected - check if they have required fields
-                        selected_family_member.first_name && selected_family_member.first_name != "" &&
-                          (selected_family_member.last_name && selected_family_member.last_name != "") &&
-                          (selected_family_member.email && selected_family_member.email != "")
+                        selected_family_member.first_name &&
+                          selected_family_member.first_name != "" &&
+                          (selected_family_member.last_name &&
+                             selected_family_member.last_name != "") &&
+                          (selected_family_member.email &&
+                             selected_family_member.email != "")
 
                       true ->
                         # Manual entry - check if all fields are filled
@@ -1587,12 +1752,16 @@ defmodule YscWeb.EventDetailsLive do
                             Map.get(@ticket_details_form, ticket.id) || %{}
 
                         first_name =
-                          Map.get(form_map, :first_name) || Map.get(form_map, "first_name") || ""
+                          Map.get(form_map, :first_name) ||
+                            Map.get(form_map, "first_name") || ""
 
                         last_name =
-                          Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || ""
+                          Map.get(form_map, :last_name) ||
+                            Map.get(form_map, "last_name") || ""
 
-                        email = Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+                        email =
+                          Map.get(form_map, :email) || Map.get(form_map, "email") ||
+                            ""
 
                         first_name != "" && last_name != "" && email != "" &&
                           String.contains?(email, "@")
@@ -1633,11 +1802,15 @@ defmodule YscWeb.EventDetailsLive do
                             # Use form data, but ensure all fields exist (fill missing ones with empty string)
                             %{
                               first_name:
-                                Map.get(form_map, :first_name) || Map.get(form_map, "first_name") ||
+                                Map.get(form_map, :first_name) ||
+                                  Map.get(form_map, "first_name") ||
                                   "",
                               last_name:
-                                Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || "",
-                              email: Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+                                Map.get(form_map, :last_name) ||
+                                  Map.get(form_map, "last_name") || "",
+                              email:
+                                Map.get(form_map, :email) ||
+                                  Map.get(form_map, "email") || ""
                             }
                         end
                     end %>
@@ -1652,7 +1825,9 @@ defmodule YscWeb.EventDetailsLive do
                       <div class="flex items-center gap-3">
                         <div>
                           <h4 class="text-base font-semibold text-zinc-900">
-                            Ticket <%= index + 1 %> of <%= length(tickets_requiring_registration) %>
+                            Ticket <%= index + 1 %> of <%= length(
+                              tickets_requiring_registration
+                            ) %>
                           </h4>
                           <p class="text-xs text-zinc-600">
                             <%= ticket.ticket_tier.name %>
@@ -1660,18 +1835,27 @@ defmodule YscWeb.EventDetailsLive do
                         </div>
                         <%= if is_registration_complete do %>
                           <div class="flex-shrink-0">
-                            <.icon name="hero-check-circle" class="w-6 h-6 text-green-600" />
+                            <.icon
+                              name="hero-check-circle"
+                              class="w-6 h-6 text-green-600"
+                            />
                           </div>
                         <% end %>
                       </div>
                     </div>
 
                     <% other_family_members =
-                      Enum.reject(family_members, fn member -> member.id == @current_user.id end) %>
+                      Enum.reject(family_members, fn member ->
+                        member.id == @current_user.id
+                      end) %>
 
                     <%!-- Streamlined Dropdown for "Who is this ticket for?" --%>
                     <form phx-change="select-ticket-attendee" phx-debounce="100">
-                      <input type="hidden" name="ticket_id" value={to_string(ticket.id)} />
+                      <input
+                        type="hidden"
+                        name="ticket_id"
+                        value={to_string(ticket.id)}
+                      />
                       <div class="mb-4">
                         <label
                           for={"ticket_#{ticket.id}_attendee_select"}
@@ -1684,16 +1868,23 @@ defmodule YscWeb.EventDetailsLive do
                           name={"ticket_#{ticket.id}_attendee_select"}
                           value={
                             cond do
-                              is_for_me -> "me"
-                              has_selected_family_member -> "family_#{selected_family_member.id}"
-                              true -> "other"
+                              is_for_me ->
+                                "me"
+
+                              has_selected_family_member ->
+                                "family_#{selected_family_member.id}"
+
+                              true ->
+                                "other"
                             end
                           }
                           class="block w-full rounded-md border-zinc-300 py-2.5 pl-3 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                         >
                           <option
                             value="me"
-                            disabled={me_already_selected_for_other_ticket && !is_for_me}
+                            disabled={
+                              me_already_selected_for_other_ticket && !is_for_me
+                            }
                           >
                             Me (<%= @current_user.first_name || @current_user.email %>)
                             <%= if me_already_selected_for_other_ticket && !is_for_me do %>
@@ -1709,7 +1900,10 @@ defmodule YscWeb.EventDetailsLive do
                               <% end %>
                             </optgroup>
                           <% end %>
-                          <option value="other" selected={!is_for_me && !has_selected_family_member}>
+                          <option
+                            value="other"
+                            selected={!is_for_me && !has_selected_family_member}
+                          >
                             Someone else (Enter details)
                           </option>
                         </select>
@@ -1800,7 +1994,9 @@ defmodule YscWeb.EventDetailsLive do
                     ]}>
                       <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                         <p class="text-sm text-blue-800">
-                          <strong><%= form_data.first_name %> <%= form_data.last_name %></strong>
+                          <strong>
+                            <%= form_data.first_name %> <%= form_data.last_name %>
+                          </strong>
                           <br />
                           <span class="text-blue-600"><%= form_data.email %></span>
                         </p>
@@ -1848,9 +2044,12 @@ defmodule YscWeb.EventDetailsLive do
                         (@current_user.email && @current_user.email != "")
 
                     has_selected_family_member ->
-                      selected_family_member.first_name && selected_family_member.first_name != "" &&
-                        (selected_family_member.last_name && selected_family_member.last_name != "") &&
-                        (selected_family_member.email && selected_family_member.email != "")
+                      selected_family_member.first_name &&
+                        selected_family_member.first_name != "" &&
+                        (selected_family_member.last_name &&
+                           selected_family_member.last_name != "") &&
+                        (selected_family_member.email &&
+                           selected_family_member.email != "")
 
                     true ->
                       form_map =
@@ -1858,12 +2057,16 @@ defmodule YscWeb.EventDetailsLive do
                           Map.get(@ticket_details_form, ticket.id) || %{}
 
                       first_name =
-                        Map.get(form_map, :first_name) || Map.get(form_map, "first_name") || ""
+                        Map.get(form_map, :first_name) ||
+                          Map.get(form_map, "first_name") || ""
 
                       last_name =
-                        Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || ""
+                        Map.get(form_map, :last_name) ||
+                          Map.get(form_map, "last_name") || ""
 
-                      email = Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+                      email =
+                        Map.get(form_map, :email) || Map.get(form_map, "email") ||
+                          ""
 
                       first_name != "" && last_name != "" && email != "" &&
                         String.contains?(email, "@")
@@ -1948,7 +2151,8 @@ defmodule YscWeb.EventDetailsLive do
                   </.button>
                 </div>
                 <p class="text-center text-xs text-zinc-400 flex items-center justify-center gap-1">
-                  <.icon name="hero-lock-closed" class="w-3 h-3" /> Encrypted SSL Secure Payment
+                  <.icon name="hero-lock-closed" class="w-3 h-3" />
+                  Encrypted SSL Secure Payment
                 </p>
               </div>
             </div>
@@ -2001,7 +2205,8 @@ defmodule YscWeb.EventDetailsLive do
                       <%= if breakdown.discount_percentage && breakdown.discount_percentage > 0 do %>
                         <div class="flex justify-between text-sm text-green-600">
                           <span>
-                            Reserved discount (<%= breakdown.discount_percentage |> Float.round(2) %>%)
+                            Reserved discount (<%= breakdown.discount_percentage
+                            |> Float.round(2) %>%)
                           </span>
                           <span class="font-medium">
                             -<%= format_price(breakdown.discount_amount) %>
@@ -2080,7 +2285,9 @@ defmodule YscWeb.EventDetailsLive do
     >
       <div class="flex flex-col space-y-6">
         <div class="text-center">
-          <h2 class="text-2xl font-semibold text-zinc-900 mb-2">Ticket Registration</h2>
+          <h2 class="text-2xl font-semibold text-zinc-900 mb-2">
+            Ticket Registration
+          </h2>
           <p class="text-zinc-600">
             Please provide details for each ticket that requires registration.
           </p>
@@ -2093,7 +2300,11 @@ defmodule YscWeb.EventDetailsLive do
 
             ticket_detail_data =
               Map.get(@ticket_details_form, ticket_id_str, %{}) ||
-                Map.get(@ticket_details_form, ticket.id, %{first_name: "", last_name: "", email: ""})
+                Map.get(@ticket_details_form, ticket.id, %{
+                  first_name: "",
+                  last_name: "",
+                  email: ""
+                })
 
             form_values = %{
               first_name:
@@ -2108,7 +2319,12 @@ defmodule YscWeb.EventDetailsLive do
                   :last_name,
                   (ticket_detail && ticket_detail.last_name) || ""
                 ),
-              email: Map.get(ticket_detail_data, :email, (ticket_detail && ticket_detail.email) || "")
+              email:
+                Map.get(
+                  ticket_detail_data,
+                  :email,
+                  (ticket_detail && ticket_detail.email) || ""
+                )
             } %>
             <div class="border border-zinc-200 rounded-lg p-6 space-y-4">
               <div class="flex items-center justify-between mb-4">
@@ -2198,7 +2414,9 @@ defmodule YscWeb.EventDetailsLive do
           <div class="text-green-500 mb-4">
             <.icon name="hero-ticket" class="w-16 h-16 mx-auto" />
           </div>
-          <h2 class="text-2xl font-semibold text-zinc-900 mb-2">Confirm Your Free Tickets</h2>
+          <h2 class="text-2xl font-semibold text-zinc-900 mb-2">
+            Confirm Your Free Tickets
+          </h2>
           <p class="text-zinc-600 mb-6">
             You've selected free tickets for this event. No payment is required.
           </p>
@@ -2207,7 +2425,9 @@ defmodule YscWeb.EventDetailsLive do
         <%!-- Compact Order Summary (receipt-style) --%>
         <div class="w-full bg-zinc-50 rounded-lg p-4 border border-zinc-200">
           <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-semibold text-zinc-700 uppercase tracking-wide">Order Summary</h3>
+            <h3 class="text-sm font-semibold text-zinc-700 uppercase tracking-wide">
+              Order Summary
+            </h3>
             <p class="text-sm font-bold text-green-600">Free</p>
           </div>
           <div class="space-y-2 text-sm">
@@ -2298,10 +2518,14 @@ defmodule YscWeb.EventDetailsLive do
                         # Use form data, but ensure all fields exist (fill missing ones with empty string)
                         %{
                           first_name:
-                            Map.get(form_map, :first_name) || Map.get(form_map, "first_name") || "",
+                            Map.get(form_map, :first_name) ||
+                              Map.get(form_map, "first_name") || "",
                           last_name:
-                            Map.get(form_map, :last_name) || Map.get(form_map, "last_name") || "",
-                          email: Map.get(form_map, :email) || Map.get(form_map, "email") || ""
+                            Map.get(form_map, :last_name) ||
+                              Map.get(form_map, "last_name") || "",
+                          email:
+                            Map.get(form_map, :email) || Map.get(form_map, "email") ||
+                              ""
                         }
                     end
                 end %>
@@ -2310,7 +2534,9 @@ defmodule YscWeb.EventDetailsLive do
                 <div class="flex items-center justify-between mb-2">
                   <div>
                     <h4 class="text-sm font-semibold text-zinc-900">
-                      Ticket <%= index + 1 %> of <%= length(tickets_requiring_registration) %>
+                      Ticket <%= index + 1 %> of <%= length(
+                        tickets_requiring_registration
+                      ) %>
                     </h4>
                     <p class="text-xs text-zinc-600">
                       <%= ticket.ticket_tier.name %>
@@ -2319,11 +2545,17 @@ defmodule YscWeb.EventDetailsLive do
                 </div>
 
                 <% other_family_members =
-                  Enum.reject(family_members, fn member -> member.id == @current_user.id end) %>
+                  Enum.reject(family_members, fn member ->
+                    member.id == @current_user.id
+                  end) %>
 
                 <%!-- Streamlined Dropdown for "Who is this ticket for?" --%>
                 <form phx-change="select-ticket-attendee" phx-debounce="100">
-                  <input type="hidden" name="ticket_id" value={to_string(ticket.id)} />
+                  <input
+                    type="hidden"
+                    name="ticket_id"
+                    value={to_string(ticket.id)}
+                  />
                   <div class="mb-4">
                     <label
                       for={"ticket_#{ticket.id}_attendee_select"}
@@ -2336,14 +2568,24 @@ defmodule YscWeb.EventDetailsLive do
                       name={"ticket_#{ticket.id}_attendee_select"}
                       value={
                         cond do
-                          is_for_me -> "me"
-                          has_selected_family_member -> "family_#{selected_family_member.id}"
-                          true -> "other"
+                          is_for_me ->
+                            "me"
+
+                          has_selected_family_member ->
+                            "family_#{selected_family_member.id}"
+
+                          true ->
+                            "other"
                         end
                       }
                       class="block w-full rounded-md border-zinc-300 py-2.5 pl-3 pr-10 text-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
                     >
-                      <option value="me" disabled={me_already_selected_for_other_ticket && !is_for_me}>
+                      <option
+                        value="me"
+                        disabled={
+                          me_already_selected_for_other_ticket && !is_for_me
+                        }
+                      >
                         Me (<%= @current_user.first_name || @current_user.email %>)
                         <%= if me_already_selected_for_other_ticket && !is_for_me do %>
                           (Already selected for another ticket)
@@ -2358,7 +2600,10 @@ defmodule YscWeb.EventDetailsLive do
                           <% end %>
                         </optgroup>
                       <% end %>
-                      <option value="other" selected={!is_for_me && !has_selected_family_member}>
+                      <option
+                        value="other"
+                        selected={!is_for_me && !has_selected_family_member}
+                      >
                         Someone else (Enter details)
                       </option>
                     </select>
@@ -2446,7 +2691,9 @@ defmodule YscWeb.EventDetailsLive do
                 ]}>
                   <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p class="text-sm text-blue-800">
-                      <strong><%= form_data.first_name %> <%= form_data.last_name %></strong>
+                      <strong>
+                        <%= form_data.first_name %> <%= form_data.last_name %>
+                      </strong>
                       <br />
                       <span class="text-blue-600"><%= form_data.email %></span>
                     </p>
@@ -2487,7 +2734,9 @@ defmodule YscWeb.EventDetailsLive do
           <div class="text-green-500 mb-4">
             <.icon name="hero-check-circle" class="w-16 h-16 mx-auto" />
           </div>
-          <h2 class="text-2xl font-semibold text-zinc-900 mb-2">Order Confirmed!</h2>
+          <h2 class="text-2xl font-semibold text-zinc-900 mb-2">
+            Order Confirmed!
+          </h2>
         </div>
         <!-- Order Details -->
         <div class="w-full max-w-md bg-zinc-50 rounded-lg p-6">
@@ -2509,7 +2758,9 @@ defmodule YscWeb.EventDetailsLive do
             </div>
             <div class="flex justify-between">
               <span class="text-zinc-600">Time:</span>
-              <span class="font-medium"><%= Calendar.strftime(@event.start_time, "%I:%M %p") %></span>
+              <span class="font-medium">
+                <%= Calendar.strftime(@event.start_time, "%I:%M %p") %>
+              </span>
             </div>
           </div>
         </div>
@@ -2518,13 +2769,18 @@ defmodule YscWeb.EventDetailsLive do
           <h3 class="text-lg font-semibold text-zinc-900 mb-4">Your Tickets</h3>
           <div class="space-y-3">
             <%= for ticket <- @ticket_order.tickets do %>
-              <% ticket_discount_amount = ticket.discount_amount || Money.new(0, :USD) %>
+              <% ticket_discount_amount =
+                ticket.discount_amount || Money.new(0, :USD) %>
               <% has_discount = Money.positive?(ticket_discount_amount) %>
               <div class="space-y-1">
                 <div class="flex justify-between items-center p-3 bg-zinc-50 rounded">
                   <div>
-                    <p class="font-medium text-zinc-900"><%= ticket.ticket_tier.name %></p>
-                    <p class="text-sm text-zinc-500">Ticket #<%= ticket.reference_id %></p>
+                    <p class="font-medium text-zinc-900">
+                      <%= ticket.ticket_tier.name %>
+                    </p>
+                    <p class="text-sm text-zinc-500">
+                      Ticket #<%= ticket.reference_id %>
+                    </p>
                   </div>
                   <div class="text-right">
                     <p class="font-semibold text-zinc-900">
@@ -2543,7 +2799,10 @@ defmodule YscWeb.EventDetailsLive do
                                 {:error, _} -> "Error"
                               end %>
                             </span>
-                            <%= case Money.sub(ticket.ticket_tier.price, ticket_discount_amount) do
+                            <%= case Money.sub(
+                                       ticket.ticket_tier.price,
+                                       ticket_discount_amount
+                                     ) do
                               {:ok, discounted} ->
                                 case Money.to_string(discounted) do
                                   {:ok, amount} -> amount
@@ -2568,8 +2827,12 @@ defmodule YscWeb.EventDetailsLive do
                 </div>
                 <%= if has_discount do %>
                   <% discount_percentage =
-                    if ticket.ticket_tier.price && Money.positive?(ticket.ticket_tier.price) do
-                      case Money.div(ticket_discount_amount, ticket.ticket_tier.price) do
+                    if ticket.ticket_tier.price &&
+                         Money.positive?(ticket.ticket_tier.price) do
+                      case Money.div(
+                             ticket_discount_amount,
+                             ticket.ticket_tier.price
+                           ) do
                         {:ok, ratio} ->
                           Decimal.mult(ratio.amount, Decimal.new(100))
                           |> Decimal.to_float()
@@ -2656,7 +2919,10 @@ defmodule YscWeb.EventDetailsLive do
         </div>
         <!-- Action Buttons -->
         <div class="w-full max-w-md space-y-3">
-          <.button phx-click="close-order-completion" class="w-full bg-green-600 hover:bg-green-700">
+          <.button
+            phx-click="close-order-completion"
+            class="w-full bg-green-600 hover:bg-green-700"
+          >
             Continue
           </.button>
           <div class="text-center">
@@ -2686,12 +2952,12 @@ defmodule YscWeb.EventDetailsLive do
           <h2 class="text-2xl font-semibold text-zinc-900 mb-2">Who's Going</h2>
           <p class="text-zinc-600">
             <%= if @attendees_count do %>
-              <%= @attendees_count %> <%= if @attendees_count == 1, do: "person", else: "people" %> <%= if @attendees_count ==
-                                                                                                             1,
-                                                                                                           do:
-                                                                                                             "is",
-                                                                                                           else:
-                                                                                                             "are" %> attending this event
+              <%= @attendees_count %> <%= if @attendees_count == 1,
+                do: "person",
+                else: "people" %> <%= if @attendees_count ==
+                                           1,
+                                         do: "is",
+                                         else: "are" %> attending this event
             <% else %>
               People attending this event
             <% end %>
@@ -2702,9 +2968,12 @@ defmodule YscWeb.EventDetailsLive do
           <%= if @attendees_list && length(@attendees_list) > 0 do %>
             <%= for attendee <- @attendees_list do %>
               <% attendee_name =
-                "#{attendee.first_name || ""} #{attendee.last_name || ""}" |> String.trim() %>
+                "#{attendee.first_name || ""} #{attendee.last_name || ""}"
+                |> String.trim() %>
               <% display_name =
-                if attendee_name != "", do: attendee_name, else: attendee.email || "Unknown" %>
+                if attendee_name != "",
+                  do: attendee_name,
+                  else: attendee.email || "Unknown" %>
               <% ticket_count = Map.get(@ticket_counts_per_user, attendee.id, 0) %>
               <div class="flex items-center gap-3 p-3 bg-zinc-50 rounded-lg border border-zinc-200">
                 <.user_avatar_image
@@ -2717,7 +2986,9 @@ defmodule YscWeb.EventDetailsLive do
                   <p class="font-medium text-zinc-900">
                     <%= display_name %>
                     <span class="text-zinc-500 font-normal">
-                      (<%= ticket_count %> <%= if ticket_count == 1, do: "ticket", else: "tickets" %>)
+                      (<%= ticket_count %> <%= if ticket_count == 1,
+                        do: "ticket",
+                        else: "tickets" %>)
                     </span>
                   </p>
                   <p
@@ -2817,7 +3088,9 @@ defmodule YscWeb.EventDetailsLive do
         }
       end)
 
-    event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_as_maps)
+    event_with_pricing =
+      add_pricing_info_from_tiers(event, ticket_tiers_as_maps)
+
     has_ticket_tiers = event.ticket_tiers != []
 
     # Check if we're on the tickets route (live_action == :tickets)
@@ -2893,14 +3166,20 @@ defmodule YscWeb.EventDetailsLive do
       {:ticket_tiers, fn -> Events.list_ticket_tiers_for_event(event_id) end},
       {:selling_fast, fn -> Events.event_selling_fast?(event_id) end},
       {:user_tickets, fn -> load_user_tickets(current_user, event_id) end},
-      {:attendees, fn -> load_attendees(active_membership?, current_user, event_id) end},
-      {:user_reservations, fn -> load_user_reservations(current_user, event_id) end}
+      {:attendees,
+       fn -> load_attendees(active_membership?, current_user, event_id) end},
+      {:user_reservations,
+       fn -> load_user_reservations(current_user, event_id) end}
     ]
 
     results =
       tasks
-      |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end, timeout: :infinity)
-      |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc -> Map.put(acc, key, value) end)
+      |> async_stream_with_repo(fn {key, fun} -> {key, fun.()} end,
+        timeout: :infinity
+      )
+      |> Enum.reduce(%{}, fn {:ok, {key, value}}, acc ->
+        Map.put(acc, key, value)
+      end)
 
     # Compute availability from ticket_tiers data (avoids expensive locking transaction)
     # list_ticket_tiers_for_event already includes sold_tickets_count via LEFT JOIN
@@ -3045,7 +3324,9 @@ defmodule YscWeb.EventDetailsLive do
     ticket_tiers_with_counts = Map.get(results, :ticket_tiers, [])
     availability_data = Map.get(results, :availability, nil)
     event_selling_fast = Map.get(results, :selling_fast, false)
-    {user_tickets, all_tickets_by_order} = Map.get(results, :user_tickets, {[], %{}})
+
+    {user_tickets, all_tickets_by_order} =
+      Map.get(results, :user_tickets, {[], %{}})
 
     {attendees_count, attendees_list, ticket_counts_per_user} =
       Map.get(results, :attendees, {nil, nil, %{}})
@@ -3057,7 +3338,9 @@ defmodule YscWeb.EventDetailsLive do
       user_reservations
       |> Enum.group_by(& &1.ticket_tier_id)
       |> Enum.map(fn {tier_id, reservations} ->
-        total_reserved = Enum.reduce(reservations, 0, fn r, acc -> acc + r.quantity end)
+        total_reserved =
+          Enum.reduce(reservations, 0, fn r, acc -> acc + r.quantity end)
+
         {tier_id, total_reserved}
       end)
       |> Map.new()
@@ -3066,14 +3349,19 @@ defmodule YscWeb.EventDetailsLive do
     ticket_tiers = get_ticket_tiers_from_list(ticket_tiers_with_counts)
 
     event_at_capacity =
-      compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+      compute_event_at_capacity(
+        event,
+        ticket_tiers_with_counts,
+        availability_data
+      )
 
     available_capacity = get_available_capacity_from_data(availability_data)
     sold_percentage = compute_sold_percentage(event, availability_data)
     has_ticket_tiers = ticket_tiers_with_counts != []
 
     # Update event with accurate pricing info
-    event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_with_counts)
+    event_with_pricing =
+      add_pricing_info_from_tiers(event, ticket_tiers_with_counts)
 
     {:noreply,
      socket
@@ -3100,6 +3388,7 @@ defmodule YscWeb.EventDetailsLive do
   def handle_async(:load_event_data, {:exit, reason}, socket) do
     require Logger
     Logger.error("Failed to load event data async: #{inspect(reason)}")
+
     # Keep showing the page with minimal data, mark as loaded to avoid infinite loading
     {:noreply, assign(socket, :async_data_loaded, true)}
   end
@@ -3113,7 +3402,8 @@ defmodule YscWeb.EventDetailsLive do
     checkout_step = query_params["checkout"] || query_params[:checkout]
 
     order_id =
-      query_params["order_id"] || query_params[:order_id] || query_params["resume_order"] ||
+      query_params["order_id"] || query_params[:order_id] ||
+        query_params["resume_order"] ||
         query_params[:resume_order]
 
     socket =
@@ -3159,7 +3449,12 @@ defmodule YscWeb.EventDetailsLive do
   defp parse_query_params(_), do: %{}
 
   # Restore checkout state from URL parameters
-  defp restore_checkout_state_from_url(socket, order_id, checkout_step, event_id) do
+  defp restore_checkout_state_from_url(
+         socket,
+         order_id,
+         checkout_step,
+         event_id
+       ) do
     require Logger
 
     Logger.debug("restore_checkout_state_from_url: Starting restore",
@@ -3171,7 +3466,9 @@ defmodule YscWeb.EventDetailsLive do
 
     case Ysc.Tickets.get_ticket_order(order_id) do
       nil ->
-        Logger.warning("restore_checkout_state_from_url: Order not found", order_id: order_id)
+        Logger.warning("restore_checkout_state_from_url: Order not found",
+          order_id: order_id
+        )
 
         socket
         |> put_flash(:error, "Order not found")
@@ -3210,10 +3507,14 @@ defmodule YscWeb.EventDetailsLive do
             )
 
             socket
-            |> put_flash(:error, "This order has expired. Please create a new order.")
+            |> put_flash(
+              :error,
+              "This order has expired. Please create a new order."
+            )
             |> push_patch(to: ~p"/events/#{event_id}")
           else
-            Logger.debug("restore_checkout_state_from_url: All checks passed, restoring state",
+            Logger.debug(
+              "restore_checkout_state_from_url: All checks passed, restoring state",
               order_id: ticket_order.id,
               checkout_step: checkout_step
             )
@@ -3262,7 +3563,9 @@ defmodule YscWeb.EventDetailsLive do
     # Determine checkout step based on order amount
     case Ysc.Tickets.get_ticket_order(order_id) do
       nil ->
-        Logger.warning("restore_checkout_state: Order not found", order_id: order_id)
+        Logger.warning("restore_checkout_state: Order not found",
+          order_id: order_id
+        )
 
         socket
         |> put_flash(:error, "Order not found")
@@ -3300,11 +3603,18 @@ defmodule YscWeb.EventDetailsLive do
             )
 
             socket
-            |> put_flash(:error, "This order has expired. Please create a new order.")
+            |> put_flash(
+              :error,
+              "This order has expired. Please create a new order."
+            )
           else
-            checkout_step = if Money.zero?(ticket_order.total_amount), do: "free", else: "payment"
+            checkout_step =
+              if Money.zero?(ticket_order.total_amount),
+                do: "free",
+                else: "payment"
 
-            Logger.debug("restore_checkout_state: All checks passed, restoring state",
+            Logger.debug(
+              "restore_checkout_state: All checks passed, restoring state",
               order_id: ticket_order.id,
               checkout_step: checkout_step
             )
@@ -3389,8 +3699,10 @@ defmodule YscWeb.EventDetailsLive do
           else
             # For non-first tickets or tickets with existing details, use empty or existing values
             %{
-              first_name: if(ticket_detail, do: ticket_detail.first_name, else: ""),
-              last_name: if(ticket_detail, do: ticket_detail.last_name, else: ""),
+              first_name:
+                if(ticket_detail, do: ticket_detail.first_name, else: ""),
+              last_name:
+                if(ticket_detail, do: ticket_detail.last_name, else: ""),
               email: if(ticket_detail, do: ticket_detail.email, else: "")
             }
           end
@@ -3425,7 +3737,9 @@ defmodule YscWeb.EventDetailsLive do
     ticket_tiers = socket.assigns.ticket_tiers
 
     availability_data =
-      case Ysc.Tickets.BookingLocker.check_availability_with_lock(ticket_order.event_id) do
+      case Ysc.Tickets.BookingLocker.check_availability_with_lock(
+             ticket_order.event_id
+           ) do
         {:ok, availability} -> availability
         {:error, _} -> nil
       end
@@ -3439,7 +3753,10 @@ defmodule YscWeb.EventDetailsLive do
         |> assign(:show_ticket_modal, false)
         |> assign(:show_free_ticket_confirmation, true)
         |> assign(:ticket_order, ticket_order)
-        |> assign(:tickets_requiring_registration, tickets_requiring_registration)
+        |> assign(
+          :tickets_requiring_registration,
+          tickets_requiring_registration
+        )
         |> assign(:ticket_details_form, ticket_details_form)
         |> assign(:tickets_for_me, tickets_for_me)
         |> assign(:selected_family_members, selected_family_members)
@@ -3452,13 +3769,17 @@ defmodule YscWeb.EventDetailsLive do
         # For paid tickets, retrieve or create payment intent and show payment modal with registration
         require Logger
 
-        Logger.debug("restore_payment_state_from_url: Retrieving/creating payment intent",
+        Logger.debug(
+          "restore_payment_state_from_url: Retrieving/creating payment intent",
           order_id: ticket_order.id,
           payment_intent_id: ticket_order.payment_intent_id,
           user_stripe_id: socket.assigns.current_user.stripe_id
         )
 
-        case retrieve_or_create_payment_intent(ticket_order, socket.assigns.current_user) do
+        case retrieve_or_create_payment_intent(
+               ticket_order,
+               socket.assigns.current_user
+             ) do
           {:ok, payment_intent} ->
             Logger.debug(
               "restore_payment_state_from_url: Payment intent retrieved/created successfully",
@@ -3473,7 +3794,10 @@ defmodule YscWeb.EventDetailsLive do
             |> assign(:checkout_expired, false)
             |> assign(:payment_intent, payment_intent)
             |> assign(:ticket_order, ticket_order)
-            |> assign(:tickets_requiring_registration, tickets_requiring_registration)
+            |> assign(
+              :tickets_requiring_registration,
+              tickets_requiring_registration
+            )
             |> assign(:ticket_details_form, ticket_details_form)
             |> assign(:tickets_for_me, tickets_for_me)
             |> assign(:selected_family_members, selected_family_members)
@@ -3552,7 +3876,8 @@ defmodule YscWeb.EventDetailsLive do
           donation_tickets_count =
             ticket_order.tickets
             |> Enum.count(fn t ->
-              t.ticket_tier.type == "donation" || t.ticket_tier.type == :donation
+              t.ticket_tier.type == "donation" ||
+                t.ticket_tier.type == :donation
             end)
 
           # Calculate donation amount per ticket, then multiply by quantity for this tier
@@ -3621,7 +3946,10 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   @impl true
-  def handle_info({Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event}}, socket) do
+  def handle_info(
+        {Ysc.Events, %Ysc.MessagePassingEvents.EventUpdated{event: event}},
+        socket
+      ) do
     # Add pricing info to the updated event
     # Ensure ticket_tiers is preloaded in case it wasn't included in the event update
     event = Repo.preload(event, :ticket_tiers)
@@ -3664,14 +3992,20 @@ defmodule YscWeb.EventDetailsLive do
         socket
       ) do
     new_agendas = socket.assigns.agendas |> Enum.reject(&(&1.id == agenda.id))
-    active_agenda = new_active_agenda(agenda.id, socket.assigns.active_agenda, new_agendas)
 
-    {:noreply, socket |> assign(:agendas, new_agendas) |> assign(:active_agenda, active_agenda)}
+    active_agenda =
+      new_active_agenda(agenda.id, socket.assigns.active_agenda, new_agendas)
+
+    {:noreply,
+     socket
+     |> assign(:agendas, new_agendas)
+     |> assign(:active_agenda, active_agenda)}
   end
 
   @impl true
   def handle_info(
-        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaRepositioned{agenda: agenda}},
+        {Ysc.Agendas,
+         %Ysc.MessagePassingEvents.AgendaRepositioned{agenda: agenda}},
         socket
       ) do
     agendas = Agendas.list_agendas_for_event(agenda.event_id)
@@ -3680,7 +4014,8 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_info(
-        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaItemAdded{agenda_item: agenda_item}},
+        {Ysc.Agendas,
+         %Ysc.MessagePassingEvents.AgendaItemAdded{agenda_item: agenda_item}},
         socket
       ) do
     updated_agendas =
@@ -3700,14 +4035,19 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_info(
-        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaItemDeleted{agenda_item: agenda_item}},
+        {Ysc.Agendas,
+         %Ysc.MessagePassingEvents.AgendaItemDeleted{agenda_item: agenda_item}},
         socket
       ) do
     updated_agendas =
       socket.assigns.agendas
       |> Enum.map(fn
         agenda when agenda.id == agenda_item.agenda_id ->
-          %{agenda | agenda_items: Enum.reject(agenda.agenda_items, &(&1.id == agenda_item.id))}
+          %{
+            agenda
+            | agenda_items:
+                Enum.reject(agenda.agenda_items, &(&1.id == agenda_item.id))
+          }
 
         agenda ->
           agenda
@@ -3719,7 +4059,9 @@ defmodule YscWeb.EventDetailsLive do
   @impl true
   def handle_info(
         {Ysc.Agendas,
-         %Ysc.MessagePassingEvents.AgendaItemRepositioned{agenda_item: _agenda_item}},
+         %Ysc.MessagePassingEvents.AgendaItemRepositioned{
+           agenda_item: _agenda_item
+         }},
         socket
       ) do
     updated_agendas = Agendas.list_agendas_for_event(socket.assigns.event.id)
@@ -3731,7 +4073,8 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_info(
-        {Ysc.Agendas, %Ysc.MessagePassingEvents.AgendaItemUpdated{agenda_item: agenda_item}},
+        {Ysc.Agendas,
+         %Ysc.MessagePassingEvents.AgendaItemUpdated{agenda_item: agenda_item}},
         socket
       ) do
     updated_agendas =
@@ -3758,7 +4101,8 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_info(
-        {Ysc.Tickets, %Ysc.MessagePassingEvents.CheckoutSessionExpired{} = event},
+        {Ysc.Tickets,
+         %Ysc.MessagePassingEvents.CheckoutSessionExpired{} = event},
         socket
       ) do
     # Handle checkout session expiration
@@ -3767,7 +4111,8 @@ defmodule YscWeb.EventDetailsLive do
     Logger.info("Received CheckoutSessionExpired event in EventDetailsLive",
       user_id: socket.assigns.current_user.id,
       show_payment_modal: socket.assigns.show_payment_modal,
-      current_ticket_order_id: socket.assigns.ticket_order && socket.assigns.ticket_order.id,
+      current_ticket_order_id:
+        socket.assigns.ticket_order && socket.assigns.ticket_order.id,
       expired_ticket_order_id: event.ticket_order && event.ticket_order.id,
       event_data: inspect(event, limit: :infinity)
     )
@@ -3775,7 +4120,9 @@ defmodule YscWeb.EventDetailsLive do
     # Show expired message if:
     # 1. We have a payment modal open, OR
     # 2. This is the same session that expired
-    current_order_id = socket.assigns.ticket_order && socket.assigns.ticket_order.id
+    current_order_id =
+      socket.assigns.ticket_order && socket.assigns.ticket_order.id
+
     expired_order_id = event.ticket_order && event.ticket_order.id
 
     if socket.assigns.show_payment_modal &&
@@ -3799,7 +4146,8 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_info(
-        {Ysc.Tickets, %Ysc.MessagePassingEvents.CheckoutSessionCancelled{} = event},
+        {Ysc.Tickets,
+         %Ysc.MessagePassingEvents.CheckoutSessionCancelled{} = event},
         socket
       ) do
     # Handle checkout session cancellation
@@ -3808,7 +4156,8 @@ defmodule YscWeb.EventDetailsLive do
     Logger.info("Received CheckoutSessionCancelled event in EventDetailsLive",
       user_id: socket.assigns.current_user.id,
       show_payment_modal: socket.assigns.show_payment_modal,
-      current_ticket_order_id: socket.assigns.ticket_order && socket.assigns.ticket_order.id,
+      current_ticket_order_id:
+        socket.assigns.ticket_order && socket.assigns.ticket_order.id,
       cancelled_ticket_order_id: event.ticket_order && event.ticket_order.id
     )
 
@@ -3834,7 +4183,9 @@ defmodule YscWeb.EventDetailsLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationCreated{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationCreated{
+           ticket_reservation: reservation
+         }},
         socket
       ) do
     # Reservations affect availability - refresh availability if for this event
@@ -3855,7 +4206,11 @@ defmodule YscWeb.EventDetailsLive do
       event = socket.assigns.event
 
       event_at_capacity =
-        compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+        compute_event_at_capacity(
+          event,
+          ticket_tiers_with_counts,
+          availability_data
+        )
 
       event_selling_fast = Events.event_selling_fast?(event_id)
       available_capacity = get_available_capacity_from_data(availability_data)
@@ -3877,7 +4232,9 @@ defmodule YscWeb.EventDetailsLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationFulfilled{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationFulfilled{
+           ticket_reservation: reservation
+         }},
         socket
       ) do
     # Reservations affect availability - refresh availability if for this event
@@ -3898,7 +4255,11 @@ defmodule YscWeb.EventDetailsLive do
       event = socket.assigns.event
 
       event_at_capacity =
-        compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+        compute_event_at_capacity(
+          event,
+          ticket_tiers_with_counts,
+          availability_data
+        )
 
       event_selling_fast = Events.event_selling_fast?(event_id)
       available_capacity = get_available_capacity_from_data(availability_data)
@@ -3920,7 +4281,9 @@ defmodule YscWeb.EventDetailsLive do
   @impl true
   def handle_info(
         {Ysc.Events,
-         %Ysc.MessagePassingEvents.TicketReservationCancelled{ticket_reservation: reservation}},
+         %Ysc.MessagePassingEvents.TicketReservationCancelled{
+           ticket_reservation: reservation
+         }},
         socket
       ) do
     # Reservations affect availability - refresh availability if for this event
@@ -3941,7 +4304,11 @@ defmodule YscWeb.EventDetailsLive do
       event = socket.assigns.event
 
       event_at_capacity =
-        compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+        compute_event_at_capacity(
+          event,
+          ticket_tiers_with_counts,
+          availability_data
+        )
 
       event_selling_fast = Events.event_selling_fast?(event_id)
       available_capacity = get_available_capacity_from_data(availability_data)
@@ -3962,7 +4329,8 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_info(
-        {Ysc.Tickets, %Ysc.MessagePassingEvents.TicketAvailabilityUpdated{event_id: event_id}},
+        {Ysc.Tickets,
+         %Ysc.MessagePassingEvents.TicketAvailabilityUpdated{event_id: event_id}},
         socket
       ) do
     # Handle ticket availability updates - refresh the event to get updated availability counts
@@ -3983,14 +4351,19 @@ defmodule YscWeb.EventDetailsLive do
       event = socket.assigns.event
 
       event_at_capacity =
-        compute_event_at_capacity(event, ticket_tiers_with_counts, availability_data)
+        compute_event_at_capacity(
+          event,
+          ticket_tiers_with_counts,
+          availability_data
+        )
 
       event_selling_fast = Events.event_selling_fast?(event_id)
       available_capacity = get_available_capacity_from_data(availability_data)
       sold_percentage = compute_sold_percentage(event, availability_data)
 
       # Update event with fresh pricing info
-      event_with_pricing = add_pricing_info_from_tiers(event, ticket_tiers_with_counts)
+      event_with_pricing =
+        add_pricing_info_from_tiers(event, ticket_tiers_with_counts)
 
       # Refresh attendees list if user has active membership
       {attendees_count, attendees_list, ticket_counts_per_user} =
@@ -4109,7 +4482,10 @@ defmodule YscWeb.EventDetailsLive do
         end
 
       if should_cancel do
-        Ysc.Tickets.cancel_ticket_order(socket.assigns.ticket_order, "User left checkout")
+        Ysc.Tickets.cancel_ticket_order(
+          socket.assigns.ticket_order,
+          "User left checkout"
+        )
       end
     end
   end
@@ -4141,7 +4517,8 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_event("open-ticket-modal", _params, socket) do
-    {:noreply, socket |> push_navigate(to: ~p"/events/#{socket.assigns.event.id}/tickets")}
+    {:noreply,
+     socket |> push_navigate(to: ~p"/events/#{socket.assigns.event.id}/tickets")}
   end
 
   @impl true
@@ -4165,7 +4542,10 @@ defmodule YscWeb.EventDetailsLive do
   def handle_event("close-payment-modal", _params, socket) do
     # Cancel the ticket order to release reserved tickets
     if socket.assigns.ticket_order do
-      Ysc.Tickets.cancel_ticket_order(socket.assigns.ticket_order, "User cancelled checkout")
+      Ysc.Tickets.cancel_ticket_order(
+        socket.assigns.ticket_order,
+        "User cancelled checkout"
+      )
     end
 
     {:noreply,
@@ -4246,7 +4626,10 @@ defmodule YscWeb.EventDetailsLive do
     else
       {:noreply,
        socket
-       |> put_flash(:error, "Please fill in all required fields for each ticket.")}
+       |> put_flash(
+         :error,
+         "Please fill in all required fields for each ticket."
+       )}
     end
   end
 
@@ -4273,7 +4656,8 @@ defmodule YscWeb.EventDetailsLive do
   @impl true
   def handle_event("confirm-free-tickets", _params, socket) do
     # Save registration details if any tickets require registration
-    tickets_requiring_registration = socket.assigns.tickets_requiring_registration || []
+    tickets_requiring_registration =
+      socket.assigns.tickets_requiring_registration || []
 
     if Enum.any?(tickets_requiring_registration) do
       tickets_for_me = socket.assigns.tickets_for_me || %{}
@@ -4344,9 +4728,14 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   @impl true
-  def handle_event("payment-success", %{"payment_intent_id" => payment_intent_id}, socket) do
+  def handle_event(
+        "payment-success",
+        %{"payment_intent_id" => payment_intent_id},
+        socket
+      ) do
     # Save registration details if any tickets require registration
-    tickets_requiring_registration = socket.assigns.tickets_requiring_registration || []
+    tickets_requiring_registration =
+      socket.assigns.tickets_requiring_registration || []
 
     if Enum.any?(tickets_requiring_registration) do
       tickets_for_me = socket.assigns.tickets_for_me || %{}
@@ -4437,7 +4826,9 @@ defmodule YscWeb.EventDetailsLive do
     # Normalize ticket_id - try to find the actual ticket to get its ID format
     ticket_id_normalized =
       socket.assigns.tickets_requiring_registration
-      |> Enum.find(fn ticket -> to_string(ticket.id) == to_string(ticket_id) end)
+      |> Enum.find(fn ticket ->
+        to_string(ticket.id) == to_string(ticket_id)
+      end)
       |> case do
         %{id: id} -> id
         nil -> ticket_id
@@ -4455,7 +4846,8 @@ defmodule YscWeb.EventDetailsLive do
     new_state = !current_state
 
     # Store in tickets_for_me using the original ticket.id format for consistency
-    updated_tickets_for_me = Map.put(tickets_for_me, ticket_id_normalized, new_state)
+    updated_tickets_for_me =
+      Map.put(tickets_for_me, ticket_id_normalized, new_state)
 
     # If checked, auto-fill with user's details
     updated_form =
@@ -4508,13 +4900,17 @@ defmodule YscWeb.EventDetailsLive do
       family_members = socket.assigns.family_members || []
 
       selected_user =
-        Enum.find(family_members, fn user -> to_string(user.id) == to_string(user_id) end)
+        Enum.find(family_members, fn user ->
+          to_string(user.id) == to_string(user_id)
+        end)
 
       if selected_user do
         # Normalize ticket_id
         ticket_id_normalized =
           socket.assigns.tickets_requiring_registration
-          |> Enum.find(fn ticket -> to_string(ticket.id) == to_string(ticket_id) end)
+          |> Enum.find(fn ticket ->
+            to_string(ticket.id) == to_string(ticket_id)
+          end)
           |> case do
             %{id: id} -> id
             nil -> ticket_id
@@ -4533,13 +4929,19 @@ defmodule YscWeb.EventDetailsLive do
 
         # Uncheck "for me" if it was checked (since we're selecting a different family member)
         tickets_for_me = socket.assigns.tickets_for_me || %{}
-        updated_tickets_for_me = Map.put(tickets_for_me, ticket_id_normalized, false)
+
+        updated_tickets_for_me =
+          Map.put(tickets_for_me, ticket_id_normalized, false)
 
         # Track the selected family member for this ticket
         selected_family_members = socket.assigns.selected_family_members || %{}
 
         updated_selected_family_members =
-          Map.put(selected_family_members, ticket_id_normalized, selected_user.id)
+          Map.put(
+            selected_family_members,
+            ticket_id_normalized,
+            selected_user.id
+          )
 
         {:noreply,
          socket
@@ -4575,7 +4977,9 @@ defmodule YscWeb.EventDetailsLive do
       # Normalize ticket_id - find the actual ticket to get its ID
       ticket_id_normalized =
         socket.assigns.tickets_requiring_registration
-        |> Enum.find(fn ticket -> to_string(ticket.id) == to_string(ticket_id) end)
+        |> Enum.find(fn ticket ->
+          to_string(ticket.id) == to_string(ticket_id)
+        end)
         |> case do
           %{id: id} -> id
           nil -> ticket_id
@@ -4658,12 +5062,15 @@ defmodule YscWeb.EventDetailsLive do
               })
             }
 
-          is_binary(selected_value) and String.starts_with?(selected_value, "family_") ->
+          is_binary(selected_value) and
+              String.starts_with?(selected_value, "family_") ->
             # Select a family member
             user_id_str = String.replace(selected_value, "family_", "")
 
             selected_user =
-              Enum.find(family_members, fn u -> to_string(u.id) == user_id_str end)
+              Enum.find(family_members, fn u ->
+                to_string(u.id) == user_id_str
+              end)
 
             if selected_user do
               form_data = %{
@@ -4674,7 +5081,11 @@ defmodule YscWeb.EventDetailsLive do
 
               {
                 Map.put(tickets_for_me, ticket_id_str, false),
-                Map.put(selected_family_members, ticket_id_str, selected_user.id),
+                Map.put(
+                  selected_family_members,
+                  ticket_id_str,
+                  selected_user.id
+                ),
                 Map.put(ticket_details_form, ticket_id_str, form_data)
               }
             else
@@ -4700,12 +5111,17 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   @impl true
-  def handle_event("expand-ticket-registration", %{"ticket-index" => ticket_index_str}, socket) do
+  def handle_event(
+        "expand-ticket-registration",
+        %{"ticket-index" => ticket_index_str},
+        socket
+      ) do
     ticket_index = String.to_integer(ticket_index_str)
     current_active = socket.assigns.active_ticket_index || 0
 
     # Toggle: if clicking the same ticket, collapse it; otherwise expand the new one
-    new_active_index = if current_active == ticket_index, do: nil, else: ticket_index
+    new_active_index =
+      if current_active == ticket_index, do: nil, else: ticket_index
 
     {:noreply, assign(socket, :active_ticket_index, new_active_index)}
   end
@@ -4744,7 +5160,9 @@ defmodule YscWeb.EventDetailsLive do
       # Update the ticket_details_form assign with all fields for all tickets
       updated_form =
         ticket_fields
-        |> Enum.reduce(socket.assigns.ticket_details_form, fn {ticket_id_str, fields}, acc ->
+        |> Enum.reduce(socket.assigns.ticket_details_form, fn {ticket_id_str,
+                                                               fields},
+                                                              acc ->
           # Merge with existing form data to preserve other fields
           existing_data = Map.get(acc, ticket_id_str, %{})
           merged_data = Map.merge(existing_data, fields)
@@ -4800,12 +5218,18 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   @impl true
-  def handle_event("set-donation-amount", %{"tier-id" => tier_id, "amount" => amount_str}, socket) do
+  def handle_event(
+        "set-donation-amount",
+        %{"tier-id" => tier_id, "amount" => amount_str},
+        socket
+      ) do
     # Parse the amount string to integer (amount is in cents)
     case Integer.parse(amount_str) do
       {amount_cents, _} when amount_cents > 0 ->
         # Set the donation amount in selected_tickets (amount is already in cents)
-        updated_tickets = Map.put(socket.assigns.selected_tickets, tier_id, amount_cents)
+        updated_tickets =
+          Map.put(socket.assigns.selected_tickets, tier_id, amount_cents)
+
         {:noreply, assign(socket, :selected_tickets, updated_tickets)}
 
       _ ->
@@ -4816,7 +5240,9 @@ defmodule YscWeb.EventDetailsLive do
 
   @impl true
   def handle_event("decrease-ticket-quantity", %{"tier-id" => tier_id}, socket) do
-    current_quantity = get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
+    current_quantity =
+      get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
+
     new_quantity = max(0, current_quantity - 1)
 
     updated_tickets =
@@ -4837,10 +5263,12 @@ defmodule YscWeb.EventDetailsLive do
       |> Enum.find(&(&1.id == tier_id))
 
     # Only handle quantity changes for non-donation tiers
-    if ticket_tier && (ticket_tier.type == "donation" || ticket_tier.type == :donation) do
+    if ticket_tier &&
+         (ticket_tier.type == "donation" || ticket_tier.type == :donation) do
       {:noreply, socket}
     else
-      current_quantity = get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
+      current_quantity =
+        get_ticket_quantity(socket.assigns.selected_tickets, tier_id)
 
       # Use cached availability data for faster checks
       if ticket_tier &&
@@ -4853,8 +5281,11 @@ defmodule YscWeb.EventDetailsLive do
              socket.assigns.ticket_tiers
            ) do
         new_quantity = current_quantity + 1
+
         # Preserve all existing selected_tickets, only update this tier's quantity
-        updated_tickets = Map.put(socket.assigns.selected_tickets, tier_id, new_quantity)
+        updated_tickets =
+          Map.put(socket.assigns.selected_tickets, tier_id, new_quantity)
+
         {:noreply, assign(socket, :selected_tickets, updated_tickets)}
       else
         # Don't increase if we've reached the limit
@@ -4872,7 +5303,8 @@ defmodule YscWeb.EventDetailsLive do
     case Ysc.Tickets.create_ticket_order(user_id, event_id, ticket_selections) do
       {:ok, ticket_order} ->
         # Reload the ticket order with tickets and their tiers
-        ticket_order_with_tickets = Ysc.Tickets.get_ticket_order(ticket_order.id)
+        ticket_order_with_tickets =
+          Ysc.Tickets.get_ticket_order(ticket_order.id)
 
         # Proceed directly to payment/free confirmation with registration integrated
         proceed_to_payment_or_free(socket, ticket_order_with_tickets)
@@ -4907,7 +5339,10 @@ defmodule YscWeb.EventDetailsLive do
       {:error, :event_not_available} ->
         {:noreply,
          socket
-         |> put_flash(:error, "This event is no longer available for ticket purchase.")
+         |> put_flash(
+           :error,
+           "This event is no longer available for ticket purchase."
+         )
          |> assign(:show_ticket_modal, false)}
 
       {:error, :membership_required} ->
@@ -5200,7 +5635,8 @@ defmodule YscWeb.EventDetailsLive do
 
   defp calculate_event_pricing(ticket_tiers) do
     # Check if there are any free tiers (handle both atom and string types)
-    has_free_tiers = Enum.any?(ticket_tiers, &(&1.type == :free or &1.type == "free"))
+    has_free_tiers =
+      Enum.any?(ticket_tiers, &(&1.type == :free or &1.type == "free"))
 
     # Get the lowest price from paid tiers only (exclude donation tiers)
     # Filter out donation, free, and tiers with nil prices
@@ -5257,10 +5693,12 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   defp get_available_quantity(ticket_tier) do
-    quantity = Map.get(ticket_tier, :quantity) || Map.get(ticket_tier, "quantity")
+    quantity =
+      Map.get(ticket_tier, :quantity) || Map.get(ticket_tier, "quantity")
 
     sold_count =
-      Map.get(ticket_tier, :sold_tickets_count) || Map.get(ticket_tier, "sold_tickets_count") || 0
+      Map.get(ticket_tier, :sold_tickets_count) ||
+        Map.get(ticket_tier, "sold_tickets_count") || 0
 
     case quantity do
       # Unlimited
@@ -5359,7 +5797,11 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   # Helper function to save ticket details and process (free or paid)
-  defp save_ticket_details_and_process(ticket_details_list, socket, on_success_fn) do
+  defp save_ticket_details_and_process(
+         ticket_details_list,
+         socket,
+         on_success_fn
+       ) do
     case Ysc.Events.create_ticket_details(ticket_details_list) do
       {:ok, _ticket_details} ->
         on_success_fn.()
@@ -5527,7 +5969,9 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:selected_tickets, %{})
          |> assign(:tickets_requiring_registration, [])
          |> assign(:ticket_details_form, %{})
-         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation?confetti=true")}
+         |> redirect(
+           to: ~p"/orders/#{order_with_tickets.id}/confirmation?confetti=true"
+         )}
 
       {:error, reason} ->
         {:noreply,
@@ -5567,7 +6011,9 @@ defmodule YscWeb.EventDetailsLive do
          |> assign(:selected_tickets, %{})
          |> assign(:tickets_requiring_registration, [])
          |> assign(:ticket_details_form, %{})
-         |> redirect(to: ~p"/orders/#{order_with_tickets.id}/confirmation?confetti=true")}
+         |> redirect(
+           to: ~p"/orders/#{order_with_tickets.id}/confirmation?confetti=true"
+         )}
 
       {:error, _reason} ->
         {:noreply,
@@ -5583,8 +6029,11 @@ defmodule YscWeb.EventDetailsLive do
   defp tier_on_sale?(ticket_tier) do
     now = DateTime.utc_now()
 
-    start_date = Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
-    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+    start_date =
+      Map.get(ticket_tier, :start_date) || Map.get(ticket_tier, "start_date")
+
+    end_date =
+      Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
 
     # Check if sale has started
     sale_started =
@@ -5608,7 +6057,8 @@ defmodule YscWeb.EventDetailsLive do
   defp tier_sale_ended?(ticket_tier) do
     now = DateTime.utc_now()
 
-    end_date = Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
+    end_date =
+      Map.get(ticket_tier, :end_date) || Map.get(ticket_tier, "end_date")
 
     case end_date do
       nil -> false
@@ -5715,15 +6165,28 @@ defmodule YscWeb.EventDetailsLive do
     tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
     event_capacity = availability.event_capacity
 
-    tier_available = check_tier_availability(tier_info, current_quantity, ticket_tier.id, user_id)
+    tier_available =
+      check_tier_availability(
+        tier_info,
+        current_quantity,
+        ticket_tier.id,
+        user_id
+      )
 
     event_available =
-      check_event_capacity(event_capacity, selected_tickets, event.id, ticket_tiers, user_id)
+      check_event_capacity(
+        event_capacity,
+        selected_tickets,
+        event.id,
+        ticket_tiers,
+        user_id
+      )
 
     tier_available && event_available
   end
 
-  defp check_tier_availability(nil, _current_quantity, _tier_id, _user_id), do: false
+  defp check_tier_availability(nil, _current_quantity, _tier_id, _user_id),
+    do: false
 
   defp check_tier_availability(tier_info, current_quantity, tier_id, user_id) do
     if tier_info.available == :unlimited do
@@ -5814,14 +6277,27 @@ defmodule YscWeb.EventDetailsLive do
        ) do
     case Ysc.Tickets.BookingLocker.check_availability_with_lock(event.id) do
       {:ok, availability} ->
-        tier_info = Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
+        tier_info =
+          Enum.find(availability.tiers, &(&1.tier_id == ticket_tier.id))
+
         event_capacity = availability.event_capacity
 
         tier_available =
-          check_tier_availability(tier_info, current_quantity, ticket_tier.id, user_id)
+          check_tier_availability(
+            tier_info,
+            current_quantity,
+            ticket_tier.id,
+            user_id
+          )
 
         event_available =
-          check_event_capacity(event_capacity, selected_tickets, event.id, ticket_tiers, user_id)
+          check_event_capacity(
+            event_capacity,
+            selected_tickets,
+            event.id,
+            ticket_tiers,
+            user_id
+          )
 
         tier_available && event_available
 
@@ -5831,13 +6307,18 @@ defmodule YscWeb.EventDetailsLive do
   end
 
   # Original version kept for compatibility - now uses cached ticket_tiers
-  defp calculate_total_selected_tickets(selected_tickets, event_id, ticket_tiers) do
+  defp calculate_total_selected_tickets(
+         selected_tickets,
+         event_id,
+         ticket_tiers
+       ) do
     selected_tickets
     |> Enum.reduce(0, fn {tier_id, quantity}, acc ->
       # Only count non-donation tiers towards event capacity
       ticket_tier = get_ticket_tier_by_id(event_id, tier_id, ticket_tiers)
 
-      if ticket_tier && (ticket_tier.type != "donation" && ticket_tier.type != :donation) do
+      if ticket_tier &&
+           (ticket_tier.type != "donation" && ticket_tier.type != :donation) do
         acc + quantity
       else
         acc
@@ -5912,7 +6393,8 @@ defmodule YscWeb.EventDetailsLive do
       selected_tickets
       |> Enum.reduce({Money.new(0, :USD), Money.new(0, :USD), []}, fn {tier_id,
                                                                        amount_or_quantity},
-                                                                      {acc_subtotal, acc_discount,
+                                                                      {acc_subtotal,
+                                                                       acc_discount,
                                                                        acc_breakdowns} ->
         ticket_tier = get_ticket_tier_by_id(event_id, tier_id, ticket_tiers)
 
@@ -5936,7 +6418,9 @@ defmodule YscWeb.EventDetailsLive do
             {acc_subtotal, acc_discount, [breakdown | acc_breakdowns]}
 
           "donation" ->
-            dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
+            dollars_decimal =
+              Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
+
             donation_amount = Money.new(:USD, dollars_decimal)
 
             new_subtotal =
@@ -5958,7 +6442,9 @@ defmodule YscWeb.EventDetailsLive do
             {new_subtotal, acc_discount, [breakdown | acc_breakdowns]}
 
           :donation ->
-            dollars_decimal = Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
+            dollars_decimal =
+              Ysc.MoneyHelper.cents_to_dollars(amount_or_quantity)
+
             donation_amount = Money.new(:USD, dollars_decimal)
 
             new_subtotal =
@@ -5990,7 +6476,11 @@ defmodule YscWeb.EventDetailsLive do
             # Calculate discount for reserved tickets
             {tier_discount, discount_pct} =
               if user_id && tier_reservations != [] do
-                calculate_tier_discount(ticket_tier, amount_or_quantity, tier_reservations)
+                calculate_tier_discount(
+                  ticket_tier,
+                  amount_or_quantity,
+                  tier_reservations
+                )
               else
                 {Money.new(0, :USD), nil}
               end
@@ -6046,14 +6536,18 @@ defmodule YscWeb.EventDetailsLive do
     {total_discount, max_discount_pct, _covered_qty} =
       reservations
       |> Enum.reduce_while({Money.new(0, :USD), nil, 0}, fn reservation,
-                                                            {discount_acc, max_pct, covered_qty} ->
+                                                            {discount_acc,
+                                                             max_pct,
+                                                             covered_qty} ->
         remaining_to_cover = requested_quantity - covered_qty
 
         if remaining_to_cover <= 0 do
           {:halt, {discount_acc, max_pct, covered_qty}}
         else
           reservation_qty = reservation.quantity
-          reservation_discount_pct = reservation.discount_percentage || Decimal.new(0)
+
+          reservation_discount_pct =
+            reservation.discount_percentage || Decimal.new(0)
 
           if Decimal.gt?(reservation_discount_pct, 0) do
             tickets_from_reservation = min(reservation_qty, remaining_to_cover)
@@ -6064,7 +6558,8 @@ defmodule YscWeb.EventDetailsLive do
                 {:error, _} -> Money.new(0, :USD)
               end
 
-            discount_pct_decimal = Decimal.div(reservation_discount_pct, Decimal.new(100))
+            discount_pct_decimal =
+              Decimal.div(reservation_discount_pct, Decimal.new(100))
 
             discount_amount =
               case Money.mult(reservation_tier_total, discount_pct_decimal) do
@@ -6080,7 +6575,11 @@ defmodule YscWeb.EventDetailsLive do
 
             # Track the maximum discount percentage for display
             pct_float = Decimal.to_float(reservation_discount_pct)
-            new_max_pct = if max_pct == nil || pct_float > max_pct, do: pct_float, else: max_pct
+
+            new_max_pct =
+              if max_pct == nil || pct_float > max_pct,
+                do: pct_float,
+                else: max_pct
 
             new_covered = covered_qty + tickets_from_reservation
 
@@ -6149,7 +6648,8 @@ defmodule YscWeb.EventDetailsLive do
         end
 
       %{
-        discount_percentage: max_discount_pct && Decimal.to_float(max_discount_pct),
+        discount_percentage:
+          max_discount_pct && Decimal.to_float(max_discount_pct),
         discount_savings: discount_savings
       }
     else
@@ -6265,8 +6765,10 @@ defmodule YscWeb.EventDetailsLive do
           else
             # For non-first tickets or tickets with existing details, use empty or existing values
             %{
-              first_name: if(ticket_detail, do: ticket_detail.first_name, else: ""),
-              last_name: if(ticket_detail, do: ticket_detail.last_name, else: ""),
+              first_name:
+                if(ticket_detail, do: ticket_detail.first_name, else: ""),
+              last_name:
+                if(ticket_detail, do: ticket_detail.last_name, else: ""),
               email: if(ticket_detail, do: ticket_detail.email, else: "")
             }
           end
@@ -6306,7 +6808,10 @@ defmodule YscWeb.EventDetailsLive do
        |> assign(:show_ticket_modal, false)
        |> assign(:show_free_ticket_confirmation, true)
        |> assign(:ticket_order, ticket_order_with_tickets)
-       |> assign(:tickets_requiring_registration, tickets_requiring_registration)
+       |> assign(
+         :tickets_requiring_registration,
+         tickets_requiring_registration
+       )
        |> assign(:ticket_details_form, ticket_details_form)
        |> assign(:tickets_for_me, tickets_for_me)
        |> assign(:selected_family_members, selected_family_members)
@@ -6317,7 +6822,8 @@ defmodule YscWeb.EventDetailsLive do
        )}
     else
       # For paid tickets, create Stripe payment intent
-      case Ysc.Tickets.StripeService.create_payment_intent(ticket_order_with_tickets,
+      case Ysc.Tickets.StripeService.create_payment_intent(
+             ticket_order_with_tickets,
              customer_id: socket.assigns.current_user.stripe_id
            ) do
         {:ok, payment_intent} ->
@@ -6330,7 +6836,10 @@ defmodule YscWeb.EventDetailsLive do
            |> assign(:checkout_expired, false)
            |> assign(:payment_intent, payment_intent)
            |> assign(:ticket_order, ticket_order_with_tickets)
-           |> assign(:tickets_requiring_registration, tickets_requiring_registration)
+           |> assign(
+             :tickets_requiring_registration,
+             tickets_requiring_registration
+           )
            |> assign(:ticket_details_form, ticket_details_form)
            |> assign(:tickets_for_me, tickets_for_me)
            |> assign(:selected_family_members, selected_family_members)

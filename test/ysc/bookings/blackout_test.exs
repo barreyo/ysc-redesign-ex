@@ -127,7 +127,9 @@ defmodule Ysc.Bookings.BlackoutTest do
 
       refute changeset.valid?
       assert changeset.errors[:end_date] != nil
-      assert changeset.errors[:end_date] == {"must be on or after start date", []}
+
+      assert changeset.errors[:end_date] ==
+               {"must be on or after start date", []}
     end
 
     test "accepts single-day blackout (same start and end date)" do
@@ -210,7 +212,9 @@ defmodule Ysc.Bookings.BlackoutTest do
         |> Repo.insert()
 
       # Update the reason
-      update_changeset = Blackout.changeset(blackout, %{reason: "Updated reason"})
+      update_changeset =
+        Blackout.changeset(blackout, %{reason: "Updated reason"})
+
       {:ok, updated_blackout} = Repo.update(update_changeset)
 
       assert updated_blackout.reason == "Updated reason"

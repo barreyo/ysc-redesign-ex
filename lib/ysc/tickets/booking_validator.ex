@@ -51,7 +51,9 @@ defmodule Ysc.Tickets.BookingValidator do
     ticket_tiers = Events.list_ticket_tiers_for_event(event_id)
 
     event_capacity = get_event_capacity_info(event)
-    tier_availability = Enum.map(ticket_tiers, &get_tier_availability_from_map/1)
+
+    tier_availability =
+      Enum.map(ticket_tiers, &get_tier_availability_from_map/1)
 
     %{
       event_capacity: event_capacity,
@@ -205,13 +207,17 @@ defmodule Ysc.Tickets.BookingValidator do
           check_tier_capacity(tier_id, quantity, user_id)
         end)
 
-      if Enum.any?(tier_capacity_validations, &(&1 == {:error, :insufficient_capacity})) do
+      if Enum.any?(
+           tier_capacity_validations,
+           &(&1 == {:error, :insufficient_capacity})
+         ) do
         {:error, :tier_capacity_exceeded}
       else
         # Check total event capacity (unless user has reservations)
         total_requested = Enum.sum(Map.values(ticket_selections))
 
-        if user_has_reservations or within_event_capacity?(event, total_requested) do
+        if user_has_reservations or
+             within_event_capacity?(event, total_requested) do
           :ok
         else
           {:error, :event_capacity_exceeded}
@@ -226,7 +232,8 @@ defmodule Ysc.Tickets.BookingValidator do
       Ysc.Tickets.TicketOrder
       |> where(
         [to],
-        to.user_id == ^user_id and to.event_id == ^event_id and to.status == :pending
+        to.user_id == ^user_id and to.event_id == ^event_id and
+          to.status == :pending
       )
       |> Repo.all()
 
@@ -264,7 +271,8 @@ defmodule Ysc.Tickets.BookingValidator do
     quantity = Map.get(tier_map, :quantity) || Map.get(tier_map, "quantity")
 
     sold_count =
-      Map.get(tier_map, :sold_tickets_count, 0) || Map.get(tier_map, "sold_tickets_count", 0)
+      Map.get(tier_map, :sold_tickets_count, 0) ||
+        Map.get(tier_map, "sold_tickets_count", 0)
 
     available =
       case quantity do
@@ -280,13 +288,15 @@ defmodule Ysc.Tickets.BookingValidator do
       available: available,
       sold: sold_count,
       on_sale: tier_on_sale_from_map?(tier_map),
-      start_date: Map.get(tier_map, :start_date) || Map.get(tier_map, "start_date"),
+      start_date:
+        Map.get(tier_map, :start_date) || Map.get(tier_map, "start_date"),
       end_date: Map.get(tier_map, :end_date) || Map.get(tier_map, "end_date")
     }
   end
 
   defp tier_on_sale_from_map?(tier_map) do
-    start_date = Map.get(tier_map, :start_date) || Map.get(tier_map, "start_date")
+    start_date =
+      Map.get(tier_map, :start_date) || Map.get(tier_map, "start_date")
 
     if is_nil(start_date) do
       true
@@ -296,10 +306,16 @@ defmodule Ysc.Tickets.BookingValidator do
     end
   end
 
-  defp get_available_tier_quantity(%TicketTier{quantity: nil}, _user_id), do: :unlimited
-  defp get_available_tier_quantity(%TicketTier{quantity: 0}, _user_id), do: :unlimited
+  defp get_available_tier_quantity(%TicketTier{quantity: nil}, _user_id),
+    do: :unlimited
 
-  defp get_available_tier_quantity(%TicketTier{id: tier_id, quantity: total_quantity}, user_id) do
+  defp get_available_tier_quantity(%TicketTier{quantity: 0}, _user_id),
+    do: :unlimited
+
+  defp get_available_tier_quantity(
+         %TicketTier{id: tier_id, quantity: total_quantity},
+         user_id
+       ) do
     sold_count = count_sold_tickets_for_tier(tier_id)
     reserved_count = count_reserved_tickets_for_tier(tier_id)
     available = max(0, total_quantity - sold_count - reserved_count)
@@ -317,7 +333,8 @@ defmodule Ysc.Tickets.BookingValidator do
     TicketReservation
     |> where(
       [tr],
-      tr.ticket_tier_id == ^tier_id and tr.user_id == ^user_id and tr.status == "active"
+      tr.ticket_tier_id == ^tier_id and tr.user_id == ^user_id and
+        tr.status == "active"
     )
     |> select([tr], sum(tr.quantity))
     |> Repo.one()
@@ -343,7 +360,8 @@ defmodule Ysc.Tickets.BookingValidator do
     |> join(:inner, [tr], tt in TicketTier, on: tr.ticket_tier_id == tt.id)
     |> where(
       [tr, tt],
-      tr.user_id == ^user_id and tt.event_id == ^event_id and tr.status == "active"
+      tr.user_id == ^user_id and tt.event_id == ^event_id and
+        tr.status == "active"
     )
     |> Repo.exists?()
   end
@@ -356,13 +374,19 @@ defmodule Ysc.Tickets.BookingValidator do
 
   defp count_sold_tickets_for_tier(tier_id) do
     Ticket
-    |> where([t], t.ticket_tier_id == ^tier_id and t.status in [:confirmed, :pending])
+    |> where(
+      [t],
+      t.ticket_tier_id == ^tier_id and t.status in [:confirmed, :pending]
+    )
     |> Repo.aggregate(:count, :id)
   end
 
   defp within_event_capacity?(%Event{max_attendees: nil}, _), do: true
 
-  defp within_event_capacity?(%Event{max_attendees: max_attendees} = event, requested_quantity) do
+  defp within_event_capacity?(
+         %Event{max_attendees: max_attendees} = event,
+         requested_quantity
+       ) do
     current_attendees = count_confirmed_tickets_for_event(event.id)
     current_attendees + requested_quantity <= max_attendees
   end

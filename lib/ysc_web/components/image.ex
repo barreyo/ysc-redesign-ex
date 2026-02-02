@@ -26,7 +26,9 @@ defmodule YscWeb.Components.Image do
         loading="lazy"
         phx-hook="BlurHashImage"
         class="absolute inset-0 z-[1] opacity-0 transition-opacity duration-300 ease-out rounded-lg w-full h-full object-cover"
-        alt={if @image, do: @image.alt_text || @image.title || "Image", else: "Image"}
+        alt={
+          if @image, do: @image.alt_text || @image.title || "Image", else: "Image"
+        }
       />
     </div>
     """

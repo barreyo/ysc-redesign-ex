@@ -63,7 +63,10 @@ defmodule YscWeb.BookingReceiptLiveTest do
       booking = booking_fixture(%{user_id: user.id, status: :hold})
 
       {:ok, _view, html} =
-        live(conn, ~p"/bookings/#{booking.id}/receipt?redirect_status=succeeded&confetti=true")
+        live(
+          conn,
+          ~p"/bookings/#{booking.id}/receipt?redirect_status=succeeded&confetti=true"
+        )
 
       # Note: In real scenario, would need valid payment_intent parameter
       # Just checking that the page loads with redirect params
@@ -218,9 +221,10 @@ defmodule YscWeb.BookingReceiptLiveTest do
       assert path == "/bookings/tahoe"
     end
 
-    test "view-bookings redirects to clear lake bookings for clear_lake property", %{
-      conn: conn
-    } do
+    test "view-bookings redirects to clear lake bookings for clear_lake property",
+         %{
+           conn: conn
+         } do
       user = user_fixture()
       conn = log_in_user(conn, user)
 
@@ -256,7 +260,10 @@ defmodule YscWeb.BookingReceiptLiveTest do
       today = Date.utc_today()
       # Find next Friday
       days_to_friday = 5 - Date.day_of_week(today, :monday)
-      days_to_friday = if days_to_friday < 0, do: days_to_friday + 7, else: days_to_friday
+
+      days_to_friday =
+        if days_to_friday < 0, do: days_to_friday + 7, else: days_to_friday
+
       checkin_date = Date.add(today, days_to_friday + 7)
       checkout_date = Date.add(checkin_date, 3)
 
@@ -283,7 +290,10 @@ defmodule YscWeb.BookingReceiptLiveTest do
       today = Date.utc_today()
       # Find next Friday
       days_to_friday = 5 - Date.day_of_week(today, :monday)
-      days_to_friday = if days_to_friday < 0, do: days_to_friday + 7, else: days_to_friday
+
+      days_to_friday =
+        if days_to_friday < 0, do: days_to_friday + 7, else: days_to_friday
+
       checkin_date = Date.add(today, days_to_friday + 7)
       checkout_date = Date.add(checkin_date, 3)
 
@@ -314,7 +324,10 @@ defmodule YscWeb.BookingReceiptLiveTest do
       today = Date.utc_today()
       # Find next Friday
       days_to_friday = 5 - Date.day_of_week(today, :monday)
-      days_to_friday = if days_to_friday < 0, do: days_to_friday + 7, else: days_to_friday
+
+      days_to_friday =
+        if days_to_friday < 0, do: days_to_friday + 7, else: days_to_friday
+
       checkin_date = Date.add(today, days_to_friday + 7)
       checkout_date = Date.add(checkin_date, 3)
 
@@ -333,7 +346,9 @@ defmodule YscWeb.BookingReceiptLiveTest do
 
       # Update reason - event should succeed
       result =
-        render_click(view, "update-cancel-reason", %{"reason" => "Change of plans"})
+        render_click(view, "update-cancel-reason", %{
+          "reason" => "Change of plans"
+        })
 
       # Event should update state without error and page should still render
       assert result =~ booking.reference_id
@@ -346,11 +361,13 @@ defmodule YscWeb.BookingReceiptLiveTest do
       conn = log_in_user(conn, user)
 
       today = Date.utc_today()
+
       # Use Monday–Thursday range to satisfy "Saturday must include Sunday" rule
       base = Date.add(today, 10)
       dow = Date.day_of_week(base, :monday)
       days_until_monday = rem(8 - dow, 7)
       checkin_date = Date.add(base, days_until_monday)
+
       # Buyout only allowed in summer; use first Monday on or after May 1 if in winter
       checkin_date =
         if checkin_date.month in [1, 2, 3, 4, 11, 12] do
@@ -423,16 +440,20 @@ defmodule YscWeb.BookingReceiptLiveTest do
   end
 
   describe "door code visibility" do
-    test "does not show door code for future bookings beyond 48 hours", %{conn: conn} do
+    test "does not show door code for future bookings beyond 48 hours", %{
+      conn: conn
+    } do
       user = user_fixture()
       conn = log_in_user(conn, user)
 
       today = Date.utc_today()
+
       # Use Monday–Thursday range to satisfy "Saturday must include Sunday" rule
       base = Date.add(today, 10)
       dow = Date.day_of_week(base, :monday)
       days_until_monday = rem(8 - dow, 7)
       checkin_date = Date.add(base, days_until_monday)
+
       # Buyout only allowed in summer; use first Monday on or after May 1 if in winter
       checkin_date =
         if checkin_date.month in [1, 2, 3, 4, 11, 12] do

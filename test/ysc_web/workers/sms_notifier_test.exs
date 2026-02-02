@@ -52,8 +52,14 @@ defmodule YscWeb.Workers.SmsNotifierTest do
 
       # Verify idempotency record created
       # The transaction should have committed, so the record should be visible
-      record = Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency, idempotency_key: "sms_idemp_123")
-      assert record != nil, "Expected idempotency record with key 'sms_idemp_123'"
+      record =
+        Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency,
+          idempotency_key: "sms_idemp_123"
+        )
+
+      assert record != nil,
+             "Expected idempotency record with key 'sms_idemp_123'"
+
       assert record.message_type == :sms
     end
 
@@ -78,10 +84,13 @@ defmodule YscWeb.Workers.SmsNotifierTest do
       # Query all records to ensure we see committed transactions
       record =
         Ysc.Repo.one(
-          from(m in Ysc.Messages.MessageIdempotency, where: m.idempotency_key == "sms_legacy_123")
+          from(m in Ysc.Messages.MessageIdempotency,
+            where: m.idempotency_key == "sms_legacy_123"
+          )
         )
 
-      assert record != nil, "Expected idempotency record with key 'sms_legacy_123'"
+      assert record != nil,
+             "Expected idempotency record with key 'sms_legacy_123'"
     end
 
     test "skips sms if user notification preference is disabled", %{user: user} do
@@ -124,7 +133,9 @@ defmodule YscWeb.Workers.SmsNotifierTest do
                })
 
       # Should NOT create idempotency record because it was skipped before sending
-      refute Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency, idempotency_key: "sms_optout_123")
+      refute Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency,
+               idempotency_key: "sms_optout_123"
+             )
     end
 
     test "uses user phone number if provided phone number is nil", %{user: user} do
@@ -154,7 +165,8 @@ defmodule YscWeb.Workers.SmsNotifierTest do
           )
         )
 
-      assert record != nil, "Expected idempotency record with key 'sms_user_phone_123'"
+      assert record != nil,
+             "Expected idempotency record with key 'sms_user_phone_123'"
 
       # The record should have the user's phone number
       # Normalize expected phone number
@@ -185,11 +197,14 @@ defmodule YscWeb.Workers.SmsNotifierTest do
                  "category" => "bookings"
                })
 
-      refute Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency, idempotency_key: "sms_no_phone_123")
+      refute Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency,
+               idempotency_key: "sms_no_phone_123"
+             )
     end
 
     test "raises error for invalid template", %{user: user} do
-      assert {:error, "Template module not found for template: non_existent_template"} =
+      assert {:error,
+              "Template module not found for template: non_existent_template"} =
                perform_job(SmsNotifier, %{
                  "phone_number" => "+12065551234",
                  "idempotency_key" => "sms_invalid_template_123",
@@ -200,7 +215,9 @@ defmodule YscWeb.Workers.SmsNotifierTest do
                })
     end
 
-    test "idempotency: duplicate job returns success but sends only one sms", %{user: user} do
+    test "idempotency: duplicate job returns success but sends only one sms", %{
+      user: user
+    } do
       params = %{
         first_name: "John",
         property_name: "Tahoe",
@@ -221,9 +238,15 @@ defmodule YscWeb.Workers.SmsNotifierTest do
       # First run
       assert :ok = perform_job(SmsNotifier, args)
       # Verify idempotency record created
-      record = Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency, idempotency_key: "sms_dup_123")
+      record =
+        Ysc.Repo.get_by(Ysc.Messages.MessageIdempotency,
+          idempotency_key: "sms_dup_123"
+        )
+
       assert record != nil, "Expected idempotency record with key 'sms_dup_123'"
-      initial_count = Ysc.Repo.aggregate(Ysc.Messages.MessageIdempotency, :count)
+
+      initial_count =
+        Ysc.Repo.aggregate(Ysc.Messages.MessageIdempotency, :count)
 
       # Second run
       assert :ok = perform_job(SmsNotifier, args)

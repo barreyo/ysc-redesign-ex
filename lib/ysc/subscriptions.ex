@@ -217,7 +217,10 @@ defmodule Ysc.Subscriptions do
       %Ecto.Changeset{data: %SubscriptionItem{}}
 
   """
-  def change_subscription_item(%SubscriptionItem{} = subscription_item, attrs \\ %{}) do
+  def change_subscription_item(
+        %SubscriptionItem{} = subscription_item,
+        attrs \\ %{}
+      ) do
     SubscriptionItem.changeset(subscription_item, attrs)
   end
 
@@ -402,7 +405,8 @@ defmodule Ysc.Subscriptions do
       {:ok, stripe_subscription} ->
         ends_at =
           if subscription.trial_ends_at &&
-               DateTime.compare(subscription.trial_ends_at, DateTime.utc_now()) == :gt do
+               DateTime.compare(subscription.trial_ends_at, DateTime.utc_now()) ==
+                 :gt do
             subscription.trial_ends_at
           else
             stripe_subscription.current_period_end
@@ -433,7 +437,8 @@ defmodule Ysc.Subscriptions do
     end
   end
 
-  def cancel(%{type: :lifetime}, _opts), do: {:error, "Lifetime memberships cannot be cancelled"}
+  def cancel(%{type: :lifetime}, _opts),
+    do: {:error, "Lifetime memberships cannot be cancelled"}
 
   def cancel(nil, _opts), do: {:error, "No subscription to cancel"}
 
@@ -467,7 +472,9 @@ defmodule Ysc.Subscriptions do
 
   """
   def resume(%Subscription{} = subscription) do
-    case Stripe.Subscription.update(subscription.stripe_id, %{cancel_at_period_end: false}) do
+    case Stripe.Subscription.update(subscription.stripe_id, %{
+           cancel_at_period_end: false
+         }) do
       {:ok, stripe_subscription} ->
         update_subscription(subscription, %{
           stripe_status: stripe_subscription.status,
@@ -483,7 +490,8 @@ defmodule Ysc.Subscriptions do
     end
   end
 
-  def resume(%{type: :lifetime}), do: {:error, "Lifetime memberships cannot be resumed"}
+  def resume(%{type: :lifetime}),
+    do: {:error, "Lifetime memberships cannot be resumed"}
 
   def resume(nil), do: {:error, "No subscription to resume"}
 
@@ -498,7 +506,8 @@ defmodule Ysc.Subscriptions do
   """
   def change_prices(%Subscription{} = subscription, params) do
     # Get current subscription items (for potential future use)
-    _current_items = Repo.preload(subscription, :subscription_items).subscription_items
+    _current_items =
+      Repo.preload(subscription, :subscription_items).subscription_items
 
     # Create new items from params
     new_items =
@@ -533,16 +542,21 @@ defmodule Ysc.Subscriptions do
       {:ok, %Subscription{}}
 
   """
-  def update_period_end(%Subscription{} = subscription, %DateTime{} = new_end_date) do
+  def update_period_end(
+        %Subscription{} = subscription,
+        %DateTime{} = new_end_date
+      ) do
     # Convert DateTime to Unix timestamp for Stripe
     end_timestamp = DateTime.to_unix(new_end_date)
 
     # First, retrieve the current subscription to get its items and current period
-    with {:ok, stripe_sub} <- Stripe.Subscription.retrieve(subscription.stripe_id),
+    with {:ok, stripe_sub} <-
+           Stripe.Subscription.retrieve(subscription.stripe_id),
          # Cancel any existing schedules first
          :ok <- cancel_existing_schedules(stripe_sub.id),
          # Create new subscription schedule with the desired end date
-         {:ok, _schedule} <- create_subscription_schedule(stripe_sub, end_timestamp) do
+         {:ok, _schedule} <-
+           create_subscription_schedule(stripe_sub, end_timestamp) do
       # The schedule will automatically apply. Retrieve updated subscription to sync
       case Stripe.Subscription.retrieve(subscription.stripe_id) do
         {:ok, updated_stripe_subscription} ->
@@ -552,7 +566,9 @@ defmodule Ysc.Subscriptions do
             stripe_status: updated_stripe_subscription.status,
             current_period_start:
               updated_stripe_subscription.current_period_start &&
-                DateTime.from_unix!(updated_stripe_subscription.current_period_start),
+                DateTime.from_unix!(
+                  updated_stripe_subscription.current_period_start
+                ),
             # Use the schedule's end date or the subscription's current_period_end
             current_period_end: DateTime.from_unix!(end_timestamp)
           })
@@ -655,7 +671,11 @@ defmodule Ysc.Subscriptions do
   def change_membership_plan(nil, _new_price_id, _direction),
     do: {:error, "No active subscription found"}
 
-  def change_membership_plan(%Subscription{} = subscription, new_price_id, direction) do
+  def change_membership_plan(
+        %Subscription{} = subscription,
+        new_price_id,
+        direction
+      ) do
     # Prevent downgrade if user has sub-accounts
     if direction == :downgrade do
       user = Repo.preload(subscription, :user).user
@@ -672,8 +692,13 @@ defmodule Ysc.Subscriptions do
     end
   end
 
-  defp do_change_membership_plan(%Subscription{} = subscription, new_price_id, direction) do
-    with {:ok, stripe_sub} <- Stripe.Subscription.retrieve(subscription.stripe_id),
+  defp do_change_membership_plan(
+         %Subscription{} = subscription,
+         new_price_id,
+         direction
+       ) do
+    with {:ok, stripe_sub} <-
+           Stripe.Subscription.retrieve(subscription.stripe_id),
          [first_item | _] when first_item != nil <- stripe_sub.items.data do
       current_price_id = first_item.price.id
       stripe_item_id = first_item.id
@@ -686,7 +711,9 @@ defmodule Ysc.Subscriptions do
           :upgrade ->
             # For upgrades: charge proration delta immediately and update subscription
             # Use proration_behavior: "always_invoice" to ensure immediate charge
-            update_items = [%{id: stripe_item_id, price: new_price_id, quantity: 1}]
+            update_items = [
+              %{id: stripe_item_id, price: new_price_id, quantity: 1}
+            ]
 
             case Stripe.Subscription.update(subscription.stripe_id, %{
                    items: update_items,
@@ -701,10 +728,14 @@ defmodule Ysc.Subscriptions do
                       stripe_status: updated_stripe_subscription.status,
                       current_period_start:
                         updated_stripe_subscription.current_period_start &&
-                          DateTime.from_unix!(updated_stripe_subscription.current_period_start),
+                          DateTime.from_unix!(
+                            updated_stripe_subscription.current_period_start
+                          ),
                       current_period_end:
                         updated_stripe_subscription.current_period_end &&
-                          DateTime.from_unix!(updated_stripe_subscription.current_period_end)
+                          DateTime.from_unix!(
+                            updated_stripe_subscription.current_period_end
+                          )
                     })
 
                   {:error, error} ->
@@ -719,7 +750,9 @@ defmodule Ysc.Subscriptions do
             # For downgrades: schedule change for next renewal (no immediate charge/credit)
             # Use proration_behavior: "none" to prevent immediate proration
             # This keeps current period at old price, new price takes effect at renewal
-            update_items = [%{id: stripe_item_id, price: new_price_id, quantity: 1}]
+            update_items = [
+              %{id: stripe_item_id, price: new_price_id, quantity: 1}
+            ]
 
             case Stripe.Subscription.update(subscription.stripe_id, %{
                    items: update_items,
@@ -733,10 +766,14 @@ defmodule Ysc.Subscriptions do
                   stripe_status: stripe_subscription.status,
                   current_period_start:
                     stripe_subscription.current_period_start &&
-                      DateTime.from_unix!(stripe_subscription.current_period_start),
+                      DateTime.from_unix!(
+                        stripe_subscription.current_period_start
+                      ),
                   current_period_end:
                     stripe_subscription.current_period_end &&
-                      DateTime.from_unix!(stripe_subscription.current_period_end)
+                      DateTime.from_unix!(
+                        stripe_subscription.current_period_end
+                      )
                 })
 
               {:error, error} ->
@@ -772,7 +809,8 @@ defmodule Ysc.Subscriptions do
       # Default name for membership subscriptions
       name: "Membership Subscription",
       start_date:
-        stripe_subscription.start_date && DateTime.from_unix!(stripe_subscription.start_date),
+        stripe_subscription.start_date &&
+          DateTime.from_unix!(stripe_subscription.start_date),
       current_period_start:
         stripe_subscription.current_period_start &&
           DateTime.from_unix!(stripe_subscription.current_period_start),
@@ -780,8 +818,11 @@ defmodule Ysc.Subscriptions do
         stripe_subscription.current_period_end &&
           DateTime.from_unix!(stripe_subscription.current_period_end),
       trial_ends_at:
-        stripe_subscription.trial_end && DateTime.from_unix!(stripe_subscription.trial_end),
-      ends_at: stripe_subscription.ended_at && DateTime.from_unix!(stripe_subscription.ended_at)
+        stripe_subscription.trial_end &&
+          DateTime.from_unix!(stripe_subscription.trial_end),
+      ends_at:
+        stripe_subscription.ended_at &&
+          DateTime.from_unix!(stripe_subscription.ended_at)
     }
 
     %Subscription{}
@@ -828,7 +869,10 @@ defmodule Ysc.Subscriptions do
 
     stripe_params = %{
       customer: user.stripe_id,
-      items: Enum.map(prices, fn price -> %{price: price.price, quantity: price.quantity} end),
+      items:
+        Enum.map(prices, fn price ->
+          %{price: price.price, quantity: price.quantity}
+        end),
       expand: expand,
       metadata: %{
         user_id: user.id
@@ -837,7 +881,9 @@ defmodule Ysc.Subscriptions do
 
     stripe_params =
       if params[:default_payment_method] || params["default_payment_method"] do
-        default_pm = params[:default_payment_method] || params["default_payment_method"]
+        default_pm =
+          params[:default_payment_method] || params["default_payment_method"]
+
         Map.put(stripe_params, :default_payment_method, default_pm)
       else
         stripe_params
@@ -898,7 +944,8 @@ defmodule Ysc.Subscriptions do
     end
   end
 
-  def create_subscription_paid_out_of_band(_user, _plan_id), do: {:error, :invalid_plan}
+  def create_subscription_paid_out_of_band(_user, _plan_id),
+    do: {:error, :invalid_plan}
 
   defp ensure_user_has_stripe_id(%{stripe_id: nil} = user) do
     case Ysc.Customers.create_stripe_customer(user) do
@@ -913,7 +960,10 @@ defmodule Ysc.Subscriptions do
     require Logger
 
     # Optional callback for tests to inject a fake Stripe subscription without calling Stripe API
-    case Application.get_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback) do
+    case Application.get_env(
+           :ysc,
+           :create_subscription_paid_out_of_band_stripe_callback
+         ) do
       nil ->
         do_create_subscription_paid_out_of_band_stripe(user, plan)
 
@@ -923,7 +973,12 @@ defmodule Ysc.Subscriptions do
             case create_subscription_from_stripe(user, stripe_subscription) do
               {:ok, subscription} ->
                 subscription = Repo.preload(subscription, :subscription_items)
-                send_membership_confirmation_email_for_paid_elsewhere(user, plan)
+
+                send_membership_confirmation_email_for_paid_elsewhere(
+                  user,
+                  plan
+                )
+
                 {:ok, subscription}
 
               err ->
@@ -965,11 +1020,17 @@ defmodule Ysc.Subscriptions do
             case create_subscription_from_stripe(user, stripe_subscription) do
               {:ok, subscription} ->
                 subscription = Repo.preload(subscription, :subscription_items)
-                send_membership_confirmation_email_for_paid_elsewhere(user, plan)
+
+                send_membership_confirmation_email_for_paid_elsewhere(
+                  user,
+                  plan
+                )
+
                 {:ok, subscription}
 
               err ->
-                Logger.error("Failed to create local subscription after paid-out-of-band",
+                Logger.error(
+                  "Failed to create local subscription after paid-out-of-band",
                   user_id: user.id,
                   stripe_subscription_id: stripe_subscription.id,
                   error: inspect(err)
@@ -1050,7 +1111,8 @@ defmodule Ysc.Subscriptions do
           stripe_id: stripe_subscription.id,
           stripe_status: stripe_subscription.status,
           start_date:
-            stripe_subscription.start_date && DateTime.from_unix!(stripe_subscription.start_date),
+            stripe_subscription.start_date &&
+              DateTime.from_unix!(stripe_subscription.start_date),
           current_period_start:
             stripe_subscription.current_period_start &&
               DateTime.from_unix!(stripe_subscription.current_period_start),
@@ -1058,9 +1120,11 @@ defmodule Ysc.Subscriptions do
             stripe_subscription.current_period_end &&
               DateTime.from_unix!(stripe_subscription.current_period_end),
           trial_ends_at:
-            stripe_subscription.trial_end && DateTime.from_unix!(stripe_subscription.trial_end),
+            stripe_subscription.trial_end &&
+              DateTime.from_unix!(stripe_subscription.trial_end),
           ends_at:
-            stripe_subscription.ended_at && DateTime.from_unix!(stripe_subscription.ended_at)
+            stripe_subscription.ended_at &&
+              DateTime.from_unix!(stripe_subscription.ended_at)
         })
 
       subscription = Repo.insert(subscription_changeset)
@@ -1229,5 +1293,6 @@ defmodule Ysc.Subscriptions do
     end
   end
 
-  def retry_failed_invoice(_user, _invoice_id), do: {:error, :invalid_invoice_id}
+  def retry_failed_invoice(_user, _invoice_id),
+    do: {:error, :invalid_invoice_id}
 end

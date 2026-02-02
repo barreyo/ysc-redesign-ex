@@ -35,7 +35,8 @@ defmodule YscWeb.Workers.EventNotificationWorker do
           if event_in_future?(event) do
             send_event_notifications(event)
           else
-            Logger.info("Event is retroactive (past date), skipping notifications",
+            Logger.info(
+              "Event is retroactive (past date), skipping notifications",
               event_id: event_id,
               start_date: event.start_date,
               start_time: event.start_time
@@ -191,7 +192,8 @@ defmodule YscWeb.Workers.EventNotificationWorker do
       )
     else
       # If 1 hour has already passed, send immediately
-      Logger.info("1 hour has already passed since publish, sending notifications immediately",
+      Logger.info(
+        "1 hour has already passed since publish, sending notifications immediately",
         event_id: event_id,
         published_at: published_at
       )
@@ -212,7 +214,8 @@ defmodule YscWeb.Workers.EventNotificationWorker do
             if event_in_future?(event) do
               send_event_notifications(event)
             else
-              Logger.info("Event is retroactive (past date), skipping immediate notification",
+              Logger.info(
+                "Event is retroactive (past date), skipping immediate notification",
                 event_id: event_id,
                 start_date: event.start_date,
                 start_time: event.start_time
@@ -221,7 +224,8 @@ defmodule YscWeb.Workers.EventNotificationWorker do
               :ok
             end
           else
-            Logger.info("Event is not published, skipping immediate notification",
+            Logger.info(
+              "Event is not published, skipping immediate notification",
               event_id: event_id,
               state: event.state
             )
@@ -258,7 +262,8 @@ defmodule YscWeb.Workers.EventNotificationWorker do
     DateTime.from_naive!(naive_datetime, "Etc/UTC")
   end
 
-  defp combine_date_time(date, time) when not is_nil(date) and not is_nil(time) do
+  defp combine_date_time(date, time)
+       when not is_nil(date) and not is_nil(time) do
     NaiveDateTime.new!(date, time)
     |> DateTime.from_naive!("Etc/UTC")
   end

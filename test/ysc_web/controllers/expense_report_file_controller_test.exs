@@ -10,7 +10,9 @@ defmodule YscWeb.ExpenseReportFileControllerTest do
   end
 
   describe "show/2" do
-    test "returns 403 or redirects to login when user is not authenticated", %{conn: _conn} do
+    test "returns 403 or redirects to login when user is not authenticated", %{
+      conn: _conn
+    } do
       # Create an encoded path
       s3_path = "test/receipt.jpg"
       encoded_path = Base.url_encode64(s3_path, padding: false)
@@ -31,7 +33,10 @@ defmodule YscWeb.ExpenseReportFileControllerTest do
       assert response(conn, 400) || response(conn, 404)
     end
 
-    test "returns 404 for file not found in expense reports", %{conn: conn, user: _user} do
+    test "returns 404 for file not found in expense reports", %{
+      conn: conn,
+      user: _user
+    } do
       # Create a valid encoded path that doesn't exist in any expense report
       s3_path = "nonexistent/receipt.jpg"
       encoded_path = Base.url_encode64(s3_path, padding: false)

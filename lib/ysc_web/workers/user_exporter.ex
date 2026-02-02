@@ -19,7 +19,11 @@ defmodule YscWeb.Workers.UserExporter do
   @stream_rows_count 100
 
   def perform(%_{
-        args: %{"channel" => channel, "fields" => fields, "only_subscribed" => only_subscribed}
+        args: %{
+          "channel" => channel,
+          "fields" => fields,
+          "only_subscribed" => only_subscribed
+        }
       }) do
     Logger.info(
       "UserExporter: Starting export with fields: #{inspect(fields)}, only_subscribed: #{only_subscribed}"
@@ -85,7 +89,9 @@ defmodule YscWeb.Workers.UserExporter do
         end
 
       # Count without preloads (can't use preloads in subquery)
-      total_count = Repo.one(from q in subquery(filtered_query), select: count(q.id))
+      total_count =
+        Repo.one(from q in subquery(filtered_query), select: count(q.id))
+
       Logger.info("UserExporter: Total count: #{total_count}")
 
       output_path = generate_output_path()
@@ -169,7 +175,10 @@ defmodule YscWeb.Workers.UserExporter do
     result
     |> Map.put(:membership_type, membership_type)
     |> Map.put(:membership_renewal_date, renewal_date)
-    |> Map.put(:membership_inherited, get_membership_inherited_status(row, membership_type))
+    |> Map.put(
+      :membership_inherited,
+      get_membership_inherited_status(row, membership_type)
+    )
     |> Map.put(:primary_user_email, get_primary_user_email(row))
     |> Map.put(:primary_user_id, get_primary_user_id(row))
   end
@@ -186,7 +195,8 @@ defmodule YscWeb.Workers.UserExporter do
               user.primary_user
 
             # Check if the association is loaded
-            Ecto.assoc_loaded?(user.primary_user) && not is_nil(user.primary_user) ->
+            Ecto.assoc_loaded?(user.primary_user) &&
+                not is_nil(user.primary_user) ->
               user.primary_user
 
             # Otherwise fetch it
@@ -327,12 +337,17 @@ defmodule YscWeb.Workers.UserExporter do
   defp await_csv(channel) do
     receive do
       {:progress, percent} ->
-        Logger.info("Broadcasting to `user_export:progress` with value #{percent}")
+        Logger.info(
+          "Broadcasting to `user_export:progress` with value #{percent}"
+        )
+
         YscWeb.Endpoint.broadcast(channel, "user_export:progress", percent)
         await_csv(channel)
 
       {:complete, export_path} ->
-        Logger.info("Broadcasting to `user_export:complete` with value #{export_path}")
+        Logger.info(
+          "Broadcasting to `user_export:complete` with value #{export_path}"
+        )
 
         YscWeb.Endpoint.broadcast(
           channel,
@@ -341,7 +356,12 @@ defmodule YscWeb.Workers.UserExporter do
         )
     after
       30_000 ->
-        YscWeb.Endpoint.broadcast(channel, "user_export:failed", "Failed to export Users to CSV")
+        YscWeb.Endpoint.broadcast(
+          channel,
+          "user_export:failed",
+          "Failed to export Users to CSV"
+        )
+
         raise RuntimeError, "No progress after 30s. Giving up."
     end
   end

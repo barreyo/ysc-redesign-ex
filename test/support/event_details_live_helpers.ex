@@ -99,7 +99,8 @@ defmodule EventDetailsLiveHelpers do
   Expects payment intent retrieval with succeeded status.
   """
   def expect_payment_success(payment_intent_id) do
-    expect(Ysc.StripeMock, :retrieve_payment_intent, fn ^payment_intent_id, _opts ->
+    expect(Ysc.StripeMock, :retrieve_payment_intent, fn ^payment_intent_id,
+                                                        _opts ->
       {:ok,
        build_payment_intent(%{
          id: payment_intent_id,
@@ -112,7 +113,8 @@ defmodule EventDetailsLiveHelpers do
   Expects payment intent retrieval with requires_action status (3D Secure).
   """
   def expect_payment_requires_action(payment_intent_id) do
-    expect(Ysc.StripeMock, :retrieve_payment_intent, fn ^payment_intent_id, _opts ->
+    expect(Ysc.StripeMock, :retrieve_payment_intent, fn ^payment_intent_id,
+                                                        _opts ->
       {:ok,
        build_payment_intent(%{
          id: payment_intent_id,
@@ -129,7 +131,8 @@ defmodule EventDetailsLiveHelpers do
   Expects payment intent retrieval with failed status.
   """
   def expect_payment_failure(payment_intent_id, reason \\ "card_declined") do
-    expect(Ysc.StripeMock, :retrieve_payment_intent, fn ^payment_intent_id, _opts ->
+    expect(Ysc.StripeMock, :retrieve_payment_intent, fn ^payment_intent_id,
+                                                        _opts ->
       {:ok,
        build_payment_intent(%{
          id: payment_intent_id,

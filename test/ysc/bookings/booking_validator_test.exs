@@ -101,9 +101,13 @@ defmodule Ysc.Bookings.BookingValidatorTest do
   end
 
   # Helper to create subscription with specific membership type
-  defp create_subscription(user, membership_type) when membership_type in [:single, :family] do
+  defp create_subscription(user, membership_type)
+       when membership_type in [:single, :family] do
     # Create subscription with required fields
-    name = if membership_type == :family, do: "Family Membership", else: "Single Membership"
+    name =
+      if membership_type == :family,
+        do: "Family Membership",
+        else: "Single Membership"
 
     {:ok, subscription} =
       %Subscriptions.Subscription{}
@@ -112,19 +116,25 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         name: name,
         stripe_id: "sub_test_#{System.unique_integer()}",
         stripe_status: "active",
-        current_period_start: DateTime.utc_now() |> DateTime.add(-2_592_000, :second),
+        current_period_start:
+          DateTime.utc_now() |> DateTime.add(-2_592_000, :second),
         # 30 days ago
-        current_period_end: DateTime.utc_now() |> DateTime.add(28_944_000, :second)
+        current_period_end:
+          DateTime.utc_now() |> DateTime.add(28_944_000, :second)
         # 335 days from now
       })
       |> Repo.insert()
 
     # Create subscription item with membership type
     product_id =
-      if membership_type == :family, do: "prod_family_membership", else: "prod_single_membership"
+      if membership_type == :family,
+        do: "prod_family_membership",
+        else: "prod_single_membership"
 
     price_id =
-      if membership_type == :family, do: "price_family_annual", else: "price_single_annual"
+      if membership_type == :family,
+        do: "price_family_annual",
+        else: "price_single_annual"
 
     {:ok, _item} =
       %Subscriptions.SubscriptionItem{}
@@ -184,7 +194,11 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(200, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       assert changeset.valid?
     end
@@ -219,7 +233,11 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(200, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       assert changeset.valid?
     end
@@ -257,7 +275,11 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(200, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       refute changeset.valid?
       assert Keyword.has_key?(changeset.errors, :checkout_date)
@@ -277,7 +299,11 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(400, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       assert changeset.valid?
     end
@@ -299,12 +325,19 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(400, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       assert changeset.valid?
     end
 
-    test "accepts weekday bookings without Saturday", %{user: user, rooms: rooms} do
+    test "accepts weekday bookings without Saturday", %{
+      user: user,
+      rooms: rooms
+    } do
       # Monday to Wednesday (no Saturday)
       attrs = %{
         user_id: user.id,
@@ -318,14 +351,21 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(400, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       assert changeset.valid?
     end
   end
 
   describe "Max nights validation" do
-    test "Tahoe: rejects booking exceeding 4 nights default", %{user: user, rooms: rooms} do
+    test "Tahoe: rejects booking exceeding 4 nights default", %{
+      user: user,
+      rooms: rooms
+    } do
       # 5 nights (exceeds Tahoe limit)
       attrs = %{
         user_id: user.id,
@@ -338,7 +378,11 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(1000, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       refute changeset.valid?
       assert Keyword.has_key?(changeset.errors, :checkout_date)
@@ -346,7 +390,10 @@ defmodule Ysc.Bookings.BookingValidatorTest do
       assert message =~ "4 nights"
     end
 
-    test "Tahoe: accepts booking within 4 nights limit", %{user: user, rooms: rooms} do
+    test "Tahoe: accepts booking within 4 nights limit", %{
+      user: user,
+      rooms: rooms
+    } do
       # 4 nights (at limit)
       attrs = %{
         user_id: user.id,
@@ -359,12 +406,19 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(800, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       assert changeset.valid?
     end
 
-    test "Clear Lake: allows bookings up to 30 nights", %{user: user, rooms: rooms} do
+    test "Clear Lake: allows bookings up to 30 nights", %{
+      user: user,
+      rooms: rooms
+    } do
       # 30 nights
       attrs = %{
         user_id: user.id,
@@ -377,12 +431,19 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(6000, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.clear_lake_room], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.clear_lake_room],
+          user: user
+        )
 
       assert changeset.valid?
     end
 
-    test "Clear Lake: rejects booking exceeding 30 nights", %{user: user, rooms: rooms} do
+    test "Clear Lake: rejects booking exceeding 30 nights", %{
+      user: user,
+      rooms: rooms
+    } do
       # 31 nights
       attrs = %{
         user_id: user.id,
@@ -395,7 +456,11 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(6200, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.clear_lake_room], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.clear_lake_room],
+          user: user
+        )
 
       refute changeset.valid?
       assert Keyword.has_key?(changeset.errors, :checkout_date)
@@ -450,13 +515,20 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(400, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs2, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs2,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       refute changeset.valid?
       assert Keyword.has_key?(changeset.errors, :user_id)
     end
 
-    test "Family member: allows up to 2 overlapping bookings", %{user: user, rooms: rooms} do
+    test "Family member: allows up to 2 overlapping bookings", %{
+      user: user,
+      rooms: rooms
+    } do
       # Create family membership and reload user with subscriptions
       user = create_subscription(user, :family)
 
@@ -490,12 +562,19 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(600, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs2, rooms: [rooms.tahoe_room2], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs2,
+          rooms: [rooms.tahoe_room2],
+          user: user
+        )
 
       assert changeset.valid?
     end
 
-    test "Family member: rejects 3rd overlapping booking", %{user: user, rooms: rooms} do
+    test "Family member: rejects 3rd overlapping booking", %{
+      user: user,
+      rooms: rooms
+    } do
       # Create family membership and reload user with subscriptions
       user = create_subscription(user, :family)
 
@@ -551,7 +630,10 @@ defmodule Ysc.Bookings.BookingValidatorTest do
       refute changeset.valid?
     end
 
-    test "allows new booking after previous one is cancelled", %{user: user, rooms: rooms} do
+    test "allows new booking after previous one is cancelled", %{
+      user: user,
+      rooms: rooms
+    } do
       # Create single membership and reload user with subscriptions
       user = create_subscription(user, :single)
 
@@ -586,14 +668,21 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(400, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs2, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs2,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       assert changeset.valid?
     end
   end
 
   describe "Buyout rules" do
-    test "rejects buyout if user has active room bookings", %{user: user, rooms: rooms} do
+    test "rejects buyout if user has active room bookings", %{
+      user: user,
+      rooms: rooms
+    } do
       user = create_subscription(user, :family)
 
       # Use dates in the future, avoiding weekends
@@ -733,7 +822,11 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(2600, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.clear_lake_room], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.clear_lake_room],
+          user: user
+        )
 
       refute changeset.valid?
       assert Keyword.has_key?(changeset.errors, :guests_count)
@@ -751,14 +844,21 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(2400, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.clear_lake_room], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.clear_lake_room],
+          user: user
+        )
 
       assert changeset.valid?
     end
   end
 
   describe "Room capacity validation" do
-    test "rejects booking where guests exceed room capacity", %{user: user, rooms: rooms} do
+    test "rejects booking where guests exceed room capacity", %{
+      user: user,
+      rooms: rooms
+    } do
       # tahoe_room1 has capacity 4, try to book with 5 guests
       attrs = %{
         user_id: user.id,
@@ -770,13 +870,20 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(1000, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs, rooms: [rooms.tahoe_room1], user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs,
+          rooms: [rooms.tahoe_room1],
+          user: user
+        )
 
       refute changeset.valid?
       assert Keyword.has_key?(changeset.errors, :guests_count)
     end
 
-    test "accepts booking where guests fit in combined room capacity", %{user: user, rooms: rooms} do
+    test "accepts booking where guests fit in combined room capacity", %{
+      user: user,
+      rooms: rooms
+    } do
       # room1 (cap 4) + room2 (cap 6) = 10 total, book with 8 guests
       # Need family membership for 2 rooms
       user = create_subscription(user, :family)
@@ -832,7 +939,8 @@ defmodule Ysc.Bookings.BookingValidatorTest do
         total_price: Money.new(1600, :USD)
       }
 
-      changeset = Booking.changeset(%Booking{}, attrs2, skip_validation: true, user: user)
+      changeset =
+        Booking.changeset(%Booking{}, attrs2, skip_validation: true, user: user)
 
       # Should pass because validation is skipped
       assert changeset.valid?

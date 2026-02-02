@@ -50,7 +50,12 @@ defmodule Ysc.EventsTest do
           ticket_tier_id: ticket_tier.id,
           status: :confirmed,
           inserted_at: recent_time,
-          expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+          expires_at:
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              1,
+              :day
+            )
         }
         |> Repo.insert!()
       end
@@ -87,7 +92,12 @@ defmodule Ysc.EventsTest do
           user_id: user.id,
           status: :confirmed,
           inserted_at: recent_time,
-          expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+          expires_at:
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              1,
+              :day
+            )
         }
         |> Repo.insert!()
       end
@@ -124,7 +134,12 @@ defmodule Ysc.EventsTest do
           user_id: user.id,
           status: :confirmed,
           inserted_at: old_time,
-          expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+          expires_at:
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              1,
+              :day
+            )
         }
         |> Repo.insert!()
       end
@@ -163,7 +178,12 @@ defmodule Ysc.EventsTest do
           user_id: user.id,
           status: :confirmed,
           inserted_at: recent_time,
-          expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+          expires_at:
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              1,
+              :day
+            )
         }
         |> Repo.insert!()
       end
@@ -176,7 +196,12 @@ defmodule Ysc.EventsTest do
           user_id: user.id,
           status: :confirmed,
           inserted_at: old_time,
-          expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+          expires_at:
+            DateTime.add(
+              DateTime.utc_now() |> DateTime.truncate(:second),
+              1,
+              :day
+            )
         }
         |> Repo.insert!()
       end
@@ -188,7 +213,12 @@ defmodule Ysc.EventsTest do
         user_id: user.id,
         status: :pending,
         inserted_at: recent_time,
-        expires_at: DateTime.add(DateTime.utc_now() |> DateTime.truncate(:second), 1, :day)
+        expires_at:
+          DateTime.add(
+            DateTime.utc_now() |> DateTime.truncate(:second),
+            1,
+            :day
+          )
       }
       |> Repo.insert!()
 
@@ -224,7 +254,9 @@ defmodule Ysc.EventsTest do
           published_at: DateTime.utc_now()
         })
 
-      assert {:ok, updated} = Events.update_event(event, %{title: "Updated Title"})
+      assert {:ok, updated} =
+               Events.update_event(event, %{title: "Updated Title"})
+
       assert updated.title == "Updated Title"
     end
 
@@ -264,7 +296,9 @@ defmodule Ysc.EventsTest do
         event_id: event.id
       }
 
-      assert {:ok, %Ysc.Events.TicketTier{} = tier} = Events.create_ticket_tier(attrs)
+      assert {:ok, %Ysc.Events.TicketTier{} = tier} =
+               Events.create_ticket_tier(attrs)
+
       assert tier.name == "VIP Tier"
       assert tier.event_id == event.id
     end
@@ -289,7 +323,9 @@ defmodule Ysc.EventsTest do
           event_id: event.id
         })
 
-      assert {:ok, updated} = Events.update_ticket_tier(tier, %{name: "Updated Tier"})
+      assert {:ok, updated} =
+               Events.update_ticket_tier(tier, %{name: "Updated Tier"})
+
       assert updated.name == "Updated Tier"
     end
 
@@ -354,7 +390,9 @@ defmodule Ysc.EventsTest do
       assert count == 5
     end
 
-    test "count_total_tickets_sold_for_event/1 returns correct count", %{user: user} do
+    test "count_total_tickets_sold_for_event/1 returns correct count", %{
+      user: user
+    } do
       {:ok, event} =
         Events.create_event(%{
           title: "Event",
@@ -421,6 +459,7 @@ defmodule Ysc.EventsTest do
       {:ok, _event2} = create_event_fixture()
 
       params = %{page: 1, page_size: 10}
+
       # Function returns Flop result which is a tuple {:ok, {events, meta}} or error
       result = Events.list_events_paginated(params)
       assert {:ok, {events, meta}} = result
@@ -554,7 +593,9 @@ defmodule Ysc.EventsTest do
     test "count_tickets_sold_excluding_donations/1 counts non-donation tickets" do
       {:ok, event} = create_event_fixture()
       user = user_fixture()
-      {:ok, tier} = create_ticket_tier_fixture(%{event_id: event.id, type: :paid})
+
+      {:ok, tier} =
+        create_ticket_tier_fixture(%{event_id: event.id, type: :paid})
 
       for _i <- 1..3 do
         create_ticket_fixture(%{
@@ -575,8 +616,17 @@ defmodule Ysc.EventsTest do
       user2 = user_fixture()
       {:ok, tier} = create_ticket_tier_fixture(%{event_id: event.id})
 
-      create_ticket_fixture(%{event_id: event.id, user_id: user1.id, ticket_tier_id: tier.id})
-      create_ticket_fixture(%{event_id: event.id, user_id: user2.id, ticket_tier_id: tier.id})
+      create_ticket_fixture(%{
+        event_id: event.id,
+        user_id: user1.id,
+        ticket_tier_id: tier.id
+      })
+
+      create_ticket_fixture(%{
+        event_id: event.id,
+        user_id: user2.id,
+        ticket_tier_id: tier.id
+      })
 
       attendees = Events.list_unique_attendees_for_event(event.id)
       assert length(attendees) >= 2
@@ -641,7 +691,10 @@ defmodule Ysc.EventsTest do
         # Use update_all to ensure the change is committed immediately
         Ysc.Repo.update_all(
           from(u in Ysc.Accounts.User, where: u.id == ^user.id),
-          set: [lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)]
+          set: [
+            lifetime_membership_awarded_at:
+              DateTime.truncate(DateTime.utc_now(), :second)
+          ]
         )
 
         # Reload to get the updated user
@@ -653,7 +706,10 @@ defmodule Ysc.EventsTest do
         # Use update_all to ensure the change is committed immediately
         Ysc.Repo.update_all(
           from(u in Ysc.Accounts.User, where: u.id == ^user.id),
-          set: [lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)]
+          set: [
+            lifetime_membership_awarded_at:
+              DateTime.truncate(DateTime.utc_now(), :second)
+          ]
         )
 
         # Reload to get the updated user
@@ -712,7 +768,8 @@ defmodule Ysc.EventsTest do
           start_date: DateTime.add(DateTime.utc_now(), 30, :day)
         })
 
-      publish_at = DateTime.add(DateTime.utc_now(), 1, :day) |> DateTime.to_iso8601()
+      publish_at =
+        DateTime.add(DateTime.utc_now(), 1, :day) |> DateTime.to_iso8601()
 
       assert {:ok, scheduled} = Events.schedule_event(event, publish_at)
       assert scheduled.publish_at != nil
@@ -762,7 +819,9 @@ defmodule Ysc.EventsTest do
       events = Events.get_upcoming_events_with_ticket_tier_counts()
       assert is_list(events)
       # Function returns list of maps with :event and :ticket_tiers keys
-      assert Enum.any?(events, fn event_map -> event_map.event.id == event.id end)
+      assert Enum.any?(events, fn event_map ->
+               event_map.event.id == event.id
+             end)
     end
   end
 

@@ -29,7 +29,12 @@ defmodule YscWeb.Emails.MembershipPaymentConfirmationTest do
       payment_date = ~D[2024-12-01]
 
       data =
-        MembershipPaymentConfirmation.prepare_email_data(user, :single, amount, payment_date)
+        MembershipPaymentConfirmation.prepare_email_data(
+          user,
+          :single,
+          amount,
+          payment_date
+        )
 
       assert data.first_name == "Jane"
       assert data.membership_type == "Single"
@@ -61,7 +66,12 @@ defmodule YscWeb.Emails.MembershipPaymentConfirmationTest do
       payment_date = ~D[2024-12-01]
 
       data =
-        MembershipPaymentConfirmation.prepare_email_data(user, :family, amount, payment_date)
+        MembershipPaymentConfirmation.prepare_email_data(
+          user,
+          :family,
+          amount,
+          payment_date
+        )
 
       assert data.membership_type == "Family"
     end
@@ -73,7 +83,12 @@ defmodule YscWeb.Emails.MembershipPaymentConfirmationTest do
       payment_date = ~D[2024-12-01]
 
       data =
-        MembershipPaymentConfirmation.prepare_email_data(user, :single, amount, payment_date)
+        MembershipPaymentConfirmation.prepare_email_data(
+          user,
+          :single,
+          amount,
+          payment_date
+        )
 
       assert data.first_name == "Valued Member"
     end
@@ -83,7 +98,12 @@ defmodule YscWeb.Emails.MembershipPaymentConfirmationTest do
       payment_date = ~D[2024-12-01]
 
       assert_raise ArgumentError, "User cannot be nil", fn ->
-        MembershipPaymentConfirmation.prepare_email_data(nil, :single, amount, payment_date)
+        MembershipPaymentConfirmation.prepare_email_data(
+          nil,
+          :single,
+          amount,
+          payment_date
+        )
       end
     end
   end

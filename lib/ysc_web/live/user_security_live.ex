@@ -116,7 +116,8 @@ defmodule YscWeb.UserSecurityLive do
 
     case Accounts.get_user_by_email_and_password(user.email, password) do
       nil ->
-        {:noreply, assign(socket, :reauth_error, "Invalid password. Please try again.")}
+        {:noreply,
+         assign(socket, :reauth_error, "Invalid password. Please try again.")}
 
       _valid_user ->
         # Password verified, proceed with password change
@@ -129,7 +130,8 @@ defmodule YscWeb.UserSecurityLive do
     Logger.info("[UserSecurityLive] reauth_with_passkey event received")
 
     # Generate authentication challenge for passkey
-    challenge = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
+    challenge =
+      :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
 
     challenge_json = %{
       challenge: challenge,
@@ -145,7 +147,11 @@ defmodule YscWeb.UserSecurityLive do
 
   def handle_event("verify_authentication", params, socket) do
     require Logger
-    Logger.info("[UserSecurityLive] verify_authentication event received for re-auth")
+
+    Logger.info(
+      "[UserSecurityLive] verify_authentication event received for re-auth"
+    )
+
     Logger.debug("Params: #{inspect(params)}")
 
     # In a full production implementation, you should verify the passkey signature here
@@ -164,14 +170,26 @@ defmodule YscWeb.UserSecurityLive do
 
   def handle_event("passkey_auth_error", %{"error" => error}, socket) do
     require Logger
-    Logger.debug("[UserSecurityLive] Passkey authentication error: #{inspect(error)}")
 
-    {:noreply, assign(socket, :reauth_error, "Passkey authentication failed. Please try again.")}
+    Logger.debug(
+      "[UserSecurityLive] Passkey authentication error: #{inspect(error)}"
+    )
+
+    {:noreply,
+     assign(
+       socket,
+       :reauth_error,
+       "Passkey authentication failed. Please try again."
+     )}
   end
 
   # PasskeyAuth hook sends these events - we don't need to handle them in security settings
-  def handle_event("passkey_support_detected", _params, socket), do: {:noreply, socket}
-  def handle_event("user_agent_received", _params, socket), do: {:noreply, socket}
+  def handle_event("passkey_support_detected", _params, socket),
+    do: {:noreply, socket}
+
+  def handle_event("user_agent_received", _params, socket),
+    do: {:noreply, socket}
+
   def handle_event("device_detected", _params, socket), do: {:noreply, socket}
 
   def handle_event("delete_passkey", %{"passkey_id" => id}, socket) do
@@ -187,7 +205,8 @@ defmodule YscWeb.UserSecurityLive do
           case Accounts.delete_user_passkey(passkey) do
             {:ok, _} ->
               # Remove deleted passkey from assigns
-              updated_passkeys = Enum.reject(socket.assigns.passkeys, &(&1.id == id))
+              updated_passkeys =
+                Enum.reject(socket.assigns.passkeys, &(&1.id == id))
 
               {:noreply,
                socket
@@ -195,10 +214,20 @@ defmodule YscWeb.UserSecurityLive do
                |> put_flash(:info, "Passkey deleted successfully.")}
 
             {:error, _changeset} ->
-              {:noreply, put_flash(socket, :error, "Failed to delete passkey. Please try again.")}
+              {:noreply,
+               put_flash(
+                 socket,
+                 :error,
+                 "Failed to delete passkey. Please try again."
+               )}
           end
         else
-          {:noreply, put_flash(socket, :error, "You are not authorized to delete this passkey.")}
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "You are not authorized to delete this passkey."
+           )}
         end
     end
   end
@@ -261,7 +290,12 @@ defmodule YscWeb.UserSecurityLive do
   def render(assigns) do
     ~H"""
     <div class="max-w-screen-xl px-4 mx-auto py-8 lg:py-10">
-      <.modal :if={@show_reauth_modal} id="reauth-modal" on_cancel={JS.push("cancel_reauth")} show>
+      <.modal
+        :if={@show_reauth_modal}
+        id="reauth-modal"
+        on_cancel={JS.push("cancel_reauth")}
+        show
+      >
         <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-6">
           Verify Your Identity
         </h2>
@@ -314,7 +348,9 @@ defmodule YscWeb.UserSecurityLive do
             </div>
 
             <h3 class="font-semibold text-zinc-900">
-              <%= if @user_has_password, do: "Verify with a passkey", else: "Verify with your passkey" %>
+              <%= if @user_has_password,
+                do: "Verify with a passkey",
+                else: "Verify with your passkey" %>
             </h3>
             <p class="text-sm text-zinc-600">
               Use your device's fingerprint, face recognition, or security key
@@ -325,7 +361,8 @@ defmodule YscWeb.UserSecurityLive do
               phx-disable-with="Verifying..."
               class="w-full"
             >
-              <.icon name="hero-finger-print" class="w-5 h-5 me-2" /> Continue with Passkey
+              <.icon name="hero-finger-print" class="w-5 h-5 me-2" />
+              Continue with Passkey
             </.button>
           </div>
         </div>
@@ -334,7 +371,9 @@ defmodule YscWeb.UserSecurityLive do
       <div class="md:flex md:flex-row md:flex-auto md:grow container mx-auto">
         <ul class="flex-column space-y space-y-4 md:pr-10 text-sm font-medium text-zinc-600 md:me-4 mb-4 md:mb-0">
           <li>
-            <h2 class="text-zinc-800 text-2xl font-semibold leading-8 mb-10">Account</h2>
+            <h2 class="text-zinc-800 text-2xl font-semibold leading-8 mb-10">
+              Account
+            </h2>
           </li>
           <li>
             <.link
@@ -420,7 +459,10 @@ defmodule YscWeb.UserSecurityLive do
                   <span>Faster sign-in</span>
                 </div>
                 <div class="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                  <.icon name="hero-shield-check" class="w-4 h-4 shrink-0 text-emerald-600" />
+                  <.icon
+                    name="hero-shield-check"
+                    class="w-4 h-4 shrink-0 text-emerald-600"
+                  />
                   <span>Stronger security</span>
                 </div>
                 <div class="inline-flex items-center gap-2 rounded-lg bg-purple-50 px-3 py-2 text-sm text-purple-800">
@@ -429,13 +471,22 @@ defmodule YscWeb.UserSecurityLive do
                 </div>
               </div>
 
-              <div :if={@passkeys_loading} class="flex items-center justify-center py-8">
-                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <div
+                :if={@passkeys_loading}
+                class="flex items-center justify-center py-8"
+              >
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600">
+                </div>
                 <span class="ml-3 text-zinc-600 text-sm">Loading passkeys...</span>
               </div>
 
-              <div :if={@passkeys_loaded && @passkeys == []} class="text-center py-8">
-                <p class="text-zinc-600 text-sm mb-4">You don't have any passkeys yet.</p>
+              <div
+                :if={@passkeys_loaded && @passkeys == []}
+                class="text-center py-8"
+              >
+                <p class="text-zinc-600 text-sm mb-4">
+                  You don't have any passkeys yet.
+                </p>
                 <.link
                   navigate={~p"/users/settings/passkeys/new"}
                   class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
@@ -466,7 +517,10 @@ defmodule YscWeb.UserSecurityLive do
                       </div>
                       <div class="text-sm text-zinc-600 space-y-1">
                         <p>
-                          Created: <%= Calendar.strftime(passkey.inserted_at, "%B %d, %Y") %>
+                          Created: <%= Calendar.strftime(
+                            passkey.inserted_at,
+                            "%B %d, %Y"
+                          ) %>
                         </p>
                         <p>
                           Last used:
@@ -497,7 +551,9 @@ defmodule YscWeb.UserSecurityLive do
             <!-- Password Change Section -->
             <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
               <h2 class="text-zinc-900 font-bold text-xl">
-                <%= if @user_has_password, do: "Change Password", else: "Set Password" %>
+                <%= if @user_has_password,
+                  do: "Change Password",
+                  else: "Set Password" %>
               </h2>
 
               <p :if={!@user_has_password} class="text-sm text-zinc-600">
@@ -539,7 +595,9 @@ defmodule YscWeb.UserSecurityLive do
                 </p>
                 <:actions>
                   <.button phx-disable-with="Continuing...">
-                    <%= if @user_has_password, do: "Change Password", else: "Set Password" %>
+                    <%= if @user_has_password,
+                      do: "Change Password",
+                      else: "Set Password" %>
                   </.button>
                 </:actions>
               </.simple_form>

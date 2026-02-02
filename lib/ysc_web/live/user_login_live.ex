@@ -15,7 +15,10 @@ defmodule YscWeb.UserLoginLive do
         Sign in to your YSC account
         <:subtitle>
           Not a member yet?
-          <.link navigate={~p"/users/register"} class="font-semibold text-blue-600 hover:underline">
+          <.link
+            navigate={~p"/users/register"}
+            class="font-semibold text-blue-600 hover:underline"
+          >
             Apply for a membership
           </.link>
         </:subtitle>
@@ -39,7 +42,8 @@ defmodule YscWeb.UserLoginLive do
           }
         >
           <%= if @passkey_loading do %>
-            <.icon name="hero-arrow-path" class="w-5 h-5 animate-spin" /> Signing in...
+            <.icon name="hero-arrow-path" class="w-5 h-5 animate-spin" />
+            Signing in...
           <% else %>
             <%= if @is_ios_mobile do %>
               <svg
@@ -50,7 +54,12 @@ defmodule YscWeb.UserLoginLive do
                 xmlns="http://www.w3.org/2000/svg"
                 class="w-5 h-5"
               >
-                <g stroke="none" stroke-width="1" fill="currentColor" fill-rule="evenodd">
+                <g
+                  stroke="none"
+                  stroke-width="1"
+                  fill="currentColor"
+                  fill-rule="evenodd"
+                >
                   <g>
                     <g id="Corners" fill-rule="nonzero">
                       <g id="Corner">
@@ -79,14 +88,22 @@ defmodule YscWeb.UserLoginLive do
                         </path>
                       </g>
                     </g>
-                    <g id="Eye" transform="translate(21.754386, 28.070175)" fill-rule="nonzero">
+                    <g
+                      id="Eye"
+                      transform="translate(21.754386, 28.070175)"
+                      fill-rule="nonzero"
+                    >
                       <path
                         d="M0,2.14285714 L0,7.86037654 C0,9.04384386 0.8954305,10.0032337 2,10.0032337 C3.1045695,10.0032337 4,9.04384386 4,7.86037654 L4,2.14285714 C4,0.959389822 3.1045695,0 2,0 C0.8954305,0 0,0.959389822 0,2.14285714 Z"
                         id="Path"
                       >
                       </path>
                     </g>
-                    <g id="Eye" transform="translate(54.736842, 28.070175)" fill-rule="nonzero">
+                    <g
+                      id="Eye"
+                      transform="translate(54.736842, 28.070175)"
+                      fill-rule="nonzero"
+                    >
                       <path
                         d="M0,2.14285714 L0,7.86037654 C0,9.04384386 0.8954305,10.0032337 2,10.0032337 C3.1045695,10.0032337 4,9.04384386 4,7.86037654 L4,2.14285714 C4,0.959389822 3.1045695,0 2,0 C0.8954305,0 0,0.959389822 0,2.14285714 Z"
                         id="Path"
@@ -192,7 +209,11 @@ defmodule YscWeb.UserLoginLive do
              "opacity-100 translate-y-0"}
           )
         }
-        phx-remove={JS.transition({"transition ease-in duration-200", "opacity-100", "opacity-0"})}
+        phx-remove={
+          JS.transition(
+            {"transition ease-in duration-200", "opacity-100", "opacity-0"}
+          )
+        }
       >
         <button
           type="button"
@@ -207,7 +228,9 @@ defmodule YscWeb.UserLoginLive do
             <.icon name="hero-exclamation-triangle" class="h-5 w-5 text-amber-600" />
           </div>
           <div class="ml-3 flex-1">
-            <h3 class="text-sm font-semibold text-amber-900">Having trouble signing in?</h3>
+            <h3 class="text-sm font-semibold text-amber-900">
+              Having trouble signing in?
+            </h3>
             <div class="mt-2 text-sm text-amber-800">
               <p class="mb-2">
                 You've had multiple failed sign-in attempts. You may want to reset your password.
@@ -232,13 +255,27 @@ defmodule YscWeb.UserLoginLive do
         </div>
       </div>
 
-      <.simple_form for={@form} id="login_form" action={~p"/users/log-in"} phx-update="ignore">
+      <.simple_form
+        for={@form}
+        id="login_form"
+        action={~p"/users/log-in"}
+        phx-update="ignore"
+      >
         <input type="hidden" name="redirect_to" value={@redirect_to} />
         <.input field={@form[:email]} type="email" label="Email" required />
-        <.input field={@form[:password]} type="password-toggle" label="Password" required />
+        <.input
+          field={@form[:password]}
+          type="password-toggle"
+          label="Password"
+          required
+        />
 
         <:actions>
-          <.input field={@form[:remember_me]} type="checkbox" label="Keep me signed in" />
+          <.input
+            field={@form[:remember_me]}
+            type="checkbox"
+            label="Keep me signed in"
+          />
           <.link
             href={~p"/users/reset-password"}
             class="text-sm font-semibold hover:underline text-blue-600"
@@ -316,7 +353,9 @@ defmodule YscWeb.UserLoginLive do
     # Convert to list of {credential_id, public_key} tuples for Wax
     allow_credentials =
       Enum.map(all_passkeys, fn passkey ->
-        public_key = Ysc.Accounts.UserPasskey.decode_public_key(passkey.public_key)
+        public_key =
+          Ysc.Accounts.UserPasskey.decode_public_key(passkey.public_key)
+
         {passkey.external_id, public_key}
       end)
 
@@ -401,7 +440,11 @@ defmodule YscWeb.UserLoginLive do
     {:noreply, socket}
   end
 
-  def handle_event("passkey_support_detected", %{"supported" => supported}, socket) do
+  def handle_event(
+        "passkey_support_detected",
+        %{"supported" => supported},
+        socket
+      ) do
     {:noreply, assign(socket, :passkey_supported, supported)}
   end
 
@@ -438,11 +481,14 @@ defmodule YscWeb.UserLoginLive do
     Logger.debug("[UserLoginLive] Verification state", %{
       has_challenge: !is_nil(challenge),
       auth_mode: auth_mode,
-      challenge_bytes_length: if(challenge, do: byte_size(challenge.bytes), else: nil)
+      challenge_bytes_length:
+        if(challenge, do: byte_size(challenge.bytes), else: nil)
     })
 
     if is_nil(challenge) do
-      Logger.warning("[UserLoginLive] Challenge is nil in verify_authentication")
+      Logger.warning(
+        "[UserLoginLive] Challenge is nil in verify_authentication"
+      )
 
       {:noreply,
        put_flash(
@@ -460,7 +506,8 @@ defmodule YscWeb.UserLoginLive do
 
       Logger.debug("[UserLoginLive] Decoding authentication response", %{
         raw_id_string: raw_id_string,
-        has_authenticator_data: !is_nil(response["response"]["authenticatorData"]),
+        has_authenticator_data:
+          !is_nil(response["response"]["authenticatorData"]),
         has_client_data_json: !is_nil(response["response"]["clientDataJSON"]),
         has_signature: !is_nil(response["response"]["signature"]),
         has_user_handle: !is_nil(response["response"]["userHandle"]),
@@ -470,12 +517,17 @@ defmodule YscWeb.UserLoginLive do
       raw_id = Base.url_decode64!(raw_id_string, padding: false)
 
       authenticator_data =
-        Base.url_decode64!(response["response"]["authenticatorData"], padding: false)
+        Base.url_decode64!(response["response"]["authenticatorData"],
+          padding: false
+        )
 
       client_data_json =
-        Base.url_decode64!(response["response"]["clientDataJSON"], padding: false)
+        Base.url_decode64!(response["response"]["clientDataJSON"],
+          padding: false
+        )
 
-      signature = Base.url_decode64!(response["response"]["signature"], padding: false)
+      signature =
+        Base.url_decode64!(response["response"]["signature"], padding: false)
 
       Logger.debug("[UserLoginLive] Decoded authentication data", %{
         raw_id_length: byte_size(raw_id),
@@ -536,10 +588,13 @@ defmodule YscWeb.UserLoginLive do
                   Base.url_decode64!(user_handle, padding: false)
                 rescue
                   e ->
-                    Logger.warning("[UserLoginLive] Failed to decode userHandle", %{
-                      error: inspect(e),
-                      user_handle: user_handle
-                    })
+                    Logger.warning(
+                      "[UserLoginLive] Failed to decode userHandle",
+                      %{
+                        error: inspect(e),
+                        user_handle: user_handle
+                      }
+                    )
 
                     nil
                 end
@@ -562,11 +617,14 @@ defmodule YscWeb.UserLoginLive do
                     "[UserLoginLive] User ID mismatch during passkey verification",
                     %{
                       passkey_user_id: inspect(passkey.user_id),
-                      passkey_user_id_hex: Base.encode16(passkey.user_id, case: :lower),
+                      passkey_user_id_hex:
+                        Base.encode16(passkey.user_id, case: :lower),
                       passkey_user_id_binary: is_binary(passkey.user_id),
                       user_id_from_handle: inspect(user_id_from_handle),
-                      user_id_from_handle_hex: Base.encode16(user_id_from_handle, case: :lower),
-                      user_id_from_handle_binary: is_binary(user_id_from_handle),
+                      user_id_from_handle_hex:
+                        Base.encode16(user_id_from_handle, case: :lower),
+                      user_id_from_handle_binary:
+                        is_binary(user_id_from_handle),
                       user_handle_encoded: user_handle,
                       user_ids_match: passkey.user_id == user_id_from_handle
                     }
@@ -592,11 +650,14 @@ defmodule YscWeb.UserLoginLive do
                       "[UserLoginLive] CRITICAL: raw_id from response does not match passkey.external_id",
                       %{
                         raw_id_hex: Base.encode16(raw_id, case: :lower),
-                        raw_id_base64url: Base.url_encode64(raw_id, padding: false),
-                        passkey_external_id_hex: Base.encode16(passkey.external_id, case: :lower),
+                        raw_id_base64url:
+                          Base.url_encode64(raw_id, padding: false),
+                        passkey_external_id_hex:
+                          Base.encode16(passkey.external_id, case: :lower),
                         passkey_external_id_base64url:
                           Base.url_encode64(passkey.external_id, padding: false),
-                        lengths_match: byte_size(raw_id) == byte_size(passkey.external_id)
+                        lengths_match:
+                          byte_size(raw_id) == byte_size(passkey.external_id)
                       }
                     )
 
@@ -637,10 +698,12 @@ defmodule YscWeb.UserLoginLive do
                 %{
                   raw_id_hex: Base.encode16(raw_id, case: :lower),
                   raw_id_base64url: Base.url_encode64(raw_id, padding: false),
-                  passkey_external_id_hex: Base.encode16(passkey.external_id, case: :lower),
+                  passkey_external_id_hex:
+                    Base.encode16(passkey.external_id, case: :lower),
                   passkey_external_id_base64url:
                     Base.url_encode64(passkey.external_id, padding: false),
-                  lengths_match: byte_size(raw_id) == byte_size(passkey.external_id)
+                  lengths_match:
+                    byte_size(raw_id) == byte_size(passkey.external_id)
                 }
               )
 
@@ -671,7 +734,11 @@ defmodule YscWeb.UserLoginLive do
     end
   end
 
-  def handle_event("passkey_auth_error", %{"error" => error, "message" => message}, socket) do
+  def handle_event(
+        "passkey_auth_error",
+        %{"error" => error, "message" => message},
+        socket
+      ) do
     error_message =
       case error do
         "NotAllowedError" ->
@@ -696,7 +763,11 @@ defmodule YscWeb.UserLoginLive do
 
   def handle_event("passkey_auth_error", _params, socket) do
     {:noreply,
-     put_flash(socket, :error, "An error occurred during authentication. Please try again.")
+     put_flash(
+       socket,
+       :error,
+       "An error occurred during authentication. Please try again."
+     )
      |> assign(:passkey_loading, false)
      |> assign(:passkey_challenge, nil)
      |> assign(:passkey_auth_mode, nil)}
@@ -786,10 +857,13 @@ defmodule YscWeb.UserLoginLive do
         })
 
         if new_sign_count >= passkey.sign_count do
-          Logger.info("[UserLoginLive] Sign count check passed, proceeding with login", %{
-            user_id: user_id,
-            user_id_hex: Base.encode16(user_id, case: :lower)
-          })
+          Logger.info(
+            "[UserLoginLive] Sign count check passed, proceeding with login",
+            %{
+              user_id: user_id,
+              user_id_hex: Base.encode16(user_id, case: :lower)
+            }
+          )
 
           # Update passkey sign_count and last_used_at
           {:ok, _updated_passkey} =
@@ -846,11 +920,14 @@ defmodule YscWeb.UserLoginLive do
         else
           require Logger
 
-          Logger.warning("[UserLoginLive] Sign count check failed - possible replay attack", %{
-            new_sign_count: new_sign_count,
-            passkey_sign_count: passkey.sign_count,
-            sign_count_decreased: new_sign_count < passkey.sign_count
-          })
+          Logger.warning(
+            "[UserLoginLive] Sign count check failed - possible replay attack",
+            %{
+              new_sign_count: new_sign_count,
+              passkey_sign_count: passkey.sign_count,
+              sign_count_decreased: new_sign_count < passkey.sign_count
+            }
+          )
 
           {:noreply,
            put_flash(
@@ -878,7 +955,8 @@ defmodule YscWeb.UserLoginLive do
           user_id: user_id,
           user_id_hex: Base.encode16(user_id, case: :lower),
           raw_id_hex: Base.encode16(raw_id, case: :lower),
-          passkey_external_id_hex: Base.encode16(passkey.external_id, case: :lower),
+          passkey_external_id_hex:
+            Base.encode16(passkey.external_id, case: :lower),
           credential_id_match: passkey.external_id == raw_id,
           authenticator_data_length: byte_size(authenticator_data),
           signature_length: byte_size(signature),

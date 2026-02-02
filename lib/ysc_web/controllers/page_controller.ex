@@ -88,7 +88,8 @@ defmodule YscWeb.PageController do
         })
       end)
 
-    existing_filled = MapSet.new(Enum.map(bod_members, fn member -> member.board_position end))
+    existing_filled =
+      MapSet.new(Enum.map(bod_members, fn member -> member.board_position end))
 
     all_positions =
       MapSet.new([

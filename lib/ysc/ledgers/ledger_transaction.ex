@@ -13,8 +13,15 @@ defmodule Ysc.Ledgers.LedgerTransaction do
   @timestamps_opts [type: :utc_datetime]
   schema "ledger_transactions" do
     field :type, LedgerTransactionType
-    belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
-    belongs_to :refund, Ysc.Ledgers.Refund, foreign_key: :refund_id, references: :id
+
+    belongs_to :payment, Ysc.Ledgers.Payment,
+      foreign_key: :payment_id,
+      references: :id
+
+    belongs_to :refund, Ysc.Ledgers.Refund,
+      foreign_key: :refund_id,
+      references: :id
+
     field :total_amount, Money.Ecto.Composite.Type, default_currency: :USD
     field :status, LedgerTransactionStatus
 

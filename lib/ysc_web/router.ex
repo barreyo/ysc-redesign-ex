@@ -190,7 +190,11 @@ defmodule YscWeb.Router do
 
   ## Password reset (allow unauthenticated access)
   scope "/", YscWeb do
-    pipe_through [:browser, :redirect_if_user_is_authenticated, :auth_rate_limit]
+    pipe_through [
+      :browser,
+      :redirect_if_user_is_authenticated,
+      :auth_rate_limit
+    ]
 
     live_session :password_reset,
       on_mount: [
@@ -236,15 +240,26 @@ defmodule YscWeb.Router do
       get "/pending-review", PageController, :pending_review
 
       live "/users/settings", UserSettingsLive, :edit
-      live "/users/settings/phone-verification", UserSettingsLive, :phone_verification
-      live "/users/settings/email-verification", UserSettingsLive, :email_verification
+
+      live "/users/settings/phone-verification",
+           UserSettingsLive,
+           :phone_verification
+
+      live "/users/settings/email-verification",
+           UserSettingsLive,
+           :email_verification
+
       live "/users/settings/security", UserSecurityLive, :index
       live "/users/settings/passkeys/new", PasskeyRegistrationLive, :new
       live "/users/payments", UserSettingsLive, :payments
       live "/users/membership", UserSettingsLive, :membership
       live "/users/membership/payment-method", UserSettingsLive, :payment_method
       live "/users/notifications", UserSettingsLive, :notifications
-      live "/users/settings/confirm-email/:token", UserSettingsLive, :confirm_email
+
+      live "/users/settings/confirm-email/:token",
+           UserSettingsLive,
+           :confirm_email
+
       live "/users/settings/family", FamilyManagementLive, :index
       live "/users/tickets", UserTicketsLive, :index
       live "/tickets/:order_id", UserTicketsLive, :show
@@ -304,8 +319,15 @@ defmodule YscWeb.Router do
       live "/users/:id/details/bookings", AdminUserDetailsLive, :bookings
       live "/users/:id/details/application", AdminUserDetailsLive, :application
       live "/users/:id/details/membership", AdminUserDetailsLive, :membership
-      live "/users/:id/details/notifications", AdminUserDetailsLive, :notifications
-      live "/users/:id/details/bank-accounts", AdminUserDetailsLive, :bank_accounts
+
+      live "/users/:id/details/notifications",
+           AdminUserDetailsLive,
+           :notifications
+
+      live "/users/:id/details/bank-accounts",
+           AdminUserDetailsLive,
+           :bank_accounts
+
       live "/users/:id/details/family", AdminUserDetailsLive, :family
       live "/users/:id/details/logs", AdminUserDetailsLive, :logs
 
@@ -325,15 +347,29 @@ defmodule YscWeb.Router do
       live "/bookings", AdminBookingsLive, :index
       live "/bookings/:id", AdminBookingsLive, :view_booking
       live "/bookings/pricing-rules/new", AdminBookingsLive, :new_pricing_rule
-      live "/bookings/pricing-rules/:id/edit", AdminBookingsLive, :edit_pricing_rule
+
+      live "/bookings/pricing-rules/:id/edit",
+           AdminBookingsLive,
+           :edit_pricing_rule
+
       live "/bookings/blackouts/new", AdminBookingsLive, :new_blackout
       live "/bookings/blackouts/:id/edit", AdminBookingsLive, :edit_blackout
       live "/bookings/bookings/new", AdminBookingsLive, :new_booking
       live "/bookings/bookings/:id/edit", AdminBookingsLive, :edit_booking
       live "/bookings/seasons/:id/edit", AdminBookingsLive, :edit_season
-      live "/bookings/refund-policies/new", AdminBookingsLive, :new_refund_policy
-      live "/bookings/refund-policies/:id/edit", AdminBookingsLive, :edit_refund_policy
-      live "/bookings/refund-policies/:id/rules", AdminBookingsLive, :manage_refund_policy_rules
+
+      live "/bookings/refund-policies/new",
+           AdminBookingsLive,
+           :new_refund_policy
+
+      live "/bookings/refund-policies/:id/edit",
+           AdminBookingsLive,
+           :edit_refund_policy
+
+      live "/bookings/refund-policies/:id/rules",
+           AdminBookingsLive,
+           :manage_refund_policy_rules
+
       live "/bookings/rooms/new", AdminBookingsLive, :new_room
       live "/bookings/rooms/:id/edit", AdminBookingsLive, :edit_room
 
@@ -354,9 +390,15 @@ defmodule YscWeb.Router do
     pipe_through [:browser, :require_authenticated_user]
 
     scope "/:user_id" do
-      get "/payment-method", Ysc.Controllers.StripePaymentMethodController, :store_payment_method
+      get "/payment-method",
+          Ysc.Controllers.StripePaymentMethodController,
+          :store_payment_method
+
       get "/finalize", Ysc.Controllers.StripePaymentMethodController, :finalize
-      get "/setup-payment", Ysc.Controllers.StripePaymentMethodController, :setup_payment
+
+      get "/setup-payment",
+          Ysc.Controllers.StripePaymentMethodController,
+          :setup_payment
     end
   end
 

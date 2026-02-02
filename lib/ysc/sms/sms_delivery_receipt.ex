@@ -21,7 +21,9 @@ defmodule Ysc.Sms.SmsDeliveryReceipt do
     field :provider_timestamp, :utc_datetime
     field :raw_payload, :map
 
-    belongs_to :sms_message, Ysc.Sms.SmsMessage, foreign_key: :sms_message_id, references: :id
+    belongs_to :sms_message, Ysc.Sms.SmsMessage,
+      foreign_key: :sms_message_id,
+      references: :id
 
     timestamps()
   end

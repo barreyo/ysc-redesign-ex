@@ -297,7 +297,10 @@ defmodule Ysc.PropertyOutages.OutageTrackerTest do
       retrieved = Repo.get(OutageTracker, outage.id)
 
       assert retrieved.raw_response["metadata"]["source"] == "PGE API"
-      assert retrieved.raw_response["outage_details"]["affected_customers"] == 150
+
+      assert retrieved.raw_response["outage_details"]["affected_customers"] ==
+               150
+
       assert length(retrieved.raw_response["timeline"]) == 3
     end
 

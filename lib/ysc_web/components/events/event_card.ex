@@ -17,14 +17,21 @@ defmodule YscWeb.Components.Events.EventCard do
   attr :class, :string, default: nil
   attr :sold_out, :boolean, default: false
   attr :selling_fast, :boolean, default: false
-  attr :variant, :string, default: "default", doc: "Card variant: 'default' or 'dark'"
+
+  attr :variant, :string,
+    default: "default",
+    doc: "Card variant: 'default' or 'dark'"
 
   def event_card(assigns) do
     assigns =
       assigns
       |> assign(
         :badges,
-        get_event_badges_for_card(assigns.event, assigns.sold_out, assigns.selling_fast)
+        get_event_badges_for_card(
+          assigns.event,
+          assigns.sold_out,
+          assigns.selling_fast
+        )
       )
 
     ~H"""
@@ -56,7 +63,9 @@ defmodule YscWeb.Components.Events.EventCard do
             loading="lazy"
             alt={
               if @event.image,
-                do: @event.image.alt_text || @event.image.title || @event.title || "Event image",
+                do:
+                  @event.image.alt_text || @event.image.title || @event.title ||
+                    "Event image",
                 else: "Event image"
             }
           />
@@ -66,7 +75,10 @@ defmodule YscWeb.Components.Events.EventCard do
             <span class={[
               "px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest shadow-lg pointer-events-auto",
               badge_class(badge),
-              if(badge.text == "Going Fast!", do: "animate-badge-shine-emerald", else: "")
+              if(badge.text == "Going Fast!",
+                do: "animate-badge-shine-emerald",
+                else: ""
+              )
             ]}>
               <.icon
                 :if={badge.icon}
@@ -179,7 +191,9 @@ defmodule YscWeb.Components.Events.EventCard do
   defp event_image_url(%Image{optimized_image_path: nil} = image),
     do: image.raw_image_path || "/images/ysc_logo.png"
 
-  defp event_image_url(%Image{optimized_image_path: optimized_path}), do: optimized_path
+  defp event_image_url(%Image{optimized_image_path: optimized_path}),
+    do: optimized_path
+
   defp event_image_url(_), do: "/images/ysc_logo.png"
 
   defp get_event_badges_for_card(event, sold_out, selling_fast) do
@@ -201,7 +215,8 @@ defmodule YscWeb.Components.Events.EventCard do
 
   defp get_active_badges_for_card(event, selling_fast) do
     # Check if published_at exists (no badges for unpublished events)
-    published_at = Map.get(event, :published_at) || Map.get(event, "published_at")
+    published_at =
+      Map.get(event, :published_at) || Map.get(event, "published_at")
 
     if published_at != nil do
       badges = []
@@ -221,7 +236,9 @@ defmodule YscWeb.Components.Events.EventCard do
 
       days_left_badge =
         if days_left != nil and days_left >= 1 and days_left <= 3 do
-          text = "#{days_left} #{if days_left == 1, do: "day", else: "days"} left"
+          text =
+            "#{days_left} #{if days_left == 1, do: "day", else: "days"} left"
+
           [%{text: text, class: "bg-sky-500 text-white", icon: nil}]
         else
           []
@@ -232,7 +249,13 @@ defmodule YscWeb.Components.Events.EventCard do
       # Add "Selling Fast!" badge if applicable
       selling_fast_badge =
         if selling_fast do
-          [%{text: "Going Fast!", class: "bg-emerald-600 text-white", icon: "hero-bolt-solid"}]
+          [
+            %{
+              text: "Going Fast!",
+              class: "bg-emerald-600 text-white",
+              icon: "hero-bolt-solid"
+            }
+          ]
         else
           []
         end

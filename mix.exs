@@ -168,8 +168,15 @@ defmodule Ysc.MixProject do
         "run priv/repo/test_seeds.exs",
         "test"
       ],
-      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["generate_video_posters", "tailwind default", "esbuild default"],
+      "assets.setup": [
+        "tailwind.install --if-missing",
+        "esbuild.install --if-missing"
+      ],
+      "assets.build": [
+        "generate_video_posters",
+        "tailwind default",
+        "esbuild default"
+      ],
       "assets.deploy": [
         "generate_video_posters",
         "tailwind default --minify",

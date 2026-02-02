@@ -101,7 +101,8 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
       assert String.length(html) > 0
 
       # Test that the template name is correct
-      assert AdminApplicationSubmitted.get_template_name() == "admin_application_submitted"
+      assert AdminApplicationSubmitted.get_template_name() ==
+               "admin_application_submitted"
 
       # Test that the subject is correct
       assert AdminApplicationSubmitted.get_subject() ==
@@ -175,7 +176,8 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
       assert String.length(html) > 0
 
       # Test that the template name is correct
-      assert ConductViolationConfirmation.get_template_name() == "conduct_violation_confirmation"
+      assert ConductViolationConfirmation.get_template_name() ==
+               "conduct_violation_confirmation"
 
       # Test that the subject is correct
       assert ConductViolationConfirmation.get_subject() ==
@@ -230,7 +232,8 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
       assert String.length(html) > 0
 
       # Test that the template name is correct
-      assert MembershipPaymentFailure.get_template_name() == "membership_payment_failure"
+      assert MembershipPaymentFailure.get_template_name() ==
+               "membership_payment_failure"
 
       # Test that the subject is correct
       assert MembershipPaymentFailure.get_subject() ==
@@ -260,7 +263,9 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
 
       for template_name <- template_names do
         template_module = Notifier.get_template_module(template_name)
-        assert template_module != nil, "Template module not found for #{template_name}"
+
+        assert template_module != nil,
+               "Template module not found for #{template_name}"
 
         # Test that the module exists and can be loaded
         assert Code.ensure_loaded?(template_module),
@@ -273,11 +278,23 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
 
       templates_with_assigns = [
         {ApplicationSubmitted,
-         %{first_name: user.first_name, last_name: user.last_name, email: user.email}},
+         %{
+           first_name: user.first_name,
+           last_name: user.last_name,
+           email: user.email
+         }},
         {ApplicationApproved,
-         %{first_name: user.first_name, last_name: user.last_name, email: user.email}},
+         %{
+           first_name: user.first_name,
+           last_name: user.last_name,
+           email: user.email
+         }},
         {ApplicationRejected,
-         %{first_name: user.first_name, last_name: user.last_name, email: user.email}},
+         %{
+           first_name: user.first_name,
+           last_name: user.last_name,
+           email: user.email
+         }},
         {AdminApplicationSubmitted,
          %{
            applicant_name: "#{user.first_name} #{user.last_name}",
@@ -285,11 +302,20 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
            review_url: "https://example.com/admin/applications/#{user.id}"
          }},
         {ChangeEmail,
-         %{first_name: user.first_name, url: "https://example.com/confirm-email?token=abc123"}},
+         %{
+           first_name: user.first_name,
+           url: "https://example.com/confirm-email?token=abc123"
+         }},
         {ConfirmEmail,
-         %{first_name: user.first_name, url: "https://example.com/confirm-email?token=abc123"}},
+         %{
+           first_name: user.first_name,
+           url: "https://example.com/confirm-email?token=abc123"
+         }},
         {ResetPassword,
-         %{first_name: user.first_name, url: "https://example.com/reset-password?token=abc123"}},
+         %{
+           first_name: user.first_name,
+           url: "https://example.com/reset-password?token=abc123"
+         }},
         {ConductViolationConfirmation,
          %{
            first_name: user.first_name,
@@ -327,8 +353,11 @@ defmodule YscWeb.Emails.EmailTemplatesTest do
         assert String.length(html) > 0
 
         # Basic HTML structure checks
-        assert String.contains?(html, "<html") or String.contains?(html, "<!DOCTYPE")
-        assert String.contains?(html, "</html>") or String.contains?(html, "</body>")
+        assert String.contains?(html, "<html") or
+                 String.contains?(html, "<!DOCTYPE")
+
+        assert String.contains?(html, "</html>") or
+                 String.contains?(html, "</body>")
       end
     end
   end

@@ -25,7 +25,9 @@ defmodule Ysc.SubscriptionsTest do
         current_period_end: DateTime.utc_now() |> DateTime.add(30, :day)
       }
 
-      assert {:ok, %Subscription{} = sub} = Subscriptions.create_subscription(attrs)
+      assert {:ok, %Subscription{} = sub} =
+               Subscriptions.create_subscription(attrs)
+
       assert sub.stripe_id == "sub_123"
       assert sub.stripe_status == "active"
     end
@@ -226,7 +228,11 @@ defmodule Ysc.SubscriptionsTest do
           current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
         })
 
-      assert {:ok, updated} = Subscriptions.update_subscription(subscription, %{name: "Updated"})
+      assert {:ok, updated} =
+               Subscriptions.update_subscription(subscription, %{
+                 name: "Updated"
+               })
+
       assert updated.name == "Updated"
     end
 
@@ -288,7 +294,9 @@ defmodule Ysc.SubscriptionsTest do
           quantity: 1
         })
 
-      assert {:ok, updated} = Subscriptions.update_subscription_item(item, %{quantity: 2})
+      assert {:ok, updated} =
+               Subscriptions.update_subscription_item(item, %{quantity: 2})
+
       assert updated.quantity == 2
     end
 
@@ -351,7 +359,9 @@ defmodule Ysc.SubscriptionsTest do
       assert %Ecto.Changeset{} = changeset
     end
 
-    test "scheduled_for_cancellation?/1 checks if subscription is scheduled", %{user: _user} do
+    test "scheduled_for_cancellation?/1 checks if subscription is scheduled", %{
+      user: _user
+    } do
       future_date = DateTime.add(DateTime.utc_now(), 30, :day)
 
       scheduled = %Subscription{
@@ -397,7 +407,10 @@ defmodule Ysc.SubscriptionsTest do
     test "returns {:error, :invalid_plan} for unknown plan id" do
       user = user_fixture()
 
-      assert Subscriptions.create_subscription_paid_out_of_band(user, :unknown_plan) ==
+      assert Subscriptions.create_subscription_paid_out_of_band(
+               user,
+               :unknown_plan
+             ) ==
                {:error, :invalid_plan}
     end
 
@@ -421,7 +434,10 @@ defmodule Ysc.SubscriptionsTest do
         )
         |> Repo.insert!()
 
-      assert Subscriptions.create_subscription_paid_out_of_band(sub_account, :single) ==
+      assert Subscriptions.create_subscription_paid_out_of_band(
+               sub_account,
+               :single
+             ) ==
                {:error, :sub_accounts_cannot_create_subscriptions}
     end
 
@@ -453,10 +469,17 @@ defmodule Ysc.SubscriptionsTest do
       callback = fn _user, _plan -> {:ok, fake_stripe_sub} end
 
       try do
-        Application.put_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback, callback)
+        Application.put_env(
+          :ysc,
+          :create_subscription_paid_out_of_band_stripe_callback,
+          callback
+        )
 
         assert {:ok, %Subscription{} = subscription} =
-                 Subscriptions.create_subscription_paid_out_of_band(user, :single)
+                 Subscriptions.create_subscription_paid_out_of_band(
+                   user,
+                   :single
+                 )
 
         assert subscription.user_id == user.id
         assert subscription.stripe_id == fake_stripe_sub.id
@@ -465,9 +488,14 @@ defmodule Ysc.SubscriptionsTest do
         assert subscription.current_period_end != nil
         assert Ecto.assoc_loaded?(subscription.subscription_items)
         assert length(subscription.subscription_items) == 1
-        assert hd(subscription.subscription_items).stripe_price_id == single_plan.stripe_price_id
+
+        assert hd(subscription.subscription_items).stripe_price_id ==
+                 single_plan.stripe_price_id
       after
-        Application.delete_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback)
+        Application.delete_env(
+          :ysc,
+          :create_subscription_paid_out_of_band_stripe_callback
+        )
       end
     end
 
@@ -483,17 +511,29 @@ defmodule Ysc.SubscriptionsTest do
       callback = fn _user, _plan -> {:ok, fake_stripe_sub} end
 
       try do
-        Application.put_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback, callback)
+        Application.put_env(
+          :ysc,
+          :create_subscription_paid_out_of_band_stripe_callback,
+          callback
+        )
 
         assert {:ok, %Subscription{} = subscription} =
-                 Subscriptions.create_subscription_paid_out_of_band(user, :family)
+                 Subscriptions.create_subscription_paid_out_of_band(
+                   user,
+                   :family
+                 )
 
         assert subscription.user_id == user.id
         assert subscription.stripe_status == "active"
         assert length(subscription.subscription_items) == 1
-        assert hd(subscription.subscription_items).stripe_price_id == family_plan.stripe_price_id
+
+        assert hd(subscription.subscription_items).stripe_price_id ==
+                 family_plan.stripe_price_id
       after
-        Application.delete_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback)
+        Application.delete_env(
+          :ysc,
+          :create_subscription_paid_out_of_band_stripe_callback
+        )
       end
     end
 
@@ -502,12 +542,19 @@ defmodule Ysc.SubscriptionsTest do
       callback = fn _user, _plan -> {:error, :stripe_api_error} end
 
       try do
-        Application.put_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback, callback)
+        Application.put_env(
+          :ysc,
+          :create_subscription_paid_out_of_band_stripe_callback,
+          callback
+        )
 
         assert Subscriptions.create_subscription_paid_out_of_band(user, :single) ==
                  {:error, :stripe_api_error}
       after
-        Application.delete_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback)
+        Application.delete_env(
+          :ysc,
+          :create_subscription_paid_out_of_band_stripe_callback
+        )
       end
     end
   end

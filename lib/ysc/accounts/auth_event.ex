@@ -137,8 +137,13 @@ defmodule Ysc.Accounts.AuthEvent do
     |> validate_inclusion(:failure_reason, @failure_reasons,
       message: "is not a valid failure reason"
     )
-    |> validate_inclusion(:device_type, @device_types, message: "is not a valid device type")
-    |> validate_number(:risk_score, greater_than_or_equal_to: 0, less_than_or_equal_to: 100)
+    |> validate_inclusion(:device_type, @device_types,
+      message: "is not a valid device type"
+    )
+    |> validate_number(:risk_score,
+      greater_than_or_equal_to: 0,
+      less_than_or_equal_to: 100
+    )
     |> validate_length(:email_attempted, max: 160)
     # IPv6 max length
     |> validate_length(:ip_address, max: 45)
@@ -266,14 +271,16 @@ defmodule Ysc.Accounts.AuthEvent do
 
     # Basic user agent parsing - you might want to use a library like ua_parser
     cond do
-      String.contains?(safe_user_agent, "Mobile") or String.contains?(safe_user_agent, "Android") ->
+      String.contains?(safe_user_agent, "Mobile") or
+          String.contains?(safe_user_agent, "Android") ->
         %{
           device_type: "mobile",
           browser: extract_browser(safe_user_agent),
           operating_system: extract_os(safe_user_agent)
         }
 
-      String.contains?(safe_user_agent, "Tablet") or String.contains?(safe_user_agent, "iPad") ->
+      String.contains?(safe_user_agent, "Tablet") or
+          String.contains?(safe_user_agent, "iPad") ->
         %{
           device_type: "tablet",
           browser: extract_browser(safe_user_agent),
@@ -289,7 +296,8 @@ defmodule Ysc.Accounts.AuthEvent do
     end
   end
 
-  def parse_user_agent(_), do: %{device_type: "unknown", browser: nil, operating_system: nil}
+  def parse_user_agent(_),
+    do: %{device_type: "unknown", browser: nil, operating_system: nil}
 
   @doc """
   Calculates risk score based on various factors.

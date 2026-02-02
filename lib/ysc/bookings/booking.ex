@@ -71,11 +71,20 @@ defmodule Ysc.Bookings.Booking do
     field :total_price, Money.Ecto.Composite.Type, default_currency: :USD
     field :pricing_items, :map
     field :checked_in, :boolean, default: false
-    many_to_many :rooms, Ysc.Bookings.Room, join_through: Ysc.Bookings.BookingRoom
+
+    many_to_many :rooms, Ysc.Bookings.Room,
+      join_through: Ysc.Bookings.BookingRoom
+
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
-    has_many :booking_guests, Ysc.Bookings.BookingGuest, foreign_key: :booking_id
-    has_many :check_in_bookings, Ysc.Bookings.CheckInBooking, foreign_key: :booking_id
-    many_to_many :check_ins, Ysc.Bookings.CheckIn, join_through: Ysc.Bookings.CheckInBooking
+
+    has_many :booking_guests, Ysc.Bookings.BookingGuest,
+      foreign_key: :booking_id
+
+    has_many :check_in_bookings, Ysc.Bookings.CheckInBooking,
+      foreign_key: :booking_id
+
+    many_to_many :check_ins, Ysc.Bookings.CheckIn,
+      join_through: Ysc.Bookings.CheckInBooking
 
     timestamps()
   end
@@ -85,11 +94,18 @@ defmodule Ysc.Bookings.Booking do
            %{
              optional(atom()) =>
                atom()
-               | {:array | :assoc | :embed | :in | :map | :parameterized | :supertype | :try,
-                  any()}
+               | {:array
+                  | :assoc
+                  | :embed
+                  | :in
+                  | :map
+                  | :parameterized
+                  | :supertype
+                  | :try, any()}
            }}
           | %{
-              :__struct__ => atom() | %{:__changeset__ => any(), optional(any()) => any()},
+              :__struct__ =>
+                atom() | %{:__changeset__ => any(), optional(any()) => any()},
               optional(atom()) => any()
             }
         ) :: Ecto.Changeset.t()
@@ -125,7 +141,13 @@ defmodule Ysc.Bookings.Booking do
       end
 
     changeset
-    |> validate_required([:checkin_date, :checkout_date, :property, :booking_mode, :user_id])
+    |> validate_required([
+      :checkin_date,
+      :checkout_date,
+      :property,
+      :booking_mode,
+      :user_id
+    ])
     |> generate_reference_id()
     |> infer_booking_mode()
     |> validate_date_range()
@@ -158,7 +180,8 @@ defmodule Ysc.Bookings.Booking do
 
       has_rooms =
         (is_list(rooms) && rooms != []) ||
-          (is_map(rooms) && Map.has_key?(rooms, :rooms) && Map.get(rooms, :rooms, []) != [])
+          (is_map(rooms) && Map.has_key?(rooms, :rooms) &&
+             Map.get(rooms, :rooms, []) != [])
 
       if has_rooms do
         # Has rooms = room booking
@@ -177,7 +200,9 @@ defmodule Ysc.Bookings.Booking do
     # Ensure opts is a keyword list
     opts = if Keyword.keyword?(opts), do: opts, else: Keyword.new(opts)
 
-    user = opts[:user] || (get_field(changeset, :user_id) && get_user_from_changeset(changeset))
+    user =
+      opts[:user] ||
+        (get_field(changeset, :user_id) && get_user_from_changeset(changeset))
 
     # Merge opts with user, preserving skip_validation if present
     validator_opts = Keyword.merge(opts, user: user)
@@ -204,7 +229,11 @@ defmodule Ysc.Bookings.Booking do
 
     if checkin_date && checkout_date do
       if Date.compare(checkout_date, checkin_date) == :lt do
-        add_error(changeset, :checkout_date, "must be on or after check-in date")
+        add_error(
+          changeset,
+          :checkout_date,
+          "must be on or after check-in date"
+        )
       else
         changeset
       end

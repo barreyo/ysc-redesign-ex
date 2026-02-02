@@ -225,16 +225,23 @@ defmodule Ysc.Accounts.MembershipCache do
   end
 
   defp get_membership_plan_type_from_membership(nil), do: nil
-  defp get_membership_plan_type_from_membership(%{type: :lifetime}), do: :lifetime
 
-  defp get_membership_plan_type_from_membership(%Subscriptions.Subscription{} = subscription) do
+  defp get_membership_plan_type_from_membership(%{type: :lifetime}),
+    do: :lifetime
+
+  defp get_membership_plan_type_from_membership(
+         %Subscriptions.Subscription{} = subscription
+       ) do
     subscription = Ysc.Repo.preload(subscription, :subscription_items)
 
     case subscription.subscription_items do
       [item | _] ->
         membership_plans = Application.get_env(:ysc, :membership_plans, [])
 
-        case Enum.find(membership_plans, &(&1.stripe_price_id == item.stripe_price_id)) do
+        case Enum.find(
+               membership_plans,
+               &(&1.stripe_price_id == item.stripe_price_id)
+             ) do
           %{id: plan_id} when not is_nil(plan_id) -> plan_id
           _ -> nil
         end
@@ -244,8 +251,9 @@ defmodule Ysc.Accounts.MembershipCache do
     end
   end
 
-  defp get_membership_plan_type_from_membership(%{plan: %{id: plan_id}}) when not is_nil(plan_id),
-    do: plan_id
+  defp get_membership_plan_type_from_membership(%{plan: %{id: plan_id}})
+       when not is_nil(plan_id),
+       do: plan_id
 
   defp get_membership_plan_type_from_membership(_), do: nil
 

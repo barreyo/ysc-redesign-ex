@@ -51,21 +51,32 @@ defmodule Ysc.Forms do
     interests = []
 
     interests =
-      if volunteer.interest_events, do: interests ++ ["Events/Parties"], else: interests
+      if volunteer.interest_events,
+        do: interests ++ ["Events/Parties"],
+        else: interests
 
     interests =
-      if volunteer.interest_activities, do: interests ++ ["Activities"], else: interests
+      if volunteer.interest_activities,
+        do: interests ++ ["Activities"],
+        else: interests
 
     interests =
-      if volunteer.interest_clear_lake, do: interests ++ ["Clear Lake"], else: interests
-
-    interests = if volunteer.interest_tahoe, do: interests ++ ["Tahoe"], else: interests
-
-    interests =
-      if volunteer.interest_marketing, do: interests ++ ["Marketing"], else: interests
+      if volunteer.interest_clear_lake,
+        do: interests ++ ["Clear Lake"],
+        else: interests
 
     interests =
-      if volunteer.interest_website, do: interests ++ ["Website"], else: interests
+      if volunteer.interest_tahoe, do: interests ++ ["Tahoe"], else: interests
+
+    interests =
+      if volunteer.interest_marketing,
+        do: interests ++ ["Marketing"],
+        else: interests
+
+    interests =
+      if volunteer.interest_website,
+        do: interests ++ ["Website"],
+        else: interests
 
     interests
   end
@@ -86,9 +97,13 @@ defmodule Ysc.Forms do
         anonymous: report.anonymous
       }
 
-      confirmation_idempotency_key = "conduct_violation_confirmation_#{report.id}"
+      confirmation_idempotency_key =
+        "conduct_violation_confirmation_#{report.id}"
 
-      Logger.info("Scheduling confirmation email", report_id: report.id, email: report.email)
+      Logger.info("Scheduling confirmation email",
+        report_id: report.id,
+        email: report.email
+      )
 
       confirmation_result =
         YscWeb.Emails.Notifier.schedule_email(
@@ -102,7 +117,8 @@ defmodule Ysc.Forms do
 
       case confirmation_result do
         %Oban.Job{} = job ->
-          Logger.info("Conduct violation confirmation email scheduled successfully",
+          Logger.info(
+            "Conduct violation confirmation email scheduled successfully",
             report_id: report.id,
             email: report.email,
             job_id: job.id,
@@ -110,7 +126,8 @@ defmodule Ysc.Forms do
           )
 
         {:error, reason} ->
-          Logger.error("Failed to schedule conduct violation confirmation email",
+          Logger.error(
+            "Failed to schedule conduct violation confirmation email",
             report_id: report.id,
             email: report.email,
             error: reason
@@ -129,7 +146,8 @@ defmodule Ysc.Forms do
         submitted_at: format_datetime_for_email(report.inserted_at)
       }
 
-      board_idempotency_key = "conduct_violation_board_notification_#{report.id}"
+      board_idempotency_key =
+        "conduct_violation_board_notification_#{report.id}"
 
       Logger.info("Scheduling board notification email", report_id: report.id)
 
@@ -143,14 +161,16 @@ defmodule Ysc.Forms do
 
       case board_result do
         %Oban.Job{} = job ->
-          Logger.info("Conduct violation board notification email scheduled successfully",
+          Logger.info(
+            "Conduct violation board notification email scheduled successfully",
             report_id: report.id,
             job_id: job.id,
             idempotency_key: board_idempotency_key
           )
 
         {:error, reason} ->
-          Logger.error("Failed to schedule conduct violation board notification email",
+          Logger.error(
+            "Failed to schedule conduct violation board notification email",
             report_id: report.id,
             error: reason
           )
@@ -227,7 +247,9 @@ defmodule Ysc.Forms do
 
       board_idempotency_key = "volunteer_board_notification_#{volunteer.id}"
 
-      Logger.info("Scheduling board notification email", volunteer_id: volunteer.id)
+      Logger.info("Scheduling board notification email",
+        volunteer_id: volunteer.id
+      )
 
       board_result =
         YscWeb.Emails.Notifier.schedule_email_to_board(
@@ -239,7 +261,8 @@ defmodule Ysc.Forms do
 
       case board_result do
         %Oban.Job{} = job ->
-          Logger.info("Volunteer board notification email scheduled successfully",
+          Logger.info(
+            "Volunteer board notification email scheduled successfully",
             volunteer_id: volunteer.id,
             job_id: job.id,
             idempotency_key: board_idempotency_key
@@ -281,9 +304,12 @@ defmodule Ysc.Forms do
         submitted_at: format_datetime_for_email(contact_form.inserted_at)
       }
 
-      board_idempotency_key = "contact_form_board_notification_#{contact_form.id}"
+      board_idempotency_key =
+        "contact_form_board_notification_#{contact_form.id}"
 
-      Logger.info("Scheduling board notification email", contact_form_id: contact_form.id)
+      Logger.info("Scheduling board notification email",
+        contact_form_id: contact_form.id
+      )
 
       board_result =
         YscWeb.Emails.Notifier.schedule_email_to_board(
@@ -295,14 +321,16 @@ defmodule Ysc.Forms do
 
       case board_result do
         %Oban.Job{} = job ->
-          Logger.info("Contact form board notification email scheduled successfully",
+          Logger.info(
+            "Contact form board notification email scheduled successfully",
             contact_form_id: contact_form.id,
             job_id: job.id,
             idempotency_key: board_idempotency_key
           )
 
         {:error, reason} ->
-          Logger.error("Failed to schedule contact form board notification email",
+          Logger.error(
+            "Failed to schedule contact form board notification email",
             contact_form_id: contact_form.id,
             error: reason
           )

@@ -20,7 +20,9 @@ defmodule Ysc.Bookings.SeasonHelpers do
     current_season = Season.for_date(property, today)
 
     if current_season do
-      {season_start_date, season_end_date} = get_season_date_range(current_season, today)
+      {season_start_date, season_end_date} =
+        get_season_date_range(current_season, today)
+
       {current_season, season_start_date, season_end_date}
     else
       {nil, nil, nil}
@@ -60,7 +62,8 @@ defmodule Ysc.Bookings.SeasonHelpers do
   end
 
   defp calculate_max_booking_date_with_season(property, current_season, today) do
-    if current_season.advance_booking_days && current_season.advance_booking_days > 0 do
+    if current_season.advance_booking_days &&
+         current_season.advance_booking_days > 0 do
       # Current season has a limit - apply it
       Date.add(today, current_season.advance_booking_days)
     else
@@ -77,7 +80,8 @@ defmodule Ysc.Bookings.SeasonHelpers do
 
     max_date = season_end
 
-    if next_season && next_season.advance_booking_days && next_season.advance_booking_days > 0 do
+    if next_season && next_season.advance_booking_days &&
+         next_season.advance_booking_days > 0 do
       # Next season has a limit - we can book up to that limit
       next_season_max = Date.add(today, next_season.advance_booking_days)
       # Use the later of: end of current season or next season's limit
@@ -143,6 +147,7 @@ defmodule Ysc.Bookings.SeasonHelpers do
       ) do
     # Check the season for the checkin_date
     checkin_season = Season.for_date(property, checkin_date)
+
     # Check the season for the checkout_date (might be different if booking spans seasons)
     checkout_season = Season.for_date(property, checkout_date)
 
@@ -178,8 +183,10 @@ defmodule Ysc.Bookings.SeasonHelpers do
 
     # Apply checkout_date season's limit if it's different from checkin_season and has a limit
     errors =
-      if checkout_season && checkin_season && checkout_season.id != checkin_season.id &&
-           checkout_season.advance_booking_days && checkout_season.advance_booking_days > 0 do
+      if checkout_season && checkin_season &&
+           checkout_season.id != checkin_season.id &&
+           checkout_season.advance_booking_days &&
+           checkout_season.advance_booking_days > 0 do
         max_booking_date = Date.add(today, checkout_season.advance_booking_days)
 
         cond do
@@ -295,7 +302,11 @@ defmodule Ysc.Bookings.SeasonHelpers do
         # If we're before the end date, next start could be this year or next
         if {ref_month, ref_day} <= {end_month, end_day} do
           # We're in the later part (Jan-Apr), next start is this year
-          calculate_next_start_in_later_part(reference_date, start_month, start_day)
+          calculate_next_start_in_later_part(
+            reference_date,
+            start_month,
+            start_day
+          )
         else
           # We're in the earlier part (Nov-Dec), next start is next year
           Date.new!(reference_date.year + 1, start_month, start_day)
@@ -312,7 +323,11 @@ defmodule Ysc.Bookings.SeasonHelpers do
     end
   end
 
-  defp calculate_next_start_in_later_part(reference_date, start_month, start_day) do
+  defp calculate_next_start_in_later_part(
+         reference_date,
+         start_month,
+         start_day
+       ) do
     candidate = Date.new!(reference_date.year, start_month, start_day)
 
     if Date.compare(candidate, reference_date) == :gt do

@@ -36,9 +36,17 @@ defmodule YscWeb.VolunteerLive do
         </div>
 
         <div class="not-prose">
-          <.simple_form for={@form} phx-change="validate" phx-submit="save" id="volunteer-form">
+          <.simple_form
+            for={@form}
+            phx-change="validate"
+            phx-submit="save"
+            id="volunteer-form"
+          >
             <%!-- Show user info if logged in, otherwise show input fields --%>
-            <div :if={@logged_in?} class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div
+              :if={@logged_in?}
+              class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg"
+            >
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-blue-200">
                   <.user_avatar_image
@@ -56,11 +64,22 @@ defmodule YscWeb.VolunteerLive do
                 </div>
               </div>
               <%!-- Hidden fields to ensure name and email are submitted --%>
-              <input type="hidden" name={@form[:name].name} value={@form[:name].value} />
-              <input type="hidden" name={@form[:email].name} value={@form[:email].value} />
+              <input
+                type="hidden"
+                name={@form[:name].name}
+                value={@form[:name].value}
+              />
+              <input
+                type="hidden"
+                name={@form[:email].name}
+                value={@form[:email].value}
+              />
             </div>
 
-            <div :if={!@logged_in?} class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div
+              :if={!@logged_in?}
+              class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8"
+            >
               <.input
                 field={@form[:name]}
                 label="Name (*)"
@@ -86,14 +105,21 @@ defmodule YscWeb.VolunteerLive do
                   for={@form[:interest_events].id}
                   class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
                 >
-                  <input type="hidden" name={@form[:interest_events].name} value="false" />
+                  <input
+                    type="hidden"
+                    name={@form[:interest_events].name}
+                    value="false"
+                  />
                   <input
                     type="checkbox"
                     id={@form[:interest_events].id}
                     name={@form[:interest_events].name}
                     value="true"
                     checked={
-                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_events].value)
+                      Phoenix.HTML.Form.normalize_value(
+                        "checkbox",
+                        @form[:interest_events].value
+                      )
                     }
                     aria-label="Events & Parties: Help organize banquets and social gatherings"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
@@ -103,7 +129,9 @@ defmodule YscWeb.VolunteerLive do
                     name="hero-calendar"
                     class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
                   />
-                  <span class="font-bold text-zinc-900 leading-tight mb-1">Events & Parties</span>
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">
+                    Events & Parties
+                  </span>
                   <span class="text-xs text-zinc-500">
                     Help organize banquets and social gatherings.
                   </span>
@@ -114,14 +142,21 @@ defmodule YscWeb.VolunteerLive do
                   for={@form[:interest_activities].id}
                   class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
                 >
-                  <input type="hidden" name={@form[:interest_activities].name} value="false" />
+                  <input
+                    type="hidden"
+                    name={@form[:interest_activities].name}
+                    value="false"
+                  />
                   <input
                     type="checkbox"
                     id={@form[:interest_activities].id}
                     name={@form[:interest_activities].name}
                     value="true"
                     checked={
-                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_activities].value)
+                      Phoenix.HTML.Form.normalize_value(
+                        "checkbox",
+                        @form[:interest_activities].value
+                      )
                     }
                     aria-label="Activities: Plan outdoor adventures and member activities"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
@@ -131,7 +166,9 @@ defmodule YscWeb.VolunteerLive do
                     name="hero-map"
                     class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
                   />
-                  <span class="font-bold text-zinc-900 leading-tight mb-1">Activities</span>
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">
+                    Activities
+                  </span>
                   <span class="text-xs text-zinc-500">
                     Plan outdoor adventures and member activities.
                   </span>
@@ -142,14 +179,21 @@ defmodule YscWeb.VolunteerLive do
                   for={@form[:interest_clear_lake].id}
                   class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-orange-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
                 >
-                  <input type="hidden" name={@form[:interest_clear_lake].name} value="false" />
+                  <input
+                    type="hidden"
+                    name={@form[:interest_clear_lake].name}
+                    value="false"
+                  />
                   <input
                     type="checkbox"
                     id={@form[:interest_clear_lake].id}
                     name={@form[:interest_clear_lake].name}
                     value="true"
                     checked={
-                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_clear_lake].value)
+                      Phoenix.HTML.Form.normalize_value(
+                        "checkbox",
+                        @form[:interest_clear_lake].value
+                      )
                     }
                     aria-label="Clear Lake: Help maintain and manage our Clear Lake cabin"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
@@ -159,7 +203,9 @@ defmodule YscWeb.VolunteerLive do
                     name="hero-home"
                     class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
                   />
-                  <span class="font-bold text-zinc-900 leading-tight mb-1">Clear Lake</span>
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">
+                    Clear Lake
+                  </span>
                   <span class="text-xs text-zinc-500">
                     Help maintain and manage our Clear Lake cabin.
                   </span>
@@ -170,14 +216,21 @@ defmodule YscWeb.VolunteerLive do
                   for={@form[:interest_tahoe].id}
                   class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-orange-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
                 >
-                  <input type="hidden" name={@form[:interest_tahoe].name} value="false" />
+                  <input
+                    type="hidden"
+                    name={@form[:interest_tahoe].name}
+                    value="false"
+                  />
                   <input
                     type="checkbox"
                     id={@form[:interest_tahoe].id}
                     name={@form[:interest_tahoe].name}
                     value="true"
                     checked={
-                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_tahoe].value)
+                      Phoenix.HTML.Form.normalize_value(
+                        "checkbox",
+                        @form[:interest_tahoe].value
+                      )
                     }
                     aria-label="Tahoe: Support our mountain retreat at Lake Tahoe"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
@@ -187,7 +240,9 @@ defmodule YscWeb.VolunteerLive do
                     name="hero-home-modern"
                     class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
                   />
-                  <span class="font-bold text-zinc-900 leading-tight mb-1">Tahoe</span>
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">
+                    Tahoe
+                  </span>
                   <span class="text-xs text-zinc-500">
                     Support our mountain retreat at Lake Tahoe.
                   </span>
@@ -198,14 +253,21 @@ defmodule YscWeb.VolunteerLive do
                   for={@form[:interest_marketing].id}
                   class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-purple-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
                 >
-                  <input type="hidden" name={@form[:interest_marketing].name} value="false" />
+                  <input
+                    type="hidden"
+                    name={@form[:interest_marketing].name}
+                    value="false"
+                  />
                   <input
                     type="checkbox"
                     id={@form[:interest_marketing].id}
                     name={@form[:interest_marketing].name}
                     value="true"
                     checked={
-                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_marketing].value)
+                      Phoenix.HTML.Form.normalize_value(
+                        "checkbox",
+                        @form[:interest_marketing].value
+                      )
                     }
                     aria-label="Marketing: Help us grow our Instagram and newsletter"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
@@ -215,7 +277,9 @@ defmodule YscWeb.VolunteerLive do
                     name="hero-megaphone"
                     class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
                   />
-                  <span class="font-bold text-zinc-900 leading-tight mb-1">Marketing</span>
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">
+                    Marketing
+                  </span>
                   <span class="text-xs text-zinc-500">
                     Help us grow our Instagram and newsletter.
                   </span>
@@ -226,14 +290,21 @@ defmodule YscWeb.VolunteerLive do
                   for={@form[:interest_website].id}
                   class="relative flex flex-col p-5 border-2 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-purple-200 transition-all border-zinc-200 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50/50 has-[:checked]:scale-[1.02] group"
                 >
-                  <input type="hidden" name={@form[:interest_website].name} value="false" />
+                  <input
+                    type="hidden"
+                    name={@form[:interest_website].name}
+                    value="false"
+                  />
                   <input
                     type="checkbox"
                     id={@form[:interest_website].id}
                     name={@form[:interest_website].name}
                     value="true"
                     checked={
-                      Phoenix.HTML.Form.normalize_value("checkbox", @form[:interest_website].value)
+                      Phoenix.HTML.Form.normalize_value(
+                        "checkbox",
+                        @form[:interest_website].value
+                      )
                     }
                     aria-label="Website: Help improve and maintain our website"
                     class="absolute top-4 right-4 w-5 h-5 rounded border-zinc-300 text-blue-600 focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0"
@@ -243,8 +314,12 @@ defmodule YscWeb.VolunteerLive do
                     name="hero-computer-desktop"
                     class="w-8 h-8 text-zinc-400 group-has-[:checked]:text-blue-600 mb-3 transition-all duration-200 group-has-[:checked]:animate-bounce"
                   />
-                  <span class="font-bold text-zinc-900 leading-tight mb-1">Website</span>
-                  <span class="text-xs text-zinc-500">Help improve and maintain our website.</span>
+                  <span class="font-bold text-zinc-900 leading-tight mb-1">
+                    Website
+                  </span>
+                  <span class="text-xs text-zinc-500">
+                    Help improve and maintain our website.
+                  </span>
                 </label>
               </div>
             </div>
@@ -253,9 +328,15 @@ defmodule YscWeb.VolunteerLive do
               <Turnstile.widget theme="light" />
             </div>
 
-            <div :if={@submitted} class="mb-6 p-6 bg-green-50 border-2 border-green-200 rounded-xl">
+            <div
+              :if={@submitted}
+              class="mb-6 p-6 bg-green-50 border-2 border-green-200 rounded-xl"
+            >
               <div class="flex items-start gap-4">
-                <.icon name="hero-check-circle" class="text-green-600 w-8 h-8 flex-shrink-0 mt-0.5" />
+                <.icon
+                  name="hero-check-circle"
+                  class="text-green-600 w-8 h-8 flex-shrink-0 mt-0.5"
+                />
                 <div>
                   <p class="text-green-800 font-bold text-lg mb-2">Välkommen!</p>
                   <p class="text-green-700">
@@ -272,7 +353,9 @@ defmodule YscWeb.VolunteerLive do
                 class="w-full md:w-auto phx-submit-loading:opacity-75"
               >
                 <span class="phx-submit-loading:hidden">Submit Application →</span>
-                <span class="hidden phx-submit-loading:inline text-zinc-300">Sending...</span>
+                <span class="hidden phx-submit-loading:inline text-zinc-300">
+                  Sending...
+                </span>
               </.button>
             </:actions>
           </.simple_form>
@@ -331,7 +414,10 @@ defmodule YscWeb.VolunteerLive do
             {:ok, _volunteer} ->
               {:noreply,
                assign(socket, submitted: true)
-               |> put_flash(:info, "Thank you for your interest in volunteering with the YSC!")}
+               |> put_flash(
+                 :info,
+                 "Thank you for your interest in volunteering with the YSC!"
+               )}
 
             {:error, changeset} ->
               {:noreply, assign_form(socket, changeset)}

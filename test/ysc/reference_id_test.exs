@@ -30,7 +30,8 @@ defmodule Ysc.ReferenceGeneratorTest do
     end
 
     test "rejects invalid format" do
-      assert {:error, "Invalid format"} = ReferenceGenerator.validate_reference_id("INVALID")
+      assert {:error, "Invalid format"} =
+               ReferenceGenerator.validate_reference_id("INVALID")
 
       assert {:error, "Invalid format"} =
                ReferenceGenerator.validate_reference_id("PMT-12345-ABC")

@@ -29,7 +29,14 @@ defmodule Ysc.Accounts.UserPasskey do
   @doc false
   def changeset(passkey, attrs) do
     passkey
-    |> cast(attrs, [:external_id, :public_key, :nickname, :sign_count, :last_used_at, :user_id])
+    |> cast(attrs, [
+      :external_id,
+      :public_key,
+      :nickname,
+      :sign_count,
+      :last_used_at,
+      :user_id
+    ])
     |> validate_required([:external_id, :public_key, :user_id])
     |> validate_number(:sign_count, greater_than_or_equal_to: 0)
     |> unique_constraint(:external_id)

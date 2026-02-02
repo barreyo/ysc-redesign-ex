@@ -28,7 +28,10 @@ defmodule YscWeb.AdminEventsLive do
         </h1>
 
         <.button phx-click={JS.navigate(~p"/admin/events/new")}>
-          <.icon name="hero-calendar" class="w-5 h-5 -mt-1" /><span class="ms-1">New Event</span>
+          <.icon name="hero-calendar" class="w-5 h-5 -mt-1" />
+          <span class="ms-1">
+            New Event
+          </span>
         </.button>
       </div>
 
@@ -266,6 +269,8 @@ defmodule YscWeb.AdminEventsLive do
 
   defp format_publish_at(_), do: nil
 
-  defp maybe_update_filter(%{"value" => [""]} = filter), do: Map.replace(filter, "value", "")
+  defp maybe_update_filter(%{"value" => [""]} = filter),
+    do: Map.replace(filter, "value", "")
+
   defp maybe_update_filter(filter), do: filter
 end

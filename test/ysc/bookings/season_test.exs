@@ -51,7 +51,10 @@ defmodule Ysc.Bookings.SeasonTest do
       changeset = Season.changeset(%Season{}, attrs)
 
       assert changeset.valid?
-      assert changeset.changes.description == "Peak holiday season with premium pricing"
+
+      assert changeset.changes.description ==
+               "Peak holiday season with premium pricing"
+
       assert changeset.changes.is_default == true
       assert changeset.changes.advance_booking_days == 180
       assert changeset.changes.max_nights == 3
@@ -531,7 +534,10 @@ defmodule Ysc.Bookings.SeasonTest do
       retrieved = Repo.get(Season, season.id)
 
       assert retrieved.name == "Peak Summer"
-      assert retrieved.description == "July and August peak season with maximum pricing"
+
+      assert retrieved.description ==
+               "July and August peak season with maximum pricing"
+
       assert retrieved.property == :tahoe
       assert retrieved.start_date == ~D[2024-07-01]
       assert retrieved.end_date == ~D[2024-08-31]

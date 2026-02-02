@@ -219,7 +219,11 @@ defmodule Mix.Tasks.TestSubscriptionExpiration do
           Enum.each(subscriptions, fn sub ->
             IO.puts("Subscription: #{sub.stripe_id}")
             IO.puts("  Status: #{sub.stripe_status}")
-            IO.puts("  Current Period End: #{format_date(sub.current_period_end)}")
+
+            IO.puts(
+              "  Current Period End: #{format_date(sub.current_period_end)}"
+            )
+
             IO.puts("  Ends At: #{format_date(sub.ends_at)}")
             IO.puts("  Active?: #{Subscriptions.active?(sub)}")
             IO.puts("  Valid?: #{Subscriptions.valid?(sub)}")
@@ -320,7 +324,10 @@ defmodule Mix.Tasks.TestSubscriptionExpiration do
                    current_period_end: expired_date
                  }) do
               {:ok, _updated_sub} ->
-                IO.puts("✅ Simulated payment failure for subscription #{sub.stripe_id}")
+                IO.puts(
+                  "✅ Simulated payment failure for subscription #{sub.stripe_id}"
+                )
+
                 MembershipCache.invalidate_user(user.id)
                 IO.puts("   Cache invalidated for user")
 
@@ -336,8 +343,13 @@ defmodule Mix.Tasks.TestSubscriptionExpiration do
 
   defp run_expiration_worker do
     IO.puts("🔄 Running subscription expiration worker...")
-    {expired_count, failed_count} = ExpirationWorker.check_and_expire_subscriptions()
-    IO.puts("✅ Worker completed: #{expired_count} expired, #{failed_count} failed")
+
+    {expired_count, failed_count} =
+      ExpirationWorker.check_and_expire_subscriptions()
+
+    IO.puts(
+      "✅ Worker completed: #{expired_count} expired, #{failed_count} failed"
+    )
   end
 
   defp check_expired_subscriptions do
@@ -442,8 +454,15 @@ defmodule Mix.Tasks.TestSubscriptionExpiration do
 
         IO.puts("User: #{user.email}")
         IO.puts("  ID: #{user.id}")
-        IO.puts("  Subscriptions: #{length(subscriptions)} total, #{active_count} active")
-        IO.puts("  Has Active Membership: #{Accounts.has_active_membership?(user)}")
+
+        IO.puts(
+          "  Subscriptions: #{length(subscriptions)} total, #{active_count} active"
+        )
+
+        IO.puts(
+          "  Has Active Membership: #{Accounts.has_active_membership?(user)}"
+        )
+
         IO.puts("")
       end)
     end
@@ -531,9 +550,18 @@ defmodule Mix.Tasks.TestSubscriptionExpiration do
         dry_run = Map.get(opts, :dry_run, false)
 
         IO.puts("🔄 Triggering auto-renewal in Stripe for #{user.email}")
-        IO.puts("This will force Stripe to immediately attempt to charge the customer")
-        IO.puts("Setting billing_cycle_anchor to 'now' to reset the billing cycle")
-        IO.puts("Note: This will create prorations for unused time in the current period")
+
+        IO.puts(
+          "This will force Stripe to immediately attempt to charge the customer"
+        )
+
+        IO.puts(
+          "Setting billing_cycle_anchor to 'now' to reset the billing cycle"
+        )
+
+        IO.puts(
+          "Note: This will create prorations for unused time in the current period"
+        )
 
         if dry_run do
           IO.puts("🔍 DRY RUN - No changes will be made")
@@ -570,10 +598,14 @@ defmodule Mix.Tasks.TestSubscriptionExpiration do
                   stripe_status: stripe_subscription.status,
                   current_period_start:
                     stripe_subscription.current_period_start &&
-                      DateTime.from_unix!(stripe_subscription.current_period_start),
+                      DateTime.from_unix!(
+                        stripe_subscription.current_period_start
+                      ),
                   current_period_end:
                     stripe_subscription.current_period_end &&
-                      DateTime.from_unix!(stripe_subscription.current_period_end)
+                      DateTime.from_unix!(
+                        stripe_subscription.current_period_end
+                      )
                 }
 
                 case Subscriptions.update_subscription(sub, attrs) do
@@ -591,18 +623,28 @@ defmodule Mix.Tasks.TestSubscriptionExpiration do
                 # Check if an invoice was created (renewal attempt)
                 IO.puts("")
                 IO.puts("💡 Stripe will now attempt to charge the customer")
-                IO.puts("   Check Stripe dashboard or webhooks for payment result")
-                IO.puts("   If payment fails, you should receive invoice.payment_failed webhook")
+
+                IO.puts(
+                  "   Check Stripe dashboard or webhooks for payment result"
+                )
+
+                IO.puts(
+                  "   If payment fails, you should receive invoice.payment_failed webhook"
+                )
 
               {:error, %Stripe.Error{} = error} ->
-                IO.puts("❌ Failed to update subscription in Stripe: #{error.message}")
+                IO.puts(
+                  "❌ Failed to update subscription in Stripe: #{error.message}"
+                )
 
                 if error.code do
                   IO.puts("   Error code: #{error.code}")
                 end
 
               {:error, error} ->
-                IO.puts("❌ Failed to update subscription in Stripe: #{inspect(error)}")
+                IO.puts(
+                  "❌ Failed to update subscription in Stripe: #{inspect(error)}"
+                )
             end
           end)
         end
@@ -614,7 +656,9 @@ defmodule Mix.Tasks.TestSubscriptionExpiration do
       email = Map.get(opts, :user_email) ->
         # Use case-insensitive email lookup
         alias Ysc.Accounts.User
-        user = Repo.one(from(u in User, where: ilike(u.email, ^email), limit: 1))
+
+        user =
+          Repo.one(from(u in User, where: ilike(u.email, ^email), limit: 1))
 
         if is_nil(user) do
           # Try exact match as fallback

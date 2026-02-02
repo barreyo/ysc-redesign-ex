@@ -24,14 +24,19 @@ defmodule Ysc.Keila.ClientTest do
       # Clear all config
       Application.delete_env(:ysc, :keila)
 
-      assert {:error, :not_configured} = Client.subscribe_email("test@example.com", [])
+      assert {:error, :not_configured} =
+               Client.subscribe_email("test@example.com", [])
     end
 
     test "returns :not_configured when form_id is missing" do
       # Set API config but not form_id
-      Application.put_env(:ysc, :keila, api_url: "http://localhost:4000", api_key: "test_token")
+      Application.put_env(:ysc, :keila,
+        api_url: "http://localhost:4000",
+        api_key: "test_token"
+      )
 
-      assert {:error, :not_configured} = Client.subscribe_email("test@example.com", [])
+      assert {:error, :not_configured} =
+               Client.subscribe_email("test@example.com", [])
     end
 
     test "attempts HTTP request with valid configuration" do
@@ -76,7 +81,8 @@ defmodule Ysc.Keila.ClientTest do
       # Clear all config
       Application.delete_env(:ysc, :keila)
 
-      assert {:error, :not_configured} = Client.unsubscribe_email("test@example.com", [])
+      assert {:error, :not_configured} =
+               Client.unsubscribe_email("test@example.com", [])
     end
 
     test "attempts HTTP request with valid configuration" do

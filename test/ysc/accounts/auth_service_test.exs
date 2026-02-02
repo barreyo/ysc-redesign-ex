@@ -30,7 +30,8 @@ defmodule Ysc.Accounts.AuthServiceTest do
     default_attrs = %{
       remote_ip: {127, 0, 0, 1},
       req_headers: [
-        {"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+        {"user-agent",
+         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
         {"x-forwarded-for", "203.0.113.1"},
         {"x-real-ip", "203.0.113.1"},
         {"origin", "https://example.com"},
@@ -85,7 +86,8 @@ defmodule Ysc.Accounts.AuthServiceTest do
       user = user_fixture()
       conn = mock_conn()
 
-      {:ok, auth_event} = AuthService.log_login_success(user, conn, %{"remember_me" => "true"})
+      {:ok, auth_event} =
+        AuthService.log_login_success(user, conn, %{"remember_me" => "true"})
 
       assert auth_event.remember_me == true
     end
@@ -106,7 +108,8 @@ defmodule Ysc.Accounts.AuthServiceTest do
       conn = mock_conn()
       email = "nonexistent@example.com"
 
-      {:ok, auth_event} = AuthService.log_login_failure(email, conn, "invalid_credentials")
+      {:ok, auth_event} =
+        AuthService.log_login_failure(email, conn, "invalid_credentials")
 
       assert auth_event.event_type == "login_failure"
       assert auth_event.success == false
@@ -151,7 +154,9 @@ defmodule Ysc.Accounts.AuthServiceTest do
       end
 
       # Verify suspicious activity is detected
-      recent_failures = AuthService.get_failed_attempts_for_ip("203.0.113.1", 15)
+      recent_failures =
+        AuthService.get_failed_attempts_for_ip("203.0.113.1", 15)
+
       assert length(recent_failures) >= 5
     end
   end
@@ -224,7 +229,8 @@ defmodule Ysc.Accounts.AuthServiceTest do
       conn = mock_conn()
       threat_indicators = ["unusual_location", "rapid_attempts"]
 
-      {:ok, auth_event} = AuthService.log_suspicious_activity(conn, threat_indicators)
+      {:ok, auth_event} =
+        AuthService.log_suspicious_activity(conn, threat_indicators)
 
       assert auth_event.event_type == "suspicious_activity"
       assert auth_event.is_suspicious == true
@@ -236,7 +242,8 @@ defmodule Ysc.Accounts.AuthServiceTest do
       conn = mock_conn()
       threat_indicators = ["bot_behavior", "known_attacker", "rapid_attempts"]
 
-      {:ok, auth_event} = AuthService.log_suspicious_activity(conn, threat_indicators)
+      {:ok, auth_event} =
+        AuthService.log_suspicious_activity(conn, threat_indicators)
 
       # Risk score should be set (could be 0 or higher depending on implementation)
       assert auth_event.risk_score != nil
@@ -282,7 +289,8 @@ defmodule Ysc.Accounts.AuthServiceTest do
     test "extracts provider from params" do
       conn = mock_conn()
 
-      auth_data = AuthService.extract_auth_data(conn, %{"provider" => "facebook"})
+      auth_data =
+        AuthService.extract_auth_data(conn, %{"provider" => "facebook"})
 
       assert auth_data.metadata.auth_method == "facebook"
     end
@@ -290,10 +298,14 @@ defmodule Ysc.Accounts.AuthServiceTest do
     test "extracts remember_me preference" do
       conn = mock_conn()
 
-      auth_data1 = AuthService.extract_auth_data(conn, %{"remember_me" => "true"})
+      auth_data1 =
+        AuthService.extract_auth_data(conn, %{"remember_me" => "true"})
+
       assert auth_data1.remember_me == true
 
-      auth_data2 = AuthService.extract_auth_data(conn, %{"remember_me" => "false"})
+      auth_data2 =
+        AuthService.extract_auth_data(conn, %{"remember_me" => "false"})
+
       assert auth_data2.remember_me == false
     end
 
@@ -314,7 +326,11 @@ defmodule Ysc.Accounts.AuthServiceTest do
 
       # Create multiple failed attempts quickly
       for _ <- 1..6 do
-        AuthService.log_login_failure("test@example.com", conn, "invalid_credentials")
+        AuthService.log_login_failure(
+          "test@example.com",
+          conn,
+          "invalid_credentials"
+        )
       end
 
       # Create a successful login to trigger suspicious activity check
@@ -371,7 +387,11 @@ defmodule Ysc.Accounts.AuthServiceTest do
 
       # Create 10 failed attempts from same IP with different emails
       for i <- 1..10 do
-        AuthService.log_login_failure("user#{i}@example.com", conn, "invalid_credentials")
+        AuthService.log_login_failure(
+          "user#{i}@example.com",
+          conn,
+          "invalid_credentials"
+        )
       end
 
       # Check lockout triggers
@@ -461,7 +481,8 @@ defmodule Ysc.Accounts.AuthServiceTest do
       AuthService.log_login_failure(email, conn, "invalid_credentials")
       AuthService.log_login_failure(email, conn, "invalid_credentials")
 
-      failed_attempts = AuthService.get_failed_attempts_for_ip("203.0.113.1", 15)
+      failed_attempts =
+        AuthService.get_failed_attempts_for_ip("203.0.113.1", 15)
 
       assert length(failed_attempts) >= 2
     end
@@ -469,7 +490,8 @@ defmodule Ysc.Accounts.AuthServiceTest do
     test "filters by time window" do
       # This test would need to mock time or create old events
       # For now, just verify the function works
-      failed_attempts = AuthService.get_failed_attempts_for_ip("203.0.113.1", 15)
+      failed_attempts =
+        AuthService.get_failed_attempts_for_ip("203.0.113.1", 15)
 
       assert is_list(failed_attempts)
     end
@@ -488,7 +510,8 @@ defmodule Ysc.Accounts.AuthServiceTest do
 
       assert last_login_time != nil
       # Should be very close to last_event.inserted_at
-      assert DateTime.diff(last_login_time, last_event.inserted_at, :second) == 0
+      assert DateTime.diff(last_login_time, last_event.inserted_at, :second) ==
+               0
     end
 
     test "returns nil when no successful logins exist" do
@@ -537,7 +560,9 @@ defmodule Ysc.Accounts.AuthServiceTest do
       last_session_time = AuthService.get_last_login_session_datetime(user)
 
       assert last_session_time != nil
-      assert DateTime.diff(last_session_time, logout_event.inserted_at, :second) == 0
+
+      assert DateTime.diff(last_session_time, logout_event.inserted_at, :second) ==
+               0
     end
 
     test "returns nil when no session events exist" do
@@ -579,7 +604,12 @@ defmodule Ysc.Accounts.AuthServiceTest do
       assert timeframe.session_start != nil
       assert timeframe.session_end == nil
       assert timeframe.is_active == true
-      assert DateTime.diff(timeframe.session_start, login_event.inserted_at, :second) == 0
+
+      assert DateTime.diff(
+               timeframe.session_start,
+               login_event.inserted_at,
+               :second
+             ) == 0
     end
 
     test "returns session timeframe when user has logged out" do
@@ -595,8 +625,18 @@ defmodule Ysc.Accounts.AuthServiceTest do
       assert timeframe.session_start != nil
       assert timeframe.session_end != nil
       assert timeframe.is_active == false
-      assert DateTime.diff(timeframe.session_start, login_event.inserted_at, :second) == 0
-      assert DateTime.diff(timeframe.session_end, logout_event.inserted_at, :second) == 0
+
+      assert DateTime.diff(
+               timeframe.session_start,
+               login_event.inserted_at,
+               :second
+             ) == 0
+
+      assert DateTime.diff(
+               timeframe.session_end,
+               logout_event.inserted_at,
+               :second
+             ) == 0
     end
 
     test "returns nil when no session data exists" do

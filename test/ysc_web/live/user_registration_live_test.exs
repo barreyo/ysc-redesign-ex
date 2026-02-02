@@ -14,7 +14,10 @@ defmodule YscWeb.UserRegistrationLiveTest do
       step_0_params = %{
         "registration_form" => %{
           "membership_type" => "single",
-          "membership_eligibility" => ["born_in_scandinavia", "scandinavian_citizen"]
+          "membership_eligibility" => [
+            "born_in_scandinavia",
+            "scandinavian_citizen"
+          ]
         }
       }
 
@@ -63,7 +66,8 @@ defmodule YscWeb.UserRegistrationLiveTest do
       # Submit the complete form
       # Since successful submission redirects to account setup, we just ensure it doesn't error
       render_submit(form, %{
-        "user" => Map.merge(step_0_params, Map.merge(step_1_params, step_2_params))
+        "user" =>
+          Map.merge(step_0_params, Map.merge(step_1_params, step_2_params))
       })
 
       # The form submission should succeed without throwing an exception
@@ -233,8 +237,11 @@ defmodule YscWeb.UserRegistrationLiveTest do
       # The button should not have disabled attribute when agreed_to_bylaws is true
       # Let's check if the button is actually enabled by looking for the specific pattern
       # The button should either not have disabled attribute, or have aria-disabled="false"
-      button_disabled = html =~ ~r/<button[^>]*disabled[^>]*>.*Submit Application/s
-      button_aria_disabled = html =~ ~r/aria-disabled="true"[^>]*>.*Submit Application/s
+      button_disabled =
+        html =~ ~r/<button[^>]*disabled[^>]*>.*Submit Application/s
+
+      button_aria_disabled =
+        html =~ ~r/aria-disabled="true"[^>]*>.*Submit Application/s
 
       # At least one of these should be false (button should be enabled)
       refute button_disabled and button_aria_disabled

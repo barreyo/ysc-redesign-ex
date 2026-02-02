@@ -13,7 +13,13 @@ defmodule Ysc.SearchTest do
   alias Ysc.Repo
 
   setup do
-    user = user_fixture(%{role: "admin", first_name: "SearchTest", last_name: "User"})
+    user =
+      user_fixture(%{
+        role: "admin",
+        first_name: "SearchTest",
+        last_name: "User"
+      })
+
     organizer = user_fixture()
 
     {:ok, event} =
@@ -22,7 +28,8 @@ defmodule Ysc.SearchTest do
         description: "An event for testing search",
         state: "published",
         organizer_id: organizer.id,
-        start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
+        start_date:
+          DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
         published_at: DateTime.truncate(DateTime.utc_now(), :second)
       })
 

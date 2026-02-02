@@ -55,7 +55,14 @@ defmodule YscWeb.TahoeStayingWithLive do
 
     # Format data for Swift component
     calendar_data_json =
-      format_calendar_data(rooms, calendar_dates, bookings_by_room, today, start_date, end_date)
+      format_calendar_data(
+        rooms,
+        calendar_dates,
+        bookings_by_room,
+        today,
+        start_date,
+        end_date
+      )
 
     # Format reservations data for table (flatten bookings with room names)
     reservations_data_json = format_reservations_data(bookings, rooms)
@@ -63,7 +70,10 @@ defmodule YscWeb.TahoeStayingWithLive do
     # Ensure we have valid JSON
     if calendar_data_json == nil || calendar_data_json == "" do
       require Logger
-      Logger.error("[TahoeStayingWithLive] Failed to generate calendar_data_json")
+
+      Logger.error(
+        "[TahoeStayingWithLive] Failed to generate calendar_data_json"
+      )
     end
 
     # Format date range for display
@@ -105,7 +115,10 @@ defmodule YscWeb.TahoeStayingWithLive do
       # Update URL with the new tab (handle_params will update the assign)
       socket =
         socket
-        |> push_patch(to: ~p"/bookings/tahoe/staying-with?tab=#{tab}", replace: true)
+        |> push_patch(
+          to: ~p"/bookings/tahoe/staying-with?tab=#{tab}",
+          replace: true
+        )
 
       {:noreply, socket}
     else
@@ -135,7 +148,8 @@ defmodule YscWeb.TahoeStayingWithLive do
   defp format_car_info(check_ins) when is_list(check_ins) do
     check_ins
     |> Enum.filter(fn check_in ->
-      Ecto.assoc_loaded?(check_in.check_in_vehicles) && check_in.check_in_vehicles != []
+      Ecto.assoc_loaded?(check_in.check_in_vehicles) &&
+        check_in.check_in_vehicles != []
     end)
     |> Enum.flat_map(fn check_in ->
       Enum.map(check_in.check_in_vehicles, fn vehicle ->
@@ -153,7 +167,14 @@ defmodule YscWeb.TahoeStayingWithLive do
 
   defp format_car_info(_), do: nil
 
-  defp format_calendar_data(rooms, calendar_dates, bookings_by_room, today, start_date, end_date) do
+  defp format_calendar_data(
+         rooms,
+         calendar_dates,
+         bookings_by_room,
+         today,
+         start_date,
+         end_date
+       ) do
     # Convert dates to ISO8601 strings
     date_to_string = fn date -> Date.to_iso8601(date) end
 
@@ -188,7 +209,9 @@ defmodule YscWeb.TahoeStayingWithLive do
           end)
 
         # Convert room_id (ULID) to string for map key
-        room_id_str = if is_binary(room_id), do: room_id, else: to_string(room_id)
+        room_id_str =
+          if is_binary(room_id), do: room_id, else: to_string(room_id)
+
         {room_id_str, formatted_bookings}
       end)
       |> Map.new()

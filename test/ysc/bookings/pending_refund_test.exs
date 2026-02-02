@@ -233,7 +233,9 @@ defmodule Ysc.Bookings.PendingRefundTest do
       changeset = PendingRefund.changeset(%PendingRefund{}, attrs)
 
       assert changeset.valid?
-      assert changeset.changes.admin_notes == "Approved due to special circumstances"
+
+      assert changeset.changes.admin_notes ==
+               "Approved due to special circumstances"
     end
 
     test "accepts optional reviewed_by_id and reviewed_at" do
@@ -389,7 +391,11 @@ defmodule Ysc.Bookings.PendingRefundTest do
 
       # Verify 50% refund
       assert pending_refund.policy_refund_amount == Money.new(25_000, :USD)
-      assert Decimal.equal?(pending_refund.applied_rule_refund_percentage, Decimal.new("50.00"))
+
+      assert Decimal.equal?(
+               pending_refund.applied_rule_refund_percentage,
+               Decimal.new("50.00")
+             )
     end
 
     test "admin adjusts refund amount" do

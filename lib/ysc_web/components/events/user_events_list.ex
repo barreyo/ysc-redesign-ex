@@ -26,19 +26,30 @@ defmodule YscWeb.UserEventsListLive do
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center text-sm text-zinc-500">
                 <time>
-                  <%= Timex.format!(ticket.event.start_date, "{WDshort}, {Mshort} {D}") %>
+                  <%= Timex.format!(
+                    ticket.event.start_date,
+                    "{WDshort}, {Mshort} {D}"
+                  ) %>
                 </time>
                 <span
-                  :if={ticket.event.start_time != nil && ticket.event.start_time != ""}
+                  :if={
+                    ticket.event.start_time != nil && ticket.event.start_time != ""
+                  }
                   class="ml-2"
                 >
                   • <%= format_start_time(ticket.event.start_time) %>
                 </span>
               </div>
               <div class="flex items-center space-x-2">
-                <.badge :if={ticket.event.state == :cancelled} type="red">Cancelled</.badge>
-                <.badge :if={ticket.status == :confirmed} type="green">Confirmed</.badge>
-                <.badge :if={ticket.status == :pending} type="yellow">Pending</.badge>
+                <.badge :if={ticket.event.state == :cancelled} type="red">
+                  Cancelled
+                </.badge>
+                <.badge :if={ticket.status == :confirmed} type="green">
+                  Confirmed
+                </.badge>
+                <.badge :if={ticket.status == :pending} type="yellow">
+                  Pending
+                </.badge>
               </div>
             </div>
 
@@ -56,7 +67,9 @@ defmodule YscWeb.UserEventsListLive do
                 </p>
                 <p class="font-medium">
                   Ticket: <%= ticket.ticket_tier.name %>
-                  <span :if={ticket.ticket_tier.price && ticket.ticket_tier.price.amount > 0}>
+                  <span :if={
+                    ticket.ticket_tier.price && ticket.ticket_tier.price.amount > 0
+                  }>
                     • <%= Ysc.MoneyHelper.format_money!(ticket.ticket_tier.price) %>
                   </span>
                 </p>
@@ -73,7 +86,9 @@ defmodule YscWeb.UserEventsListLive do
         <div class="text-zinc-500">
           <.icon name="hero-ticket" class="w-12 h-12 mx-auto mb-4 text-zinc-400" />
           <p class="text-lg font-medium text-zinc-600">No upcoming events</p>
-          <p class="text-sm text-zinc-500">You haven't registered for any events yet.</p>
+          <p class="text-sm text-zinc-500">
+            You haven't registered for any events yet.
+          </p>
           <.link
             navigate={~p"/events"}
             class="inline-flex items-center mt-4 text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -92,7 +107,8 @@ defmodule YscWeb.UserEventsListLive do
     tickets = Events.list_upcoming_events_for_user(user_id)
     ticket_count = length(tickets)
 
-    {:ok, socket |> stream(:tickets, tickets) |> assign(:ticket_count, ticket_count)}
+    {:ok,
+     socket |> stream(:tickets, tickets) |> assign(:ticket_count, ticket_count)}
   end
 
   defp format_start_time(time) when is_binary(time) do

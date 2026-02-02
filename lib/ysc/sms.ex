@@ -22,7 +22,10 @@ defmodule Ysc.Sms do
   Gets an SMS message by provider and provider message ID.
   """
   def get_sms_message_by_provider_id(provider, provider_message_id) do
-    Repo.get_by(SmsMessage, provider: provider, provider_message_id: provider_message_id)
+    Repo.get_by(SmsMessage,
+      provider: provider,
+      provider_message_id: provider_message_id
+    )
   end
 
   @doc """
@@ -49,7 +52,10 @@ defmodule Ysc.Sms do
   Gets an SMS received by provider and provider message ID.
   """
   def get_sms_received_by_provider_id(provider, provider_message_id) do
-    Repo.get_by(SmsReceived, provider: provider, provider_message_id: provider_message_id)
+    Repo.get_by(SmsReceived,
+      provider: provider,
+      provider_message_id: provider_message_id
+    )
   end
 
   @doc """
@@ -87,7 +93,9 @@ defmodule Ysc.Sms do
   """
   def list_delivery_receipts_for_message(provider, provider_message_id) do
     from(dlr in SmsDeliveryReceipt,
-      where: dlr.provider == ^provider and dlr.provider_message_id == ^provider_message_id,
+      where:
+        dlr.provider == ^provider and
+          dlr.provider_message_id == ^provider_message_id,
       order_by: [desc: dlr.provider_timestamp]
     )
     |> Repo.all()

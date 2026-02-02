@@ -49,7 +49,8 @@ defmodule YscWeb.Emails.BookingCheckinReminder do
       if Ecto.assoc_loaded?(booking.user) && Ecto.assoc_loaded?(booking.rooms) do
         booking
       else
-        case Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload([:user, :rooms]) do
+        case Repo.get(Ysc.Bookings.Booking, booking.id)
+             |> Repo.preload([:user, :rooms]) do
           nil ->
             raise ArgumentError, "Booking not found: #{booking.id}"
 
@@ -75,13 +76,17 @@ defmodule YscWeb.Emails.BookingCheckinReminder do
 
     cabin_master_name =
       if cabin_master do
-        "#{cabin_master.first_name || ""} #{cabin_master.last_name || ""}" |> String.trim()
+        "#{cabin_master.first_name || ""} #{cabin_master.last_name || ""}"
+        |> String.trim()
       else
         nil
       end
 
-    cabin_master_email = OutageNotification.get_cabin_master_email(booking.property)
-    cabin_master_phone = if cabin_master, do: cabin_master.phone_number, else: nil
+    cabin_master_email =
+      OutageNotification.get_cabin_master_email(booking.property)
+
+    cabin_master_phone =
+      if cabin_master, do: cabin_master.phone_number, else: nil
 
     # Format dates
     checkin_date = format_date(booking.checkin_date)
@@ -92,7 +97,8 @@ defmodule YscWeb.Emails.BookingCheckinReminder do
     days_until_checkin = Date.diff(booking.checkin_date, today_pst)
 
     # Get booking mode description
-    booking_mode_description = get_booking_mode_description(booking.booking_mode)
+    booking_mode_description =
+      get_booking_mode_description(booking.booking_mode)
 
     # Get room names if applicable
     room_names =
@@ -151,7 +157,10 @@ defmodule YscWeb.Emails.BookingCheckinReminder do
   defp get_property_name(property), do: to_string(property)
 
   defp get_property_address(:tahoe), do: "2685 Cedar Lane, Homewood, CA 96141"
-  defp get_property_address(:clear_lake), do: "9325 Bass Road, Kelseyville, CA 95451"
+
+  defp get_property_address(:clear_lake),
+    do: "9325 Bass Road, Kelseyville, CA 95451"
+
   defp get_property_address(_), do: "Property Address"
 
   defp get_booking_mode_description(:room), do: "Room Booking"

@@ -50,7 +50,9 @@ defmodule YscWeb.Workers.UserExporterTest do
       end
     end
 
-    test "exports only subscribed users when only_subscribed is true", %{channel: channel} do
+    test "exports only subscribed users when only_subscribed is true", %{
+      channel: channel
+    } do
       fields = ["id", "email"]
       only_subscribed = true
 

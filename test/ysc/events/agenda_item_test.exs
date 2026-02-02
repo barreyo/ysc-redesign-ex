@@ -27,6 +27,7 @@ defmodule Ysc.Events.AgendaItemTest do
       changeset = AgendaItem.changeset(%AgendaItem{}, attrs)
       refute changeset.valid?
       assert "should be at most 256 character(s)" in errors_on(changeset).title
+
       assert "should be at most 1024 character(s)" in errors_on(changeset).description
     end
   end

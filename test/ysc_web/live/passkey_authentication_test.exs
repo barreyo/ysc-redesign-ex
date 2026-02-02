@@ -18,7 +18,8 @@ defmodule YscWeb.PasskeyAuthenticationTest do
   end
 
   describe "Passkey authentication - challenge creation" do
-    test "creates authentication challenge when sign_in_with_passkey is clicked", %{conn: conn} do
+    test "creates authentication challenge when sign_in_with_passkey is clicked",
+         %{conn: conn} do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       # First enable passkey support so the button is visible
@@ -32,7 +33,10 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       |> render_click()
 
       # Verify create_authentication_challenge event was pushed
-      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+      assert_push_event(lv, "create_authentication_challenge", %{
+        options: options
+      })
+
       # Note: push_event payload uses atom keys in tests
       assert is_binary(options[:challenge])
       assert options[:rpId] == "localhost"
@@ -41,7 +45,10 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       refute Map.has_key?(options, :allowCredentials)
     end
 
-    test "includes all passkeys in challenge for Wax verification", %{conn: conn, user: user} do
+    test "includes all passkeys in challenge for Wax verification", %{
+      conn: conn,
+      user: user
+    } do
       # Create a passkey for the user
       credential_id = :crypto.strong_rand_bytes(16)
 
@@ -74,7 +81,10 @@ defmodule YscWeb.PasskeyAuthenticationTest do
 
       # For discoverable credentials we intentionally omit allowCredentials from the browser options.
       # This test asserts we still create/push the authentication challenge even when passkeys exist.
-      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+      assert_push_event(lv, "create_authentication_challenge", %{
+        options: options
+      })
+
       assert is_binary(options[:challenge])
     end
   end
@@ -131,7 +141,8 @@ defmodule YscWeb.PasskeyAuthenticationTest do
         "rawId" => fake_raw_id,
         "type" => "public-key",
         "response" => %{
-          "authenticatorData" => Base.url_encode64(:crypto.strong_rand_bytes(37), padding: false),
+          "authenticatorData" =>
+            Base.url_encode64(:crypto.strong_rand_bytes(37), padding: false),
           "clientDataJSON" =>
             Base.url_encode64(
               Jason.encode!(%{
@@ -141,7 +152,8 @@ defmodule YscWeb.PasskeyAuthenticationTest do
               }),
               padding: false
             ),
-          "signature" => Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false),
+          "signature" =>
+            Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false),
           "userHandle" => Base.url_encode64("fake_user_id", padding: false)
         }
       }
@@ -172,7 +184,11 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       |> render_click()
 
       raw_id = Base.url_encode64(passkey.external_id, padding: false)
-      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+
+      assert_push_event(lv, "create_authentication_challenge", %{
+        options: options
+      })
+
       challenge_b64 = options[:challenge]
 
       response = %{
@@ -180,7 +196,8 @@ defmodule YscWeb.PasskeyAuthenticationTest do
         "rawId" => raw_id,
         "type" => "public-key",
         "response" => %{
-          "authenticatorData" => Base.url_encode64(:crypto.strong_rand_bytes(37), padding: false),
+          "authenticatorData" =>
+            Base.url_encode64(:crypto.strong_rand_bytes(37), padding: false),
           "clientDataJSON" =>
             Base.url_encode64(
               Jason.encode!(%{
@@ -190,7 +207,8 @@ defmodule YscWeb.PasskeyAuthenticationTest do
               }),
               padding: false
             ),
-          "signature" => Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false),
+          "signature" =>
+            Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false),
           "userHandle" => nil
         }
       }
@@ -225,7 +243,11 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       |> render_click()
 
       raw_id = Base.url_encode64(passkey.external_id, padding: false)
-      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+
+      assert_push_event(lv, "create_authentication_challenge", %{
+        options: options
+      })
+
       challenge_b64 = options[:challenge]
       # Use wrong user's ID in userHandle
       wrong_user_id = Base.url_encode64(other_user.id, padding: false)
@@ -235,7 +257,8 @@ defmodule YscWeb.PasskeyAuthenticationTest do
         "rawId" => raw_id,
         "type" => "public-key",
         "response" => %{
-          "authenticatorData" => Base.url_encode64(:crypto.strong_rand_bytes(37), padding: false),
+          "authenticatorData" =>
+            Base.url_encode64(:crypto.strong_rand_bytes(37), padding: false),
           "clientDataJSON" =>
             Base.url_encode64(
               Jason.encode!(%{
@@ -245,7 +268,8 @@ defmodule YscWeb.PasskeyAuthenticationTest do
               }),
               padding: false
             ),
-          "signature" => Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false),
+          "signature" =>
+            Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false),
           "userHandle" => wrong_user_id
         }
       }
@@ -259,7 +283,11 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       assert html =~ "Passkey verification failed" || html =~ "Invalid"
     end
 
-    test "handles credential ID mismatch", %{conn: conn, user: user, passkey: _passkey} do
+    test "handles credential ID mismatch", %{
+      conn: conn,
+      user: user,
+      passkey: _passkey
+    } do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       # Create challenge
@@ -274,7 +302,11 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       # Use wrong credential ID
       wrong_credential_id = :crypto.strong_rand_bytes(16)
       wrong_raw_id = Base.url_encode64(wrong_credential_id, padding: false)
-      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+
+      assert_push_event(lv, "create_authentication_challenge", %{
+        options: options
+      })
+
       challenge_b64 = options[:challenge]
       user_id = Base.url_encode64(user.id, padding: false)
 
@@ -283,7 +315,8 @@ defmodule YscWeb.PasskeyAuthenticationTest do
         "rawId" => wrong_raw_id,
         "type" => "public-key",
         "response" => %{
-          "authenticatorData" => Base.url_encode64(:crypto.strong_rand_bytes(37), padding: false),
+          "authenticatorData" =>
+            Base.url_encode64(:crypto.strong_rand_bytes(37), padding: false),
           "clientDataJSON" =>
             Base.url_encode64(
               Jason.encode!(%{
@@ -293,7 +326,8 @@ defmodule YscWeb.PasskeyAuthenticationTest do
               }),
               padding: false
             ),
-          "signature" => Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false),
+          "signature" =>
+            Base.url_encode64(:crypto.strong_rand_bytes(64), padding: false),
           "userHandle" => user_id
         }
       }
@@ -341,7 +375,9 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       |> render_hook("passkey_support_detected", %{"supported" => true})
 
       # Initially, the passkey button should NOT show the loading label.
-      refute lv |> element("button[phx-click='sign_in_with_passkey']") |> render() =~
+      refute lv
+             |> element("button[phx-click='sign_in_with_passkey']")
+             |> render() =~
                "Signing in..."
 
       # Click sign in with passkey
@@ -351,8 +387,11 @@ defmodule YscWeb.PasskeyAuthenticationTest do
 
       # Should show loading state on the passkey button (not the whole page, since the
       # password form contains phx-disable-with="Signing in..." by default).
-      passkey_btn_html = lv |> element("button[phx-click='sign_in_with_passkey']") |> render()
-      assert passkey_btn_html =~ "Signing in..." || passkey_btn_html =~ "opacity-50"
+      passkey_btn_html =
+        lv |> element("button[phx-click='sign_in_with_passkey']") |> render()
+
+      assert passkey_btn_html =~ "Signing in..." ||
+               passkey_btn_html =~ "opacity-50"
     end
   end
 
@@ -432,7 +471,10 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
 
-      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+      assert_push_event(lv, "create_authentication_challenge", %{
+        options: options
+      })
+
       assert is_binary(options[:challenge])
     end
 
@@ -479,7 +521,10 @@ defmodule YscWeb.PasskeyAuthenticationTest do
       |> element("button[phx-click='sign_in_with_passkey']")
       |> render_click()
 
-      assert_push_event(lv, "create_authentication_challenge", %{options: options})
+      assert_push_event(lv, "create_authentication_challenge", %{
+        options: options
+      })
+
       assert is_binary(options[:challenge])
     end
   end

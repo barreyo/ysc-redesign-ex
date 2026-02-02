@@ -120,14 +120,18 @@ defmodule YscWeb.Workers.EmailNotifier do
 
     if should_send do
       try do
-        template_module = YscWeb.Emails.Notifier.get_template_module(params.template)
+        template_module =
+          YscWeb.Emails.Notifier.get_template_module(params.template)
 
         if template_module do
           Logger.info("Template module found: #{inspect(template_module)}")
         else
-          error_message = "Template module not found for template: #{params.template}"
+          error_message =
+            "Template module not found for template: #{params.template}"
 
-          Logger.warning("Template module not found for template: #{params.template}")
+          Logger.warning(
+            "Template module not found for template: #{params.template}"
+          )
 
           # Report to Sentry
           Sentry.capture_message(error_message,
@@ -331,7 +335,8 @@ defmodule YscWeb.Workers.EmailNotifier do
         {true, nil}
 
       user ->
-        should_send = Ysc.Accounts.EmailCategories.should_send_email?(user, template)
+        should_send =
+          Ysc.Accounts.EmailCategories.should_send_email?(user, template)
 
         if should_send do
           {true, user_id}

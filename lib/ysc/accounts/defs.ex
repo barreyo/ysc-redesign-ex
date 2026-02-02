@@ -1,6 +1,13 @@
 import EctoEnum
 
-defenum(UserAccountState, ["pending_approval", "rejected", "active", "suspended", "deleted"])
+defenum(UserAccountState, [
+  "pending_approval",
+  "rejected",
+  "active",
+  "suspended",
+  "deleted"
+])
+
 defenum(UserAccountRole, ["member", "admin"])
 defenum(FamilyMemberType, ["spouse", "child"])
 defenum(MembershipType, ["single", "family"])
@@ -26,7 +33,19 @@ defenum(MembershipEligibility, [
   "spouse_of_member"
 ])
 
-defenum(SignupApplicationEventType, ["review_started", "review_completed", "review_updated"])
+defenum(SignupApplicationEventType, [
+  "review_started",
+  "review_completed",
+  "review_updated"
+])
+
 defenum(UserApplicationReviewOutcome, ["approved", "rejected"])
-defenum(UserEventType, ["state_update", "role_update", "family_added", "family_removed"])
+
+defenum(UserEventType, [
+  "state_update",
+  "role_update",
+  "family_added",
+  "family_removed"
+])
+
 defenum(UserNoteCategory, ["general", "violation"])

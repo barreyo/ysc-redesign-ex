@@ -21,7 +21,12 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
   setup do
     # Configure the QuickBooks client to use the mock
     Application.put_env(:ysc, :quickbooks_client, ClientMock)
-    Application.put_env(:ysc, :quickbooks_webhook_verifier_token, "test_verifier_token")
+
+    Application.put_env(
+      :ysc,
+      :quickbooks_webhook_verifier_token,
+      "test_verifier_token"
+    )
 
     on_exit(fn ->
       Application.delete_env(:ysc, :quickbooks_webhook_verifier_token)
@@ -33,7 +38,9 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
   end
 
   describe "end-to-end webhook flow" do
-    test "processes webhook from receipt to expense report update", %{user: user} do
+    test "processes webhook from receipt to expense report update", %{
+      user: user
+    } do
       # Create expense report with QuickBooks bill ID
       expense_report =
         %ExpenseReport{
@@ -88,7 +95,13 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
 
       # Verify webhook event was created
       event_id = "123456789:BillPayment:bp_integration_123:Create"
-      webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("quickbooks", event_id)
+
+      webhook_event =
+        Webhooks.get_webhook_event_by_provider_and_event_id(
+          "quickbooks",
+          event_id
+        )
+
       assert webhook_event != nil
 
       # With Oban in :inline mode, the job is processed immediately when enqueued
@@ -109,7 +122,10 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
           attempt: 1
         }
 
-        assert :ok = YscWeb.Workers.QuickbooksBillPaymentProcessorWorker.perform(job)
+        assert :ok =
+                 YscWeb.Workers.QuickbooksBillPaymentProcessorWorker.perform(
+                   job
+                 )
       end
 
       # Verify expense report was updated to paid
@@ -200,7 +216,9 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
       assert updated_report.status == "paid"
     end
 
-    test "handles webhook for non-existent expense report gracefully", %{user: _user} do
+    test "handles webhook for non-existent expense report gracefully", %{
+      user: _user
+    } do
       payload = %{
         "eventNotifications" => [
           %{
@@ -243,7 +261,13 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
 
       # Verify webhook event was created
       event_id = "123456789:BillPayment:bp_nonexistent_123:Create"
-      webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("quickbooks", event_id)
+
+      webhook_event =
+        Webhooks.get_webhook_event_by_provider_and_event_id(
+          "quickbooks",
+          event_id
+        )
+
       assert webhook_event != nil
 
       # Process the job
@@ -260,7 +284,8 @@ defmodule Ysc.ExpenseReports.QuickbooksWebhookIntegrationTest do
       }
 
       # Should complete successfully even though expense report doesn't exist
-      assert :ok = YscWeb.Workers.QuickbooksBillPaymentProcessorWorker.perform(job)
+      assert :ok =
+               YscWeb.Workers.QuickbooksBillPaymentProcessorWorker.perform(job)
 
       # Verify webhook event was marked as processed
       updated_webhook = Repo.get!(Ysc.Webhooks.WebhookEvent, webhook_event.id)

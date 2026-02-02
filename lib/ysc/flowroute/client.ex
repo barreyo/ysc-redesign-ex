@@ -165,7 +165,15 @@ defmodule Ysc.Flowroute.Client do
               )
 
               # Store SMS message in database
-              store_sms_message(message_id, to, from, body, is_mms, media_urls, opts)
+              store_sms_message(
+                message_id,
+                to,
+                from,
+                body,
+                is_mms,
+                media_urls,
+                opts
+              )
 
               {:ok, %{id: message_id}}
 
@@ -177,7 +185,16 @@ defmodule Ysc.Flowroute.Client do
               )
 
               message_id = extract_message_id(data)
-              store_sms_message(message_id, to, from, body, is_mms, media_urls, opts)
+
+              store_sms_message(
+                message_id,
+                to,
+                from,
+                body,
+                is_mms,
+                media_urls,
+                opts
+              )
 
               {:ok, %{id: message_id}}
 

@@ -54,7 +54,9 @@ defmodule YscWeb.UserLoginLiveTest do
 
     test "shows failed login attempts banner when attempts >= 3", %{conn: conn} do
       conn =
-        conn |> Phoenix.ConnTest.init_test_session(%{}) |> put_session(:failed_login_attempts, 3)
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> put_session(:failed_login_attempts, 3)
 
       {:ok, lv, html} = live(conn, ~p"/users/log-in")
 
@@ -66,7 +68,9 @@ defmodule YscWeb.UserLoginLiveTest do
 
     test "hides failed login attempts banner when attempts < 3", %{conn: conn} do
       conn =
-        conn |> Phoenix.ConnTest.init_test_session(%{}) |> put_session(:failed_login_attempts, 2)
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> put_session(:failed_login_attempts, 2)
 
       {:ok, _lv, html} = live(conn, ~p"/users/log-in")
 
@@ -75,7 +79,9 @@ defmodule YscWeb.UserLoginLiveTest do
 
     test "dismisses failed login attempts banner", %{conn: conn} do
       conn =
-        conn |> Phoenix.ConnTest.init_test_session(%{}) |> put_session(:failed_login_attempts, 3)
+        conn
+        |> Phoenix.ConnTest.init_test_session(%{})
+        |> put_session(:failed_login_attempts, 3)
 
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
@@ -102,7 +108,9 @@ defmodule YscWeb.UserLoginLiveTest do
   end
 
   describe "OAuth authentication" do
-    test "redirects to Google OAuth when sign_in_with_google is clicked", %{conn: conn} do
+    test "redirects to Google OAuth when sign_in_with_google is clicked", %{
+      conn: conn
+    } do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       result =
@@ -116,7 +124,8 @@ defmodule YscWeb.UserLoginLiveTest do
     end
 
     test "redirects to Google OAuth with redirect_to parameter", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in?redirect_to=/bookings/tahoe")
+      {:ok, lv, _html} =
+        live(conn, ~p"/users/log-in?redirect_to=/bookings/tahoe")
 
       result =
         lv
@@ -128,7 +137,9 @@ defmodule YscWeb.UserLoginLiveTest do
       assert path == ~p"/auth/google?redirect_to=%2Fbookings%2Ftahoe"
     end
 
-    test "redirects to Facebook OAuth when sign_in_with_facebook is clicked", %{conn: conn} do
+    test "redirects to Facebook OAuth when sign_in_with_facebook is clicked", %{
+      conn: conn
+    } do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       result =
@@ -142,7 +153,8 @@ defmodule YscWeb.UserLoginLiveTest do
     end
 
     test "redirects to Facebook OAuth with redirect_to parameter", %{conn: conn} do
-      {:ok, lv, _html} = live(conn, ~p"/users/log-in?redirect_to=/bookings/tahoe")
+      {:ok, lv, _html} =
+        live(conn, ~p"/users/log-in?redirect_to=/bookings/tahoe")
 
       result =
         lv
@@ -166,26 +178,34 @@ defmodule YscWeb.UserLoginLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       form =
-        form(lv, "#login_form", user: %{email: user.email, password: password, remember_me: true})
+        form(lv, "#login_form",
+          user: %{email: user.email, password: password, remember_me: true}
+        )
 
       conn = submit_form(form, conn)
 
       assert redirected_to(conn) == ~p"/"
     end
 
-    test "redirects to login page with a flash error if there are no valid credentials", %{
-      conn: conn
-    } do
+    test "redirects to login page with a flash error if there are no valid credentials",
+         %{
+           conn: conn
+         } do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       form =
         form(lv, "#login_form",
-          user: %{email: "test@email.com", password: "123456", remember_me: true}
+          user: %{
+            email: "test@email.com",
+            password: "123456",
+            remember_me: true
+          }
         )
 
       conn = submit_form(form, conn)
 
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Invalid email or password"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
+               "Invalid email or password"
 
       assert redirected_to(conn) == "/users/log-in"
     end

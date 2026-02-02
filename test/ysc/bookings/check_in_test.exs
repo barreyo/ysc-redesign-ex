@@ -77,7 +77,9 @@ defmodule Ysc.Bookings.CheckInTest do
   describe "checked_in_at handling" do
     test "preserves provided checked_in_at" do
       specific_time =
-        DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
+        DateTime.utc_now()
+        |> DateTime.add(-3600, :second)
+        |> DateTime.truncate(:second)
 
       attrs = %{
         rules_agreed: true,
@@ -202,7 +204,9 @@ defmodule Ysc.Bookings.CheckInTest do
 
     test "check-in with specific timestamp" do
       arrival_time =
-        DateTime.utc_now() |> DateTime.add(-1800, :second) |> DateTime.truncate(:second)
+        DateTime.utc_now()
+        |> DateTime.add(-1800, :second)
+        |> DateTime.truncate(:second)
 
       attrs = %{
         rules_agreed: true,

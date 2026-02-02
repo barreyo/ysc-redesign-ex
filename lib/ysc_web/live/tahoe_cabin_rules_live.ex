@@ -269,7 +269,8 @@ defmodule YscWeb.TahoeCabinRulesLive do
     [
       %{
         title: "TL;DR",
-        content: "Checkout is at 11:00 AM. Complete all cleaning tasks before leaving."
+        content:
+          "Checkout is at 11:00 AM. Complete all cleaning tasks before leaving."
       },
       %{
         title: "Checkout Time",
@@ -293,15 +294,18 @@ defmodule YscWeb.TahoeCabinRulesLive do
     [
       %{
         title: "TL;DR",
-        content: "For emergencies, contact the club manager. No pets allowed. No smoking indoors."
+        content:
+          "For emergencies, contact the club manager. No pets allowed. No smoking indoors."
       },
       %{
         title: "Club Manager",
-        content: "For urgent issues, contact the club manager through the website or app."
+        content:
+          "For urgent issues, contact the club manager through the website or app."
       },
       %{
         title: "No Pets Policy",
-        content: "No pets are allowed — no exceptions. This policy is strictly enforced."
+        content:
+          "No pets are allowed — no exceptions. This policy is strictly enforced."
       },
       %{
         title: "No Smoking or Vaping",

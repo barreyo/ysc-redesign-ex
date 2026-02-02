@@ -30,7 +30,9 @@ defmodule Ysc.Tickets.TimeoutWorkerTest do
           total_amount: Money.new(1000, :USD),
           reference_id: "TO-EXPIRED",
           expires_at:
-            DateTime.utc_now() |> DateTime.add(-3600, :second) |> DateTime.truncate(:second)
+            DateTime.utc_now()
+            |> DateTime.add(-3600, :second)
+            |> DateTime.truncate(:second)
         }
         |> Repo.insert!()
 
@@ -54,7 +56,9 @@ defmodule Ysc.Tickets.TimeoutWorkerTest do
           total_amount: Money.new(1000, :USD),
           reference_id: "TO-VALID",
           expires_at:
-            DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second)
+            DateTime.utc_now()
+            |> DateTime.add(3600, :second)
+            |> DateTime.truncate(:second)
         }
         |> Repo.insert!()
 
@@ -77,12 +81,16 @@ defmodule Ysc.Tickets.TimeoutWorkerTest do
           total_amount: Money.new(1000, :USD),
           reference_id: "TO-SPECIFIC",
           expires_at:
-            DateTime.utc_now() |> DateTime.add(3600, :second) |> DateTime.truncate(:second)
+            DateTime.utc_now()
+            |> DateTime.add(3600, :second)
+            |> DateTime.truncate(:second)
         }
         |> Repo.insert!()
 
       assert {:ok, "Expired specific ticket order"} =
-               TimeoutWorker.perform(%Oban.Job{args: %{"ticket_order_id" => order.id}})
+               TimeoutWorker.perform(%Oban.Job{
+                 args: %{"ticket_order_id" => order.id}
+               })
 
       updated_order = Tickets.get_ticket_order(order.id)
       assert updated_order.status == :expired
@@ -94,7 +102,9 @@ defmodule Ysc.Tickets.TimeoutWorkerTest do
       expires_at = DateTime.utc_now() |> DateTime.add(300, :second)
       ticket_order_id = Ecto.ULID.generate()
 
-      assert {:ok, job} = TimeoutWorker.schedule_order_timeout(ticket_order_id, expires_at)
+      assert {:ok, job} =
+               TimeoutWorker.schedule_order_timeout(ticket_order_id, expires_at)
+
       assert job.args["ticket_order_id"] == ticket_order_id
       assert job.worker == "Ysc.Tickets.TimeoutWorker"
     end

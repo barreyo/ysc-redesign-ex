@@ -104,6 +104,7 @@ defmodule Ysc.CustomersTest do
       # default_payment_method calls Stripe.PaymentMethod.retrieve which will fail in tests
       # The function returns nil on Stripe API errors, which is expected behavior
       method = Customers.default_payment_method(user)
+
       # Verify function doesn't crash - returns nil when Stripe API fails (expected in tests)
       assert method == nil
     end

@@ -19,7 +19,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -89,7 +90,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -103,7 +105,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => "also-invalid"
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       # Should still load, using default dates
       assert html =~ "Tahoe"
@@ -130,7 +133,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
 
       params = %{"booking_mode" => "buyout"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -156,7 +160,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
 
       params = %{"guests" => "4", "children" => "2"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -167,7 +172,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
 
       params = %{"guests" => "invalid", "children" => "-1"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       # Should use defaults
       assert html =~ "Tahoe"
@@ -180,7 +186,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
       # Try to set unreasonably high guest count
       params = %{"guests" => "100"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -206,7 +213,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
 
       params = %{"tab" => "information"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -217,7 +225,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
 
       params = %{"tab" => "information", "info_tab" => "amenities"}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -305,7 +314,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -421,7 +431,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
 
       params = %{"checkin_date" => ""}
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -439,7 +450,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       # Should handle invalid date range
       assert html =~ "Tahoe"
@@ -457,7 +469,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       # Should default to valid dates
       assert html =~ "Tahoe"
@@ -718,7 +731,10 @@ defmodule YscWeb.TahoeBookingLiveTest do
       :timer.sleep(200)
 
       checkin = Date.add(Date.utc_today(), 30)
-      render_change(view, "date-changed", %{"checkin_date" => Date.to_string(checkin)})
+
+      render_change(view, "date-changed", %{
+        "checkin_date" => Date.to_string(checkin)
+      })
 
       html = render(view)
       assert html =~ "Tahoe"
@@ -732,7 +748,10 @@ defmodule YscWeb.TahoeBookingLiveTest do
       :timer.sleep(200)
 
       checkout = Date.add(Date.utc_today(), 33)
-      render_change(view, "date-changed", %{"checkout_date" => Date.to_string(checkout)})
+
+      render_change(view, "date-changed", %{
+        "checkout_date" => Date.to_string(checkout)
+      })
 
       html = render(view)
       assert html =~ "Tahoe"
@@ -809,7 +828,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -827,7 +847,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(monday)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -844,7 +865,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, _view, html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, _view, html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       assert html =~ "Tahoe"
     end
@@ -863,7 +885,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(checkout)
       }
 
-      {:ok, view, _html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, view, _html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       :timer.sleep(300)
       html = render(view)
@@ -897,7 +920,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(wednesday)
       }
 
-      {:ok, view, _html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, view, _html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       :timer.sleep(200)
       html = render(view)
@@ -917,7 +941,8 @@ defmodule YscWeb.TahoeBookingLiveTest do
         "checkout_date" => Date.to_string(next_saturday)
       }
 
-      {:ok, view, _html} = live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
+      {:ok, view, _html} =
+        live(conn, ~p"/bookings/tahoe?#{URI.encode_query(params)}")
 
       :timer.sleep(200)
       html = render(view)
@@ -935,7 +960,10 @@ defmodule YscWeb.TahoeBookingLiveTest do
 
       for i <- 1..5 do
         date = Date.add(Date.utc_today(), 30 + i)
-        render_change(view, "date-changed", %{"checkin_date" => Date.to_string(date)})
+
+        render_change(view, "date-changed", %{
+          "checkin_date" => Date.to_string(date)
+        })
       end
 
       html = render(view)
@@ -1007,7 +1035,10 @@ defmodule YscWeb.TahoeBookingLiveTest do
       conn = log_in_user(conn, user)
 
       {:ok, _view, html} =
-        live(conn, ~p"/bookings/tahoe?checkin_date=&checkout_date=&guests=&children=")
+        live(
+          conn,
+          ~p"/bookings/tahoe?checkin_date=&checkout_date=&guests=&children="
+        )
 
       assert html =~ "Tahoe"
     end

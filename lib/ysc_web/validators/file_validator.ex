@@ -29,7 +29,8 @@ defmodule YscWeb.Validators.FileValidator do
   """
   def validate_file(file_path, allowed_mime_types, allowed_extensions \\ []) do
     with {:ok, file} <- File.open(file_path, [:read, :binary]),
-         result <- validate_file_type(file, allowed_mime_types, allowed_extensions),
+         result <-
+           validate_file_type(file, allowed_mime_types, allowed_extensions),
          :ok <- File.close(file) do
       result
     else
@@ -53,7 +54,8 @@ defmodule YscWeb.Validators.FileValidator do
         end
 
       {:error, :unknown} ->
-        {:error, "Could not detect file type. File may be corrupted or in an unsupported format."}
+        {:error,
+         "Could not detect file type. File may be corrupted or in an unsupported format."}
 
       {:error, reason} ->
         {:error, "Failed to detect file type: #{inspect(reason)}"}

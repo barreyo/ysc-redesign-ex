@@ -97,7 +97,8 @@ defmodule YscWeb.Emails.BookingCancellationConfirmation do
 
   defp format_payment_amounts(payment, refund_amount) do
     %{
-      original_amount: if(payment, do: format_money(payment.amount), else: "N/A"),
+      original_amount:
+        if(payment, do: format_money(payment.amount), else: "N/A"),
       refund_amount:
         if(refund_amount && Money.positive?(refund_amount),
           do: format_money(refund_amount),
@@ -160,7 +161,11 @@ defmodule YscWeb.Emails.BookingCancellationConfirmation do
   end
 
   defp format_money(%Money{} = money) do
-    Money.to_string!(money, separator: ".", delimiter: ",", fractional_digits: 2)
+    Money.to_string!(money,
+      separator: ".",
+      delimiter: ",",
+      fractional_digits: 2
+    )
   end
 
   defp format_money(_), do: "$0.00"

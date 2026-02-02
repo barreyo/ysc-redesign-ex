@@ -159,7 +159,10 @@ defmodule Ysc.Alerts.Discord do
   def send_alert(opts) do
     cond do
       !enabled?() ->
-        Logger.debug("Discord alerts disabled, skipping message: #{inspect(opts[:title])}")
+        Logger.debug(
+          "Discord alerts disabled, skipping message: #{inspect(opts[:title])}"
+        )
+
         {:ok, :disabled}
 
       !webhook_url() ->
@@ -252,7 +255,11 @@ defmodule Ysc.Alerts.Discord do
   @doc """
   Sends a payment discrepancy alert to Discord.
   """
-  def send_payment_discrepancy_alert(discrepancies_count, total_payments, details \\ []) do
+  def send_payment_discrepancy_alert(
+        discrepancies_count,
+        total_payments,
+        details \\ []
+      ) do
     description = """
     Payment discrepancies detected during reconciliation.
 
@@ -275,12 +282,14 @@ defmodule Ysc.Alerts.Discord do
   ## Private Functions
 
   defp enabled? do
-    Application.get_env(:ysc, __MODULE__)[:enabled] != false && webhook_url() != nil
+    Application.get_env(:ysc, __MODULE__)[:enabled] != false &&
+      webhook_url() != nil
   end
 
   defp webhook_url do
     # Read from runtime configuration first, then fall back to environment variable
-    Application.get_env(:ysc, __MODULE__)[:webhook_url] || System.get_env("DISCORD_WEBHOOK_URL")
+    Application.get_env(:ysc, __MODULE__)[:webhook_url] ||
+      System.get_env("DISCORD_WEBHOOK_URL")
   end
 
   defp get_environment do
@@ -475,7 +484,8 @@ defmodule Ysc.Alerts.Discord do
         []
       end
 
-    base_fields ++ payment_fields ++ refund_fields ++ balance_fields ++ entity_fields
+    base_fields ++
+      payment_fields ++ refund_fields ++ balance_fields ++ entity_fields
   end
 
   defp format_status(:ok), do: "✅ PASS"

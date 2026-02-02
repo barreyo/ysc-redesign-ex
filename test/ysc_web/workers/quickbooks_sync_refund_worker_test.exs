@@ -32,7 +32,8 @@ defmodule YscWeb.Workers.QuickbooksSyncRefundWorkerTest do
         attempt: 1
       }
 
-      assert {:discard, :refund_not_found} = QuickbooksSyncRefundWorker.perform(job)
+      assert {:discard, :refund_not_found} =
+               QuickbooksSyncRefundWorker.perform(job)
     end
   end
 end

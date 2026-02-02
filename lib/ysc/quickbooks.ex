@@ -70,7 +70,8 @@ defmodule Ysc.Quickbooks do
       - `tax_code_ref` (optional) - Tax code reference
 
   """
-  @spec create_purchase_sales_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  @spec create_purchase_sales_receipt(map()) ::
+          {:ok, map()} | {:error, atom() | String.t()}
   def create_purchase_sales_receipt(params) do
     # Validate required parameters early to provide better error messages
     cond do
@@ -142,7 +143,10 @@ defmodule Ysc.Quickbooks do
 
     sales_item_detail =
       if params[:tax_code_ref],
-        do: Map.put(sales_item_detail, :tax_code_ref, %{value: params.tax_code_ref}),
+        do:
+          Map.put(sales_item_detail, :tax_code_ref, %{
+            value: params.tax_code_ref
+          }),
         else: sales_item_detail
 
     line_item = %{
@@ -165,7 +169,9 @@ defmodule Ysc.Quickbooks do
     sales_receipt_params =
       if params[:payment_method_id],
         do:
-          Map.put(sales_receipt_params, :payment_method_ref, %{value: params.payment_method_id}),
+          Map.put(sales_receipt_params, :payment_method_ref, %{
+            value: params.payment_method_id
+          }),
         else: sales_receipt_params
 
     sales_receipt_params =
@@ -173,7 +179,10 @@ defmodule Ysc.Quickbooks do
         # Include name if provided, otherwise just value
         deposit_ref =
           if params[:deposit_to_account_name] do
-            %{value: params.deposit_to_account_id, name: params.deposit_to_account_name}
+            %{
+              value: params.deposit_to_account_id,
+              name: params.deposit_to_account_name
+            }
           else
             %{value: params.deposit_to_account_id}
           end
@@ -185,7 +194,8 @@ defmodule Ysc.Quickbooks do
 
     sales_receipt_params =
       if params[:txn_date],
-        do: Map.put(sales_receipt_params, :txn_date, format_date(params.txn_date)),
+        do:
+          Map.put(sales_receipt_params, :txn_date, format_date(params.txn_date)),
         else: sales_receipt_params
 
     sales_receipt_params =
@@ -223,7 +233,8 @@ defmodule Ysc.Quickbooks do
       - `tax_code_ref` (optional) - Tax code reference
 
   """
-  @spec create_refund_sales_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  @spec create_refund_sales_receipt(map()) ::
+          {:ok, map()} | {:error, atom() | String.t()}
   def create_refund_sales_receipt(params) do
     # Refund Receipts use positive amounts - the transaction type determines direction
     unit_price = Decimal.abs(params.unit_price)
@@ -246,7 +257,10 @@ defmodule Ysc.Quickbooks do
 
     sales_item_detail =
       if params[:tax_code_ref],
-        do: Map.put(sales_item_detail, :tax_code_ref, %{value: params.tax_code_ref}),
+        do:
+          Map.put(sales_item_detail, :tax_code_ref, %{
+            value: params.tax_code_ref
+          }),
         else: sales_item_detail
 
     line_item = %{
@@ -265,7 +279,9 @@ defmodule Ysc.Quickbooks do
     sales_receipt_params =
       if params[:payment_method_id],
         do:
-          Map.put(sales_receipt_params, :payment_method_ref, %{value: params.payment_method_id}),
+          Map.put(sales_receipt_params, :payment_method_ref, %{
+            value: params.payment_method_id
+          }),
         else: sales_receipt_params
 
     sales_receipt_params =
@@ -278,7 +294,8 @@ defmodule Ysc.Quickbooks do
 
     sales_receipt_params =
       if params[:txn_date],
-        do: Map.put(sales_receipt_params, :txn_date, format_date(params.txn_date)),
+        do:
+          Map.put(sales_receipt_params, :txn_date, format_date(params.txn_date)),
         else: sales_receipt_params
 
     sales_receipt_params =
@@ -317,7 +334,8 @@ defmodule Ysc.Quickbooks do
       - `tax_code_ref` (optional) - Tax code reference
 
   """
-  @spec create_refund_receipt(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  @spec create_refund_receipt(map()) ::
+          {:ok, map()} | {:error, atom() | String.t()}
   def create_refund_receipt(params) do
     # RefundReceipts use positive amounts - the transaction type determines direction
     unit_price = Decimal.abs(params.unit_price)
@@ -349,7 +367,10 @@ defmodule Ysc.Quickbooks do
 
     sales_item_detail =
       if params[:tax_code_ref],
-        do: Map.put(sales_item_detail, :tax_code_ref, %{value: params.tax_code_ref}),
+        do:
+          Map.put(sales_item_detail, :tax_code_ref, %{
+            value: params.tax_code_ref
+          }),
         else: sales_item_detail
 
     line_item = %{
@@ -366,7 +387,10 @@ defmodule Ysc.Quickbooks do
     # Build refund_from_account_ref with name if provided
     refund_from_account_ref =
       if params[:refund_from_account_name] do
-        %{value: params.refund_from_account_id, name: params.refund_from_account_name}
+        %{
+          value: params.refund_from_account_id,
+          name: params.refund_from_account_name
+        }
       else
         %{value: params.refund_from_account_id}
       end
@@ -381,12 +405,19 @@ defmodule Ysc.Quickbooks do
     refund_receipt_params =
       if params[:payment_method_id],
         do:
-          Map.put(refund_receipt_params, :payment_method_ref, %{value: params.payment_method_id}),
+          Map.put(refund_receipt_params, :payment_method_ref, %{
+            value: params.payment_method_id
+          }),
         else: refund_receipt_params
 
     refund_receipt_params =
       if params[:txn_date],
-        do: Map.put(refund_receipt_params, :txn_date, format_date(params.txn_date)),
+        do:
+          Map.put(
+            refund_receipt_params,
+            :txn_date,
+            format_date(params.txn_date)
+          ),
         else: refund_receipt_params
 
     refund_receipt_params =
@@ -418,7 +449,8 @@ defmodule Ysc.Quickbooks do
       - `payment_method_ref` (optional) - Payment method reference
 
   """
-  @spec create_stripe_payout_deposit(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+  @spec create_stripe_payout_deposit(map()) ::
+          {:ok, map()} | {:error, atom() | String.t()}
   def create_stripe_payout_deposit(params) do
     deposit_line_detail = %{
       account_ref: %{value: params.stripe_account_id}
@@ -426,13 +458,16 @@ defmodule Ysc.Quickbooks do
 
     deposit_line_detail =
       if params[:class_ref],
-        do: Map.put(deposit_line_detail, :class_ref, %{value: params.class_ref}),
+        do:
+          Map.put(deposit_line_detail, :class_ref, %{value: params.class_ref}),
         else: deposit_line_detail
 
     deposit_line_detail =
       if params[:payment_method_ref],
         do:
-          Map.put(deposit_line_detail, :payment_method_ref, %{value: params.payment_method_ref}),
+          Map.put(deposit_line_detail, :payment_method_ref, %{
+            value: params.payment_method_ref
+          }),
         else: deposit_line_detail
 
     line_item = %{
@@ -454,7 +489,9 @@ defmodule Ysc.Quickbooks do
         else: deposit_params
 
     deposit_params =
-      if params[:memo], do: Map.put(deposit_params, :memo, params.memo), else: deposit_params
+      if params[:memo],
+        do: Map.put(deposit_params, :memo, params.memo),
+        else: deposit_params
 
     deposit_params =
       if params[:private_note],
@@ -488,7 +525,8 @@ defmodule Ysc.Quickbooks do
       end
 
   """
-  @spec get_or_create_customer(User.t()) :: {:ok, String.t()} | {:error, atom() | String.t()}
+  @spec get_or_create_customer(User.t()) ::
+          {:ok, String.t()} | {:error, atom() | String.t()}
   def get_or_create_customer(%User{} = user) do
     alias Ysc.Repo
 
@@ -516,7 +554,10 @@ defmodule Ysc.Quickbooks do
 
             if customer_id do
               # Update user with QuickBooks customer ID
-              changeset = User.update_user_changeset(user, %{quickbooks_customer_id: customer_id})
+              changeset =
+                User.update_user_changeset(user, %{
+                  quickbooks_customer_id: customer_id
+                })
 
               case Repo.update(changeset) do
                 {:ok, _updated_user} ->
@@ -525,7 +566,8 @@ defmodule Ysc.Quickbooks do
                 {:error, changeset} ->
                   require Logger
 
-                  Logger.error("Failed to update user with quickbooks_customer_id",
+                  Logger.error(
+                    "Failed to update user with quickbooks_customer_id",
                     user_id: user.id,
                     quickbooks_customer_id: customer_id,
                     changeset_errors: inspect(changeset.errors)
@@ -578,14 +620,17 @@ defmodule Ysc.Quickbooks do
                   if customer_id do
                     # Update user with QuickBooks customer ID
                     changeset =
-                      User.update_user_changeset(user, %{quickbooks_customer_id: customer_id})
+                      User.update_user_changeset(user, %{
+                        quickbooks_customer_id: customer_id
+                      })
 
                     case Repo.update(changeset) do
                       {:ok, _updated_user} ->
                         {:ok, customer_id}
 
                       {:error, changeset} ->
-                        Logger.error("Failed to update user with quickbooks_customer_id",
+                        Logger.error(
+                          "Failed to update user with quickbooks_customer_id",
                           user_id: user.id,
                           quickbooks_customer_id: customer_id,
                           changeset_errors: inspect(changeset.errors)

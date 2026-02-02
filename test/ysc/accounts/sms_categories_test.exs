@@ -13,8 +13,15 @@ defmodule Ysc.Accounts.SmsCategoriesTest do
 
       # Security templates like "two_factor_verification" always return true
       # regardless of notification preferences
-      assert SmsCategories.should_send_sms?(user_enabled, "two_factor_verification")
-      assert SmsCategories.should_send_sms?(user_disabled, "two_factor_verification")
+      assert SmsCategories.should_send_sms?(
+               user_enabled,
+               "two_factor_verification"
+             )
+
+      assert SmsCategories.should_send_sms?(
+               user_disabled,
+               "two_factor_verification"
+             )
     end
   end
 

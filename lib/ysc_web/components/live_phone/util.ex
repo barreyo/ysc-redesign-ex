@@ -72,7 +72,8 @@ defmodule LivePhone.Util do
         name: "United States of America (the)", preferred: false, region_code: "1"}}
 
   """
-  @spec get_country(String.t()) :: {:ok, Country.t()} | {:error, :invalid_number}
+  @spec get_country(String.t()) ::
+          {:ok, Country.t()} | {:error, :invalid_number}
   def get_country(phone) do
     with {:ok, parsed_phone} <- ExPhoneNumber.parse(phone, nil),
          true <- ExPhoneNumber.is_valid_number?(parsed_phone),
@@ -100,7 +101,8 @@ defmodule LivePhone.Util do
       {:ok, "+16502530000"}
 
   """
-  @spec normalize(String.t(), String.t() | nil) :: {:ok, String.t()} | {:error, String.t()}
+  @spec normalize(String.t(), String.t() | nil) ::
+          {:ok, String.t()} | {:error, String.t()}
   def normalize(phone, country) do
     phone
     |> String.replace(~r/[^+\d]/, "")

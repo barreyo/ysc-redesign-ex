@@ -41,7 +41,13 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
              expense_report ->
                preloaded =
                  expense_report
-                 |> Repo.preload([:expense_items, :income_items, :address, :bank_account, :event])
+                 |> Repo.preload([
+                   :expense_items,
+                   :income_items,
+                   :address,
+                   :bank_account,
+                   :event
+                 ])
                  |> Repo.preload(user: :billing_address)
 
                Logger.debug("Preloaded expense report associations",
@@ -87,7 +93,8 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
           # This prevents duplicate exports if the report was synced between job creation and execution
           cond do
             expense_report.quickbooks_sync_status == "synced" ->
-              Logger.info("Expense report already synced to QuickBooks (checked after lock)",
+              Logger.info(
+                "Expense report already synced to QuickBooks (checked after lock)",
                 expense_report_id: expense_report_id,
                 sync_status: expense_report.quickbooks_sync_status
               )
@@ -98,7 +105,8 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
             expense_report.quickbooks_sync_status != "pending" &&
               expense_report.quickbooks_sync_status != "failed" &&
                 expense_report.quickbooks_sync_status != nil ->
-              Logger.warning("Expense report has unexpected sync status, skipping",
+              Logger.warning(
+                "Expense report has unexpected sync status, skipping",
                 expense_report_id: expense_report_id,
                 sync_status: expense_report.quickbooks_sync_status
               )
@@ -108,7 +116,8 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
             true ->
               # If status is "failed", log that we're retrying
               if expense_report.quickbooks_sync_status == "failed" do
-                Logger.info("Retrying QuickBooks sync for previously failed expense report",
+                Logger.info(
+                  "Retrying QuickBooks sync for previously failed expense report",
                   expense_report_id: expense_report_id,
                   previous_error: expense_report.quickbooks_sync_error
                 )
@@ -116,7 +125,8 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
 
               case QuickbooksSync.sync_expense_report(expense_report) do
                 {:ok, bill} ->
-                  Logger.info("Successfully synced expense report to QuickBooks",
+                  Logger.info(
+                    "Successfully synced expense report to QuickBooks",
                     expense_report_id: expense_report_id,
                     bill_id: Map.get(bill, "Id")
                   )
@@ -129,7 +139,8 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
                     error: inspect(reason)
                   )
 
-                  Sentry.capture_message("QuickBooks expense report sync worker failed",
+                  Sentry.capture_message(
+                    "QuickBooks expense report sync worker failed",
                     level: :error,
                     extra: %{
                       expense_report_id: expense_report_id,
@@ -162,8 +173,12 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportWorker do
         )
 
         # Report to Sentry (only for non-lock errors)
-        unless match?(%Postgrex.Error{postgres: %{code: :lock_not_available}}, reason) do
-          Sentry.capture_message("Failed to lock expense report for QuickBooks sync",
+        unless match?(
+                 %Postgrex.Error{postgres: %{code: :lock_not_available}},
+                 reason
+               ) do
+          Sentry.capture_message(
+            "Failed to lock expense report for QuickBooks sync",
             level: :error,
             extra: %{
               expense_report_id: expense_report_id,

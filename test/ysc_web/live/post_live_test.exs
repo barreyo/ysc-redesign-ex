@@ -59,7 +59,8 @@ defmodule YscWeb.PostLiveTest do
     end
 
     test "redirects to news when invalid ID format", %{conn: conn} do
-      assert {:error, {:redirect, %{to: path}}} = live(conn, ~p"/posts/invalid-id-format")
+      assert {:error, {:redirect, %{to: path}}} =
+               live(conn, ~p"/posts/invalid-id-format")
 
       assert path == "/news"
     end
@@ -106,7 +107,13 @@ defmodule YscWeb.PostLiveTest do
     end
 
     test "displays author board position when present", %{conn: conn} do
-      author = user_fixture(%{first_name: "John", last_name: "Smith", board_position: :president})
+      author =
+        user_fixture(%{
+          first_name: "John",
+          last_name: "Smith",
+          board_position: :president
+        })
+
       post = create_post(%{title: "Test", author: author})
 
       {:ok, _view, html} = live(conn, ~p"/posts/#{post.id}")
@@ -115,7 +122,8 @@ defmodule YscWeb.PostLiveTest do
     end
 
     test "displays published date", %{conn: conn} do
-      post = create_post(%{title: "Test", published_on: ~U[2024-06-15 10:00:00Z]})
+      post =
+        create_post(%{title: "Test", published_on: ~U[2024-06-15 10:00:00Z]})
 
       {:ok, _view, html} = live(conn, ~p"/posts/#{post.id}")
 
@@ -143,7 +151,9 @@ defmodule YscWeb.PostLiveTest do
       refute has_element?(view, "#primary-post-comment")
     end
 
-    test "does not show Community Discussion section when not logged in", %{conn: conn} do
+    test "does not show Community Discussion section when not logged in", %{
+      conn: conn
+    } do
       post = create_post(%{title: "Test"})
 
       {:ok, _view, html} = live(conn, ~p"/posts/#{post.id}")
@@ -161,7 +171,11 @@ defmodule YscWeb.PostLiveTest do
       {:ok, view, _html} = live(conn, ~p"/posts/#{post.id}")
 
       assert has_element?(view, "#primary-post-comment")
-      assert has_element?(view, "textarea[placeholder='Share your thoughts...']")
+
+      assert has_element?(
+               view,
+               "textarea[placeholder='Share your thoughts...']"
+             )
     end
 
     test "shows Community Discussion heading with count", %{conn: conn} do
@@ -210,7 +224,9 @@ defmodule YscWeb.PostLiveTest do
 
       result =
         view
-        |> form("#primary-post-comment", comment: %{text: "Great article!", post_id: post.id})
+        |> form("#primary-post-comment",
+          comment: %{text: "Great article!", post_id: post.id}
+        )
         |> render_submit()
 
       # Should still render the page (comment will be added via PubSub)
@@ -231,7 +247,10 @@ defmodule YscWeb.PostLiveTest do
       result =
         view
         |> form("#primary-post-comment",
-          comment: %{text: "<script>alert('xss')</script>Nice post!", post_id: post.id}
+          comment: %{
+            text: "<script>alert('xss')</script>Nice post!",
+            post_id: post.id
+          }
         )
         |> render_submit()
 
@@ -369,7 +388,9 @@ defmodule YscWeb.PostLiveTest do
   end
 
   describe "accessibility" do
-    test "includes proper alt text for featured images when present", %{conn: conn} do
+    test "includes proper alt text for featured images when present", %{
+      conn: conn
+    } do
       post = create_post(%{title: "Test Article"})
 
       {:ok, _view, html} = live(conn, ~p"/posts/#{post.id}")

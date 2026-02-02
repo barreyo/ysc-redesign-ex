@@ -16,7 +16,8 @@ defmodule Ysc.TestLoggerBackend do
     {:ok, %{}}
   end
 
-  def handle_event({level, _gl, {Logger, msg, _ts, md}}, state) when level == :error do
+  def handle_event({level, _gl, {Logger, msg, _ts, md}}, state)
+      when level == :error do
     # Suppress all db_connection errors - they're expected during test cleanup
     if md[:application] == :db_connection or
          md[:mfa] == {DBConnection.Connection, :handle_event, 4} do
@@ -30,7 +31,8 @@ defmodule Ysc.TestLoggerBackend do
       # Check if this is an expected test error - if so, completely suppress it
       is_expected_error =
         Enum.any?(@expected_error_patterns, fn pattern ->
-          String.contains?(message_str, pattern) || String.contains?(full_message, pattern)
+          String.contains?(message_str, pattern) ||
+            String.contains?(full_message, pattern)
         end) or String.contains?(message_str, "exited") or
           String.contains?(full_message, "exited")
 

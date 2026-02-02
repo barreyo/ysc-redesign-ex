@@ -31,9 +31,11 @@ config :ysc, YscWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "HVfMgcL35fAJz7aiwv581CSXDiPTWHDuSQcqIL4gkkPomNfXjUo4MENFgQ1U4sZF",
+  secret_key_base:
+    "HVfMgcL35fAJz7aiwv581CSXDiPTWHDuSQcqIL4gkkPomNfXjUo4MENFgQ1U4sZF",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
+    esbuild:
+      {Esbuild, :install_and_run, [:default, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:default, ~w(--watch)]}
   ],
   live_reload: [
@@ -159,11 +161,13 @@ config :ysc, :native_api_key, System.get_env("NATIVE_API_KEY") || "development"
 # Set these via environment variables or use test values
 config :ueberauth, Ueberauth.Strategy.Google.OAuth,
   client_id: System.get_env("GOOGLE_CLIENT_ID") || "dev_google_client_id",
-  client_secret: System.get_env("GOOGLE_CLIENT_SECRET") || "dev_google_client_secret"
+  client_secret:
+    System.get_env("GOOGLE_CLIENT_SECRET") || "dev_google_client_secret"
 
 config :ueberauth, Ueberauth.Strategy.Facebook.OAuth,
   client_id: System.get_env("FACEBOOK_CLIENT_ID") || "dev_facebook_client_id",
-  client_secret: System.get_env("FACEBOOK_CLIENT_SECRET") || "dev_facebook_client_secret"
+  client_secret:
+    System.get_env("FACEBOOK_CLIENT_SECRET") || "dev_facebook_client_secret"
 
 # Wax (WebAuthn) configuration for development
 #

@@ -46,7 +46,8 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportBackupWorker do
         from(er in ExpenseReport,
           where: er.status == "submitted",
           where:
-            is_nil(er.quickbooks_sync_status) or er.quickbooks_sync_status == "pending" or
+            is_nil(er.quickbooks_sync_status) or
+              er.quickbooks_sync_status == "pending" or
               er.quickbooks_sync_status == "failed",
           where: is_nil(er.quickbooks_bill_id),
           lock: "FOR UPDATE SKIP LOCKED",
@@ -59,14 +60,18 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportBackupWorker do
       total_count = length(unsynced_reports)
 
       if total_count > 0 do
-        Logger.info("Found unsynced expense reports (after locking)", count: total_count)
+        Logger.info("Found unsynced expense reports (after locking)",
+          count: total_count
+        )
 
         # Get all existing jobs for these expense reports to avoid duplicates
         # Check for jobs in all active states including "executing" (currently running)
         existing_job_expense_report_ids =
           from(j in Oban.Job,
-            where: j.worker == "YscWeb.Workers.QuickbooksSyncExpenseReportWorker",
-            where: j.state in ["available", "executing", "retryable", "scheduled"],
+            where:
+              j.worker == "YscWeb.Workers.QuickbooksSyncExpenseReportWorker",
+            where:
+              j.state in ["available", "executing", "retryable", "scheduled"],
             select: fragment("?->>'expense_report_id'", j.args)
           )
           |> Repo.all()
@@ -111,7 +116,8 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportBackupWorker do
                 )
 
               {:error, reason} ->
-                Logger.error("Failed to enqueue QuickBooks sync for expense report",
+                Logger.error(
+                  "Failed to enqueue QuickBooks sync for expense report",
                   expense_report_id: expense_report_id,
                   error: inspect(reason)
                 )
@@ -147,7 +153,10 @@ defmodule YscWeb.Workers.QuickbooksSyncExpenseReportBackupWorker do
         count
 
       {:error, reason} ->
-        Logger.error("Failed to enqueue unsynced expense reports", error: inspect(reason))
+        Logger.error("Failed to enqueue unsynced expense reports",
+          error: inspect(reason)
+        )
+
         0
     end
   end

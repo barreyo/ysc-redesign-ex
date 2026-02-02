@@ -21,7 +21,9 @@ defmodule YscWeb.AgendasLive.FormComponent do
           field={@form[:title]}
           type="text"
           label="Agenda Title"
-          phx-blur={JS.dispatch("submit", to: "##{"agenda-title-form-#{@agenda_id}"}")}
+          phx-blur={
+            JS.dispatch("submit", to: "##{"agenda-title-form-#{@agenda_id}"}")
+          }
         />
       </.form>
     </div>

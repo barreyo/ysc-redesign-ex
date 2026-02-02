@@ -20,7 +20,10 @@ defmodule Ysc.ReferenceGenerator do
   """
   @spec validate_reference_id(String.t()) :: :ok | {:error, String.t()}
   def validate_reference_id(reference_id) when is_binary(reference_id) do
-    case Regex.run(~r/^([A-Z]{3})-(\d{6})-([A-Z0-9]{4})([A-Z0-9])$/, reference_id) do
+    case Regex.run(
+           ~r/^([A-Z]{3})-(\d{6})-([A-Z0-9]{4})([A-Z0-9])$/,
+           reference_id
+         ) do
       [_, prefix, date, random_part, checksum] ->
         with :ok <- validate_format(prefix, date, random_part, checksum) do
           validate_checksum(prefix, date, random_part, checksum)

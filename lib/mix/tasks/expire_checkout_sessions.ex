@@ -102,7 +102,9 @@ defmodule Mix.Tasks.ExpireCheckoutSessions do
     case Ysc.Tickets.expire_user_pending_checkout_sessions(user_id) do
       {:ok, count} ->
         if count > 0 do
-          IO.puts("✅ Successfully expired #{count} checkout session(s) for user #{user_id}")
+          IO.puts(
+            "✅ Successfully expired #{count} checkout session(s) for user #{user_id}"
+          )
         else
           IO.puts("ℹ️  No pending checkout sessions found for user #{user_id}")
         end
@@ -119,7 +121,9 @@ defmodule Mix.Tasks.ExpireCheckoutSessions do
     case Ysc.Tickets.expire_event_pending_checkout_sessions(event_id) do
       {:ok, count} ->
         if count > 0 do
-          IO.puts("✅ Successfully expired #{count} checkout session(s) for event #{event_id}")
+          IO.puts(
+            "✅ Successfully expired #{count} checkout session(s) for event #{event_id}"
+          )
         else
           IO.puts("ℹ️  No pending checkout sessions found for event #{event_id}")
         end

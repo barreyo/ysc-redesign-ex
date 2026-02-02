@@ -71,7 +71,9 @@ defmodule Ysc.MessagesTest do
         email_to: "test@example.com"
       }
 
-      assert {:ok, %MessageIdempotency{} = message} = Messages.create_message_idempotency(attrs)
+      assert {:ok, %MessageIdempotency{} = message} =
+               Messages.create_message_idempotency(attrs)
+
       assert message.user_id == user.id
       assert message.idempotency_key == attrs.idempotency_key
     end
@@ -82,7 +84,8 @@ defmodule Ysc.MessagesTest do
         message_template: "test_template"
       }
 
-      assert {:error, %Ecto.Changeset{}} = Messages.create_message_idempotency(attrs)
+      assert {:error, %Ecto.Changeset{}} =
+               Messages.create_message_idempotency(attrs)
     end
   end
 

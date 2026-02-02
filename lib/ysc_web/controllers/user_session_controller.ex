@@ -26,7 +26,10 @@ defmodule YscWeb.UserSessionController do
     if user = Accounts.get_user_by_session_token(token) do
       if user.state in [:pending_approval, :active] do
         # Log successful sign-in
-        AuthService.log_login_success(user, conn, %{token: token, method: "email_password"})
+        AuthService.log_login_success(user, conn, %{
+          token: token,
+          method: "email_password"
+        })
 
         # Reset failed sign-in attempts and log in user
         conn
@@ -53,7 +56,10 @@ defmodule YscWeb.UserSessionController do
     if user = Accounts.get_user_by_session_token(token) do
       if user.state in [:pending_approval, :active] do
         # Log successful sign-in
-        AuthService.log_login_success(user, conn, %{token: token, method: "email_password"})
+        AuthService.log_login_success(user, conn, %{
+          token: token,
+          method: "email_password"
+        })
 
         # Reset failed sign-in attempts and log in user
         # UserAuth.log_in_user will redirect to the appropriate path based on user state
@@ -109,7 +115,10 @@ defmodule YscWeb.UserSessionController do
       # Check if user's email is verified - if not, redirect to account setup
       if is_nil(user.email_verified_at) do
         conn
-        |> put_flash(:info, "Please verify your email address before signing in.")
+        |> put_flash(
+          :info,
+          "Please verify your email address before signing in."
+        )
         |> redirect(to: ~p"/account/setup/#{user.id}")
       else
         # Check if user is in an allowed state for login
@@ -124,7 +133,8 @@ defmodule YscWeb.UserSessionController do
           # Reset failed sign-in attempts on successful sign-in
           # Validate redirect_to is internal before using it
           validated_redirect =
-            if redirect_to && YscWeb.UserAuth.valid_internal_redirect?(redirect_to) do
+            if redirect_to &&
+                 YscWeb.UserAuth.valid_internal_redirect?(redirect_to) do
               redirect_to
             else
               nil
@@ -138,7 +148,12 @@ defmodule YscWeb.UserSessionController do
           |> UserAuth.log_in_user(user, user_params, validated_redirect)
         else
           # Log failed sign-in attempt due to account state
-          AuthService.log_login_failure(email, conn, "account_state_restriction", user_params)
+          AuthService.log_login_failure(
+            email,
+            conn,
+            "account_state_restriction",
+            user_params
+          )
 
           # Track failed sign-in attempts in session
           failed_attempts = (get_session(conn, :failed_login_attempts) || 0) + 1
@@ -156,7 +171,12 @@ defmodule YscWeb.UserSessionController do
       end
     else
       # Log failed sign-in attempt
-      AuthService.log_login_failure(email, conn, "invalid_credentials", user_params)
+      AuthService.log_login_failure(
+        email,
+        conn,
+        "invalid_credentials",
+        user_params
+      )
 
       # Track failed sign-in attempts in session
       failed_attempts = (get_session(conn, :failed_login_attempts) || 0) + 1
@@ -202,9 +222,12 @@ defmodule YscWeb.UserSessionController do
           merged_params
 
         malformed_key ->
-          Logger.warning("[UserSessionController] Found malformed query key, parsing manually", %{
-            malformed_key: malformed_key
-          })
+          Logger.warning(
+            "[UserSessionController] Found malformed query key, parsing manually",
+            %{
+              malformed_key: malformed_key
+            }
+          )
 
           # Parse the query string from the malformed key
           parsed = URI.decode_query(malformed_key)
@@ -231,13 +254,16 @@ defmodule YscWeb.UserSessionController do
         passkey_login_with_params(conn, encoded_user_id, "")
 
       _ ->
-        Logger.warning("[UserSessionController] passkey_login called with invalid params", %{
-          params: params,
-          query_params: conn.query_params,
-          path_params: conn.path_params,
-          merged_params: merged_params,
-          parsed_params: parsed_params
-        })
+        Logger.warning(
+          "[UserSessionController] passkey_login called with invalid params",
+          %{
+            params: params,
+            query_params: conn.query_params,
+            path_params: conn.path_params,
+            merged_params: merged_params,
+            parsed_params: parsed_params
+          }
+        )
 
         conn
         |> put_flash(:error, "Invalid login request.")
@@ -248,7 +274,8 @@ defmodule YscWeb.UserSessionController do
   # Find a key that looks like a malformed query string (contains & and =)
   defp find_malformed_query_key(params) when is_map(params) do
     Enum.find_value(params, fn {key, _value} ->
-      if is_binary(key) && String.contains?(key, "=") && String.contains?(key, "user_id") do
+      if is_binary(key) && String.contains?(key, "=") &&
+           String.contains?(key, "user_id") do
         key
       else
         nil

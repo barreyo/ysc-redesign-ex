@@ -110,7 +110,11 @@ defmodule Ysc.Alerts.DiscordTest do
     end
 
     test "send_critical/2 with custom fields" do
-      result = Discord.send_critical("Critical issue", fields: [%{name: "Count", value: "5"}])
+      result =
+        Discord.send_critical("Critical issue",
+          fields: [%{name: "Count", value: "5"}]
+        )
+
       assert match?({:error, _}, result)
     end
   end

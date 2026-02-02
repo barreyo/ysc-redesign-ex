@@ -79,7 +79,11 @@ defmodule Ysc.PostsTest do
     test "returns post by url_name", %{author: author} do
       {:ok, post} =
         Posts.create_post(
-          %{"title" => "Test", "body" => "Body", "url_name" => "my-unique-slug"},
+          %{
+            "title" => "Test",
+            "body" => "Body",
+            "url_name" => "my-unique-slug"
+          },
           author
         )
 
@@ -113,22 +117,32 @@ defmodule Ysc.PostsTest do
     test "updates post when authorized", %{author: author} do
       {:ok, post} =
         Posts.create_post(
-          %{"title" => "Original", "body" => "Body", "url_name" => "update-test"},
+          %{
+            "title" => "Original",
+            "body" => "Body",
+            "url_name" => "update-test"
+          },
           author
         )
 
-      assert {:ok, updated} = Posts.update_post(post, %{"title" => "Updated"}, author)
+      assert {:ok, updated} =
+               Posts.update_post(post, %{"title" => "Updated"}, author)
+
       assert updated.title == "Updated"
     end
 
-    test "returns error when not authorized", %{author: author, regular_user: user} do
+    test "returns error when not authorized", %{
+      author: author,
+      regular_user: user
+    } do
       {:ok, post} =
         Posts.create_post(
           %{"title" => "Original", "body" => "Body", "url_name" => "auth-test"},
           author
         )
 
-      assert {:error, :unauthorized} = Posts.update_post(post, %{"title" => "Updated"}, user)
+      assert {:error, :unauthorized} =
+               Posts.update_post(post, %{"title" => "Updated"}, user)
     end
   end
 
@@ -193,24 +207,41 @@ defmodule Ysc.PostsTest do
         )
 
       params = %{"post_id" => post.id, "text" => "Great post!"}
-      assert {:ok, %Comment{} = comment} = Posts.add_comment_to_post(params, user)
+
+      assert {:ok, %Comment{} = comment} =
+               Posts.add_comment_to_post(params, user)
+
       assert comment.text == "Great post!"
       assert comment.user_id == user.id
       assert comment.post_id == post.id
     end
 
-    test "increments comment count on post", %{author: author, regular_user: user} do
+    test "increments comment count on post", %{
+      author: author,
+      regular_user: user
+    } do
       {:ok, post} =
         Posts.create_post(
-          %{"title" => "Test", "body" => "Body", "url_name" => "comment-count-test"},
+          %{
+            "title" => "Test",
+            "body" => "Body",
+            "url_name" => "comment-count-test"
+          },
           author
         )
 
       # comment_count starts as nil or 0
       assert post.comment_count in [nil, 0]
 
-      Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Comment 1"}, user)
-      Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Comment 2"}, user)
+      Posts.add_comment_to_post(
+        %{"post_id" => post.id, "text" => "Comment 1"},
+        user
+      )
+
+      Posts.add_comment_to_post(
+        %{"post_id" => post.id, "text" => "Comment 2"},
+        user
+      )
 
       updated = Posts.get_post!(post.id)
       assert updated.comment_count == 2
@@ -225,8 +256,15 @@ defmodule Ysc.PostsTest do
           author
         )
 
-      Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Comment 1"}, user)
-      Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Comment 2"}, user)
+      Posts.add_comment_to_post(
+        %{"post_id" => post.id, "text" => "Comment 1"},
+        user
+      )
+
+      Posts.add_comment_to_post(
+        %{"post_id" => post.id, "text" => "Comment 2"},
+        user
+      )
 
       comments = Posts.get_comments_for_post(post.id)
       assert length(comments) == 2
@@ -256,7 +294,11 @@ defmodule Ysc.PostsTest do
 
       {:ok, _} =
         Posts.create_post(
-          %{"title" => "Test 2", "body" => "Body", "url_name" => "slug-count-2"},
+          %{
+            "title" => "Test 2",
+            "body" => "Body",
+            "url_name" => "slug-count-2"
+          },
           author
         )
 
@@ -351,7 +393,10 @@ defmodule Ysc.PostsTest do
   end
 
   describe "get_latest_comments/1" do
-    test "returns latest comments from published posts", %{author: author, regular_user: user} do
+    test "returns latest comments from published posts", %{
+      author: author,
+      regular_user: user
+    } do
       {:ok, post} =
         Posts.create_post(
           %{
@@ -364,8 +409,15 @@ defmodule Ysc.PostsTest do
           author
         )
 
-      Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Comment 1"}, user)
-      Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Comment 2"}, user)
+      Posts.add_comment_to_post(
+        %{"post_id" => post.id, "text" => "Comment 1"},
+        user
+      )
+
+      Posts.add_comment_to_post(
+        %{"post_id" => post.id, "text" => "Comment 2"},
+        user
+      )
 
       comments = Posts.get_latest_comments(5)
       assert length(comments) >= 2
@@ -382,11 +434,18 @@ defmodule Ysc.PostsTest do
         )
 
       {:ok, parent_comment} =
-        Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Parent comment"}, user)
+        Posts.add_comment_to_post(
+          %{"post_id" => post.id, "text" => "Parent comment"},
+          user
+        )
 
       {:ok, reply} =
         Posts.add_comment_to_post(
-          %{"post_id" => post.id, "text" => "Reply", "comment_id" => parent_comment.id},
+          %{
+            "post_id" => post.id,
+            "text" => "Reply",
+            "comment_id" => parent_comment.id
+          },
           user
         )
 
@@ -405,17 +464,28 @@ defmodule Ysc.PostsTest do
         )
 
       {:ok, parent} =
-        Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Parent"}, user)
+        Posts.add_comment_to_post(
+          %{"post_id" => post.id, "text" => "Parent"},
+          user
+        )
 
       {:ok, _reply1} =
         Posts.add_comment_to_post(
-          %{"post_id" => post.id, "text" => "Reply 1", "comment_id" => parent.id},
+          %{
+            "post_id" => post.id,
+            "text" => "Reply 1",
+            "comment_id" => parent.id
+          },
           user
         )
 
       {:ok, _reply2} =
         Posts.add_comment_to_post(
-          %{"post_id" => post.id, "text" => "Reply 2", "comment_id" => parent.id},
+          %{
+            "post_id" => post.id,
+            "text" => "Reply 2",
+            "comment_id" => parent.id
+          },
           user
         )
 
@@ -470,7 +540,10 @@ defmodule Ysc.PostsTest do
         )
 
       {:ok, comment} =
-        Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Test comment"}, user)
+        Posts.add_comment_to_post(
+          %{"post_id" => post.id, "text" => "Test comment"},
+          user
+        )
 
       found = Posts.get_comment!(comment.id)
       assert found.id == comment.id
@@ -483,7 +556,10 @@ defmodule Ysc.PostsTest do
       assert Posts.get_insert_index_for_comment(comment) == 0
     end
 
-    test "returns index for reply comment", %{author: author, regular_user: user} do
+    test "returns index for reply comment", %{
+      author: author,
+      regular_user: user
+    } do
       {:ok, post} =
         Posts.create_post(
           %{"title" => "Test", "body" => "Body", "url_name" => "index-test"},
@@ -491,7 +567,10 @@ defmodule Ysc.PostsTest do
         )
 
       {:ok, parent} =
-        Posts.add_comment_to_post(%{"post_id" => post.id, "text" => "Parent"}, user)
+        Posts.add_comment_to_post(
+          %{"post_id" => post.id, "text" => "Parent"},
+          user
+        )
 
       {:ok, reply} =
         Posts.add_comment_to_post(

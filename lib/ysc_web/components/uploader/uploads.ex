@@ -97,7 +97,10 @@ defmodule YscWeb.Uploads do
 
   This is useful mostly for consuming auto-uploaded entries.
   """
-  def consume_on_done(%LiveView.Socket{} = socket, %LiveView.UploadEntry{} = entry) do
+  def consume_on_done(
+        %LiveView.Socket{} = socket,
+        %LiveView.UploadEntry{} = entry
+      ) do
     current_user = socket.assigns.current_user
 
     if entry.done? do
@@ -124,18 +127,26 @@ defmodule YscWeb.Uploads do
     end
   end
 
-  defp update_after_consume(socket, key, path, update) when is_function(update, 2) do
+  defp update_after_consume(socket, key, path, update)
+       when is_function(update, 2) do
     Phoenix.Component.update(socket, key, &update.(path, &1))
   end
 
-  defp update_after_consume(socket, key, path, update) when is_function(update, 3) do
+  defp update_after_consume(socket, key, path, update)
+       when is_function(update, 3) do
     Phoenix.Component.update(socket, key, &update.(path, &1, &2))
   end
 
   @doc false
   def consume_entry(%{path: path} = _details, _params, current_user) do
     # Validate file MIME type before processing
-    case FileValidator.validate_image(path, [".jpg", ".jpeg", ".png", ".gif", ".webp"]) do
+    case FileValidator.validate_image(path, [
+           ".jpg",
+           ".jpeg",
+           ".png",
+           ".gif",
+           ".webp"
+         ]) do
       {:ok, _mime_type} ->
         :ok
 

@@ -20,9 +20,23 @@ defmodule Ysc.Bookings.PricingRuleCache do
 
   Returns the pricing rule or nil if not found.
   """
-  def get(property, season_id, room_id, room_category_id, booking_mode, price_unit) do
+  def get(
+        property,
+        season_id,
+        room_id,
+        room_category_id,
+        booking_mode,
+        price_unit
+      ) do
     cache_key =
-      build_cache_key(property, season_id, room_id, room_category_id, booking_mode, price_unit)
+      build_cache_key(
+        property,
+        season_id,
+        room_id,
+        room_category_id,
+        booking_mode,
+        price_unit
+      )
 
     case Cachex.get(@cache_name, cache_key) do
       {:ok, nil} ->
@@ -88,7 +102,14 @@ defmodule Ysc.Bookings.PricingRuleCache do
 
   Returns the pricing rule or nil if not found.
   """
-  def get_children(property, season_id, room_id, room_category_id, booking_mode, price_unit) do
+  def get_children(
+        property,
+        season_id,
+        room_id,
+        room_category_id,
+        booking_mode,
+        price_unit
+      ) do
     cache_key =
       build_cache_key(
         property,

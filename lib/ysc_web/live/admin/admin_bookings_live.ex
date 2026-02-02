@@ -51,7 +51,9 @@ defmodule YscWeb.AdminBookingsLive do
         show
       >
         <.header>
-          <%= if @live_action == :new_blackout, do: "New Blackout", else: "Edit Blackout" %>
+          <%= if @live_action == :new_blackout,
+            do: "New Blackout",
+            else: "Edit Blackout" %>
         </.header>
 
         <.simple_form
@@ -74,9 +76,19 @@ defmodule YscWeb.AdminBookingsLive do
             required
           />
 
-          <.input type="date" field={@blackout_form[:start_date]} label="Start Date" required />
+          <.input
+            type="date"
+            field={@blackout_form[:start_date]}
+            label="Start Date"
+            required
+          />
 
-          <.input type="date" field={@blackout_form[:end_date]} label="End Date" required />
+          <.input
+            type="date"
+            field={@blackout_form[:end_date]}
+            label="End Date"
+            required
+          />
 
           <:actions>
             <div class="flex justify-between w-full">
@@ -104,7 +116,9 @@ defmodule YscWeb.AdminBookingsLive do
                 <.button
                   type="submit"
                   phx-disable-with={
-                    if @live_action == :new_blackout, do: "Creating...", else: "Updating..."
+                    if @live_action == :new_blackout,
+                      do: "Creating...",
+                      else: "Updating..."
                   }
                 >
                   <%= if @live_action == :new_blackout, do: "Create", else: "Update" %>
@@ -134,7 +148,9 @@ defmodule YscWeb.AdminBookingsLive do
         show
       >
         <.header>
-          <%= if @live_action == :new_pricing_rule, do: "New Pricing Rule", else: "Edit Pricing Rule" %>
+          <%= if @live_action == :new_pricing_rule,
+            do: "New Pricing Rule",
+            else: "Edit Pricing Rule" %>
         </.header>
 
         <.simple_form
@@ -143,7 +159,11 @@ defmodule YscWeb.AdminBookingsLive do
           phx-submit="save-pricing-rule"
           phx-change="validate-pricing-rule"
         >
-          <.input type="hidden" field={@form[:property]} value={Atom.to_string(@selected_property)} />
+          <.input
+            type="hidden"
+            field={@form[:property]}
+            value={Atom.to_string(@selected_property)}
+          />
 
           <.input
             type="select"
@@ -232,7 +252,9 @@ defmodule YscWeb.AdminBookingsLive do
             <.button
               type="submit"
               phx-disable-with={
-                if @live_action == :new_pricing_rule, do: "Creating...", else: "Updating..."
+                if @live_action == :new_pricing_rule,
+                  do: "Creating...",
+                  else: "Updating..."
               }
             >
               <%= if @live_action == :new_pricing_rule, do: "Create", else: "Update" %>
@@ -244,7 +266,11 @@ defmodule YscWeb.AdminBookingsLive do
       <.modal
         :if={@live_action == :edit_season}
         id="season-modal"
-        on_cancel={JS.navigate(~p"/admin/bookings?property=#{@selected_property}&section=config")}
+        on_cancel={
+          JS.navigate(
+            ~p"/admin/bookings?property=#{@selected_property}&section=config"
+          )
+        }
         show
       >
         <.header>
@@ -283,9 +309,19 @@ defmodule YscWeb.AdminBookingsLive do
             required
           />
 
-          <.input type="date" field={@season_form[:start_date]} label="Start Date" required />
+          <.input
+            type="date"
+            field={@season_form[:start_date]}
+            label="Start Date"
+            required
+          />
 
-          <.input type="date" field={@season_form[:end_date]} label="End Date" required />
+          <.input
+            type="date"
+            field={@season_form[:end_date]}
+            label="End Date"
+            required
+          />
 
           <.input
             type="number"
@@ -311,7 +347,11 @@ defmodule YscWeb.AdminBookingsLive do
             </p>
           </.input>
 
-          <.input type="checkbox" field={@season_form[:is_default]} label="Default Season">
+          <.input
+            type="checkbox"
+            field={@season_form[:is_default]}
+            label="Default Season"
+          >
             <p class="text-xs text-zinc-500 mt-1">
               Only one default season allowed per property
             </p>
@@ -322,11 +362,15 @@ defmodule YscWeb.AdminBookingsLive do
               <div></div>
               <div class="flex gap-2">
                 <.button phx-click={
-                  JS.navigate(~p"/admin/bookings?property=#{@selected_property}&section=config")
+                  JS.navigate(
+                    ~p"/admin/bookings?property=#{@selected_property}&section=config"
+                  )
                 }>
                   Cancel
                 </.button>
-                <.button type="submit" phx-disable-with="Updating...">Update</.button>
+                <.button type="submit" phx-disable-with="Updating...">
+                  Update
+                </.button>
               </div>
             </div>
           </:actions>
@@ -353,7 +397,9 @@ defmodule YscWeb.AdminBookingsLive do
             </p>
             <p class="text-sm text-zinc-600 mb-2">
               <span class="font-medium">Policy Refund Amount:</span>
-              <%= MoneyHelper.format_money!(@selected_pending_refund.policy_refund_amount) %>
+              <%= MoneyHelper.format_money!(
+                @selected_pending_refund.policy_refund_amount
+              ) %>
             </p>
             <p class="text-xs text-zinc-500">
               You can approve a different amount than the policy amount if needed.
@@ -364,7 +410,11 @@ defmodule YscWeb.AdminBookingsLive do
             type="text"
             name="approve_refund[admin_refund_amount]"
             label="Refund Amount"
-            placeholder={MoneyHelper.format_money!(@selected_pending_refund.policy_refund_amount)}
+            placeholder={
+              MoneyHelper.format_money!(
+                @selected_pending_refund.policy_refund_amount
+              )
+            }
             id="admin_refund_amount_input"
             phx-hook="MoneyInput"
             value=""
@@ -383,7 +433,9 @@ defmodule YscWeb.AdminBookingsLive do
 
           <:actions>
             <div class="flex justify-end gap-2">
-              <.button phx-click="close-approve-refund-modal" type="button">Cancel</.button>
+              <.button phx-click="close-approve-refund-modal" type="button">
+                Cancel
+              </.button>
               <.button
                 type="submit"
                 phx-disable-with="Approving..."
@@ -404,11 +456,17 @@ defmodule YscWeb.AdminBookingsLive do
       >
         <.header>Reject Refund</.header>
 
-        <.simple_form for={@reject_refund_form} id="reject-refund-form" phx-submit="reject-refund">
+        <.simple_form
+          for={@reject_refund_form}
+          id="reject-refund-form"
+          phx-submit="reject-refund"
+        >
           <div class="mb-4 p-4 bg-red-50 rounded border border-red-200">
             <p class="text-sm text-red-800 mb-2">
               <span class="font-medium">Policy Refund Amount:</span>
-              <%= MoneyHelper.format_money!(@selected_pending_refund.policy_refund_amount) %>
+              <%= MoneyHelper.format_money!(
+                @selected_pending_refund.policy_refund_amount
+              ) %>
             </p>
             <p class="text-xs text-red-600">
               This refund will be rejected and no payment will be processed.
@@ -427,7 +485,9 @@ defmodule YscWeb.AdminBookingsLive do
 
           <:actions>
             <div class="flex justify-end gap-2">
-              <.button phx-click="close-reject-refund-modal" type="button">Cancel</.button>
+              <.button phx-click="close-reject-refund-modal" type="button">
+                Cancel
+              </.button>
               <.button type="submit" phx-disable-with="Rejecting..." color="red">
                 Reject Refund
               </.button>
@@ -449,7 +509,9 @@ defmodule YscWeb.AdminBookingsLive do
         <div :if={@booking} class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">Guest</label>
+              <label class="block text-sm font-semibold text-zinc-700 mb-1">
+                Guest
+              </label>
               <p class="text-sm text-zinc-900">
                 <%= if @booking.user do
                   if @booking.user.first_name && @booking.user.last_name do
@@ -461,61 +523,80 @@ defmodule YscWeb.AdminBookingsLive do
                   "Unknown User"
                 end %>
               </p>
-              <p :if={@booking.user && @booking.user.email} class="text-xs text-zinc-500 mt-1">
+              <p
+                :if={@booking.user && @booking.user.email}
+                class="text-xs text-zinc-500 mt-1"
+              >
                 <%= @booking.user.email %>
               </p>
             </div>
 
             <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">Property</label>
+              <label class="block text-sm font-semibold text-zinc-700 mb-1">
+                Property
+              </label>
               <p class="text-sm text-zinc-900">
                 <%= atom_to_readable(@booking.property) %>
               </p>
             </div>
 
             <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">Check-in Date</label>
+              <label class="block text-sm font-semibold text-zinc-700 mb-1">
+                Check-in Date
+              </label>
               <p class="text-sm text-zinc-900">
                 <%= Calendar.strftime(@booking.checkin_date, "%B %d, %Y") %>
               </p>
             </div>
 
             <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">Check-out Date</label>
+              <label class="block text-sm font-semibold text-zinc-700 mb-1">
+                Check-out Date
+              </label>
               <p class="text-sm text-zinc-900">
                 <%= Calendar.strftime(@booking.checkout_date, "%B %d, %Y") %>
               </p>
             </div>
 
             <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">Number of Nights</label>
+              <label class="block text-sm font-semibold text-zinc-700 mb-1">
+                Number of Nights
+              </label>
               <p class="text-sm text-zinc-900">
                 <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
               </p>
             </div>
 
             <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">Guests</label>
+              <label class="block text-sm font-semibold text-zinc-700 mb-1">
+                Guests
+              </label>
               <p class="text-sm text-zinc-900">
                 <%= @booking.guests_count %>
               </p>
             </div>
 
             <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">Booking Mode</label>
+              <label class="block text-sm font-semibold text-zinc-700 mb-1">
+                Booking Mode
+              </label>
               <p class="text-sm text-zinc-900">
                 <%= atom_to_readable(@booking.booking_mode) %>
               </p>
             </div>
 
             <div :if={@booking.inserted_at}>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">Date Booked</label>
+              <label class="block text-sm font-semibold text-zinc-700 mb-1">
+                Date Booked
+              </label>
               <p class="text-sm text-zinc-900">
                 <%= format_datetime(@booking.inserted_at, @timezone) %>
               </p>
             </div>
 
-            <div :if={Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0}>
+            <div :if={
+              Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0
+            }>
               <label class="block text-sm font-semibold text-zinc-700 mb-1">
                 <%= if length(@booking.rooms) == 1, do: "Room", else: "Rooms" %>
               </label>
@@ -557,13 +638,22 @@ defmodule YscWeb.AdminBookingsLive do
                       <p class="text-sm text-zinc-600">
                         <%= MoneyHelper.format_money!(payment.amount) %>
                       </p>
-                      <p :if={payment.payment_date} class="text-xs text-zinc-500 mt-1">
+                      <p
+                        :if={payment.payment_date}
+                        class="text-xs text-zinc-500 mt-1"
+                      >
                         <%= format_datetime(payment.payment_date, @timezone) %>
                       </p>
-                      <p :if={payment.external_payment_id} class="text-xs text-zinc-500 mt-1">
+                      <p
+                        :if={payment.external_payment_id}
+                        class="text-xs text-zinc-500 mt-1"
+                      >
                         Stripe: <%= String.slice(payment.external_payment_id, 0, 20) %>...
                       </p>
-                      <p :if={payment.quickbooks_sales_receipt_id} class="text-xs text-green-600 mt-1">
+                      <p
+                        :if={payment.quickbooks_sales_receipt_id}
+                        class="text-xs text-green-600 mt-1"
+                      >
                         QuickBooks: <%= payment.quickbooks_sales_receipt_id %>
                       </p>
                     </div>
@@ -607,10 +697,16 @@ defmodule YscWeb.AdminBookingsLive do
                       <p :if={refund.inserted_at} class="text-xs text-zinc-500 mt-1">
                         <%= format_datetime(refund.inserted_at, @timezone) %>
                       </p>
-                      <p :if={refund.external_refund_id} class="text-xs text-zinc-500 mt-1">
+                      <p
+                        :if={refund.external_refund_id}
+                        class="text-xs text-zinc-500 mt-1"
+                      >
                         Stripe: <%= String.slice(refund.external_refund_id, 0, 20) %>...
                       </p>
-                      <p :if={refund.quickbooks_sales_receipt_id} class="text-xs text-green-600 mt-1">
+                      <p
+                        :if={refund.quickbooks_sales_receipt_id}
+                        class="text-xs text-green-600 mt-1"
+                      >
                         QuickBooks: <%= refund.quickbooks_sales_receipt_id %>
                       </p>
                     </div>
@@ -624,16 +720,23 @@ defmodule YscWeb.AdminBookingsLive do
           </div>
           <!-- Check-in Section -->
           <div class="pt-4 border-t border-zinc-200">
-            <h3 class="text-sm font-semibold text-zinc-700 mb-3">Check-in Details</h3>
+            <h3 class="text-sm font-semibold text-zinc-700 mb-3">
+              Check-in Details
+            </h3>
             <div
-              :if={Ecto.assoc_loaded?(@booking.check_ins) && length(@booking.check_ins) > 0}
+              :if={
+                Ecto.assoc_loaded?(@booking.check_ins) &&
+                  length(@booking.check_ins) > 0
+              }
               class="space-y-3"
             >
               <%= for check_in <- @booking.check_ins do %>
                 <div class="bg-green-50 rounded-lg p-3 border border-green-200">
                   <div class="flex items-center gap-2 mb-2">
                     <.icon name="hero-check-circle" class="w-5 h-5 text-green-600" />
-                    <span class="text-sm font-semibold text-zinc-900">Checked In</span>
+                    <span class="text-sm font-semibold text-zinc-900">
+                      Checked In
+                    </span>
                   </div>
                   <div class="space-y-1 text-sm text-zinc-700">
                     <p>
@@ -660,14 +763,19 @@ defmodule YscWeb.AdminBookingsLive do
                         </div>
                       </div>
                     <% else %>
-                      <p class="text-xs text-zinc-500 mt-1">No vehicles registered</p>
+                      <p class="text-xs text-zinc-500 mt-1">
+                        No vehicles registered
+                      </p>
                     <% end %>
                   </div>
                 </div>
               <% end %>
             </div>
             <p
-              :if={!Ecto.assoc_loaded?(@booking.check_ins) || length(@booking.check_ins) == 0}
+              :if={
+                !Ecto.assoc_loaded?(@booking.check_ins) ||
+                  length(@booking.check_ins) == 0
+              }
               class="text-sm text-zinc-500"
             >
               No check-in recorded for this booking.
@@ -696,7 +804,10 @@ defmodule YscWeb.AdminBookingsLive do
               }
 
               query_string = URI.encode_query(query_params)
-              JS.navigate("/admin/bookings/bookings/#{@booking.id}/edit?#{query_string}")
+
+              JS.navigate(
+                "/admin/bookings/bookings/#{@booking.id}/edit?#{query_string}"
+              )
             }>
               <.icon name="hero-pencil" class="w-4 h-4 -mt-0.5" />
               <span class="ms-1">Edit</span>
@@ -737,7 +848,9 @@ defmodule YscWeb.AdminBookingsLive do
             <strong>Payment:</strong> <%= @primary_payment.reference_id %>
           </p>
           <p class="text-sm text-zinc-600 mb-2">
-            <strong>Amount:</strong> <%= MoneyHelper.format_money!(@primary_payment.amount) %>
+            <strong>Amount:</strong> <%= MoneyHelper.format_money!(
+              @primary_payment.amount
+            ) %>
           </p>
           <p class="text-sm text-zinc-600 mb-2">
             <strong>Booking:</strong> <%= @booking.reference_id || @booking.id %>
@@ -855,7 +968,11 @@ defmodule YscWeb.AdminBookingsLive do
             required
           />
 
-          <.input type="checkbox" field={@refund_policy_form[:is_active]} label="Active">
+          <.input
+            type="checkbox"
+            field={@refund_policy_form[:is_active]}
+            label="Active"
+          >
             <p class="text-xs text-zinc-500 mt-1">
               Only one active policy allowed per property/booking mode combination
             </p>
@@ -872,10 +989,14 @@ defmodule YscWeb.AdminBookingsLive do
             <.button
               type="submit"
               phx-disable-with={
-                if @live_action == :new_refund_policy, do: "Creating...", else: "Updating..."
+                if @live_action == :new_refund_policy,
+                  do: "Creating...",
+                  else: "Updating..."
               }
             >
-              <%= if @live_action == :new_refund_policy, do: "Create", else: "Update" %>
+              <%= if @live_action == :new_refund_policy,
+                do: "Create",
+                else: "Update" %>
             </.button>
           </:actions>
         </.simple_form>
@@ -917,7 +1038,10 @@ defmodule YscWeb.AdminBookingsLive do
           <!-- Existing Rules -->
           <div class="mb-6">
             <h3 class="text-md font-semibold text-zinc-800 mb-3">Current Rules</h3>
-            <div :if={@refund_policy_rules == []} class="text-sm text-zinc-500 italic py-4">
+            <div
+              :if={@refund_policy_rules == []}
+              class="text-sm text-zinc-500 italic py-4"
+            >
               No rules configured. Add a rule below.
             </div>
             <div :if={@refund_policy_rules != []} class="space-y-2">
@@ -1005,7 +1129,9 @@ defmodule YscWeb.AdminBookingsLive do
               </.input>
 
               <:actions>
-                <.button type="submit" phx-disable-with="Adding...">Add Rule</.button>
+                <.button type="submit" phx-disable-with="Adding...">
+                  Add Rule
+                </.button>
               </:actions>
             </.simple_form>
           </div>
@@ -1049,7 +1175,9 @@ defmodule YscWeb.AdminBookingsLive do
         show
       >
         <.header>
-          <%= if @live_action == :new_booking, do: "New Booking", else: "Edit Booking" %>
+          <%= if @live_action == :new_booking,
+            do: "New Booking",
+            else: "Edit Booking" %>
         </.header>
 
         <div
@@ -1092,9 +1220,19 @@ defmodule YscWeb.AdminBookingsLive do
             required
           />
 
-          <.input type="date" field={@booking_form[:checkin_date]} label="Check-in Date" required />
+          <.input
+            type="date"
+            field={@booking_form[:checkin_date]}
+            label="Check-in Date"
+            required
+          />
 
-          <.input type="date" field={@booking_form[:checkout_date]} label="Check-out Date" required />
+          <.input
+            type="date"
+            field={@booking_form[:checkout_date]}
+            label="Check-out Date"
+            required
+          />
 
           <.input
             type="number"
@@ -1141,7 +1279,12 @@ defmodule YscWeb.AdminBookingsLive do
             value="room"
           />
 
-          <input :if={@booking_type == :buyout} type="hidden" name="booking[room_id]" value="" />
+          <input
+            :if={@booking_type == :buyout}
+            type="hidden"
+            name="booking[room_id]"
+            value=""
+          />
 
           <.input
             :if={@booking_type == :buyout}
@@ -1176,10 +1319,14 @@ defmodule YscWeb.AdminBookingsLive do
                 <.button
                   type="submit"
                   phx-disable-with={
-                    if @live_action == :new_booking, do: "Creating...", else: "Updating..."
+                    if @live_action == :new_booking,
+                      do: "Creating...",
+                      else: "Updating..."
                   }
                 >
-                  <%= if @live_action == :new_booking, do: "Create Booking", else: "Update Booking" %>
+                  <%= if @live_action == :new_booking,
+                    do: "Create Booking",
+                    else: "Update Booking" %>
                 </.button>
               </div>
             </div>
@@ -1296,7 +1443,11 @@ defmodule YscWeb.AdminBookingsLive do
             />
           </div>
 
-          <.input type="checkbox" field={@room_form[:is_single_bed]} label="Single Bed Room">
+          <.input
+            type="checkbox"
+            field={@room_form[:is_single_bed]}
+            label="Single Bed Room"
+          >
             <p class="text-xs text-zinc-500 mt-1">
               Check if this room has only a single bed (max 1 person)
             </p>
@@ -1309,12 +1460,15 @@ defmodule YscWeb.AdminBookingsLive do
           </.input>
           <!-- Image Selection -->
           <div class="space-y-2">
-            <label class="block text-sm font-semibold text-zinc-700">Display Image</label>
+            <label class="block text-sm font-semibold text-zinc-700">
+              Display Image
+            </label>
             <div :if={@selected_room_image} class="mb-4">
               <div class="relative inline-block">
                 <img
                   src={
-                    @selected_room_image.thumbnail_path || @selected_room_image.optimized_image_path ||
+                    @selected_room_image.thumbnail_path ||
+                      @selected_room_image.optimized_image_path ||
                       @selected_room_image.raw_image_path
                   }
                   alt={@selected_room_image.title || "Selected image"}
@@ -1383,7 +1537,8 @@ defmodule YscWeb.AdminBookingsLive do
                       >
                         <img
                           src={
-                            image.thumbnail_path || image.optimized_image_path || image.raw_image_path
+                            image.thumbnail_path || image.optimized_image_path ||
+                              image.raw_image_path
                           }
                           alt={image.title || "Image"}
                           class="w-full h-full object-cover"
@@ -1463,7 +1618,9 @@ defmodule YscWeb.AdminBookingsLive do
                 <.button
                   type="submit"
                   phx-disable-with={
-                    if @live_action == :new_room, do: "Creating...", else: "Updating..."
+                    if @live_action == :new_room,
+                      do: "Creating...",
+                      else: "Updating..."
                   }
                 >
                   <%= if @live_action == :new_room, do: "Create", else: "Update" %>
@@ -1482,28 +1639,36 @@ defmodule YscWeb.AdminBookingsLive do
       <!-- Property Tabs -->
       <div class="border-b border-zinc-200 mb-6">
         <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-          <.notification_badge count={@tahoe_pending_refunds_count} badge_color="red">
+          <.notification_badge
+            count={@tahoe_pending_refunds_count}
+            badge_color="red"
+          >
             <button
               phx-click={JS.navigate(~p"/admin/bookings?property=tahoe")}
               class={[
                 "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
                 if(@selected_property == :tahoe,
                   do: "border-blue-500 text-blue-600",
-                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                  else:
+                    "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
                 )
               ]}
             >
               Lake Tahoe
             </button>
           </.notification_badge>
-          <.notification_badge count={@clear_lake_pending_refunds_count} badge_color="red">
+          <.notification_badge
+            count={@clear_lake_pending_refunds_count}
+            badge_color="red"
+          >
             <button
               phx-click={JS.navigate(~p"/admin/bookings?property=clear_lake")}
               class={[
                 "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
                 if(@selected_property == :clear_lake,
                   do: "border-blue-500 text-blue-600",
-                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                  else:
+                    "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
                 )
               ]}
             >
@@ -1522,7 +1687,8 @@ defmodule YscWeb.AdminBookingsLive do
               "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
               if(@current_section == :calendar,
                 do: "border-blue-500 text-blue-600",
-                else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                else:
+                  "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
               )
             ]}
           >
@@ -1535,7 +1701,8 @@ defmodule YscWeb.AdminBookingsLive do
               "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
               if(@current_section == :reservations,
                 do: "border-blue-500 text-blue-600",
-                else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                else:
+                  "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
               )
             ]}
           >
@@ -1548,7 +1715,8 @@ defmodule YscWeb.AdminBookingsLive do
               "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
               if(@current_section == :config,
                 do: "border-blue-500 text-blue-600",
-                else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                else:
+                  "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
               )
             ]}
           >
@@ -1562,7 +1730,8 @@ defmodule YscWeb.AdminBookingsLive do
                 "whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors",
                 if(@current_section == :pending_refunds,
                   do: "border-blue-500 text-blue-600",
-                  else: "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
+                  else:
+                    "border-transparent text-zinc-500 hover:text-zinc-700 hover:border-zinc-300"
                 )
               ]}
             >
@@ -1629,14 +1798,22 @@ defmodule YscWeb.AdminBookingsLive do
                   <span class="hidden sm:inline">Today</span>
                   <span class="sm:hidden">Now</span>
                 </.button>
-                <.button phx-click="next-month" title="Next month" class="flex-1 sm:flex-none mt-2">
+                <.button
+                  phx-click="next-month"
+                  title="Next month"
+                  class="flex-1 sm:flex-none mt-2"
+                >
                   <.icon name="hero-arrow-right" class="w-5 h-5" />
                 </.button>
               </div>
             </div>
           </div>
 
-          <div class="flex relative" id="calendar-container" phx-hook="CalendarHover">
+          <div
+            class="flex relative"
+            id="calendar-container"
+            phx-hook="CalendarHover"
+          >
             <% total_days = length(@calendar_dates)
             total_cols = total_days * 2 %>
             <!-- Fixed Left Column: Row Titles -->
@@ -1648,7 +1825,8 @@ defmodule YscWeb.AdminBookingsLive do
               <!-- Available Slots Row Title (only for Clear Lake) -->
               <%= if @selected_property == :clear_lake do %>
                 <div class="border-b border-zinc-200 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 h-12 bg-white">
-                  <div class="h-2 w-2 rounded-full bg-purple-500 flex-shrink-0"></div>
+                  <div class="h-2 w-2 rounded-full bg-purple-500 flex-shrink-0">
+                  </div>
                   <div class="text-xs sm:text-sm font-medium text-zinc-800 truncate">
                     Available Slots
                   </div>
@@ -1657,12 +1835,16 @@ defmodule YscWeb.AdminBookingsLive do
               <!-- Blackouts Row Title -->
               <div class="border-b border-zinc-200 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 h-12 bg-white">
                 <div class="h-2 w-2 rounded-full bg-red-500 flex-shrink-0"></div>
-                <div class="text-xs sm:text-sm font-medium text-zinc-800 truncate">Blackouts</div>
+                <div class="text-xs sm:text-sm font-medium text-zinc-800 truncate">
+                  Blackouts
+                </div>
               </div>
               <!-- Full Buyout Row Title -->
               <div class="border-b border-zinc-200 flex items-center gap-1 sm:gap-2 px-2 sm:px-3 h-12 bg-white">
                 <div class="h-2 w-2 rounded-full bg-green-500 flex-shrink-0"></div>
-                <div class="text-xs sm:text-sm font-medium text-zinc-800 truncate">Full Buyout</div>
+                <div class="text-xs sm:text-sm font-medium text-zinc-800 truncate">
+                  Full Buyout
+                </div>
               </div>
               <!-- Room Row Titles -->
               <%= for room <- @filtered_rooms do %>
@@ -1670,7 +1852,10 @@ defmodule YscWeb.AdminBookingsLive do
                   <div class="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0"></div>
                   <div class="text-xs sm:text-sm font-medium text-zinc-800 truncate">
                     <%= room.name %>
-                    <span :if={room.room_category} class="text-xs text-zinc-500 hidden sm:inline">
+                    <span
+                      :if={room.room_category}
+                      class="text-xs text-zinc-500 hidden sm:inline"
+                    >
                       (<%= atom_to_readable(room.room_category.name) %>)
                     </span>
                   </div>
@@ -1746,13 +1931,21 @@ defmodule YscWeb.AdminBookingsLive do
                 <%= for i <- 0..(total_cols - 1) do %>
                   <% date = get_date_from_col(i, @calendar_dates) %>
                   <% is_selected_start =
-                    @date_selection_type == :blackout && @date_selection_start && date &&
+                    @date_selection_type == :blackout && @date_selection_start &&
+                      date &&
                       Date.compare(date, @date_selection_start) == :eq %>
                   <% hover_end =
-                    if @date_selection_type == :blackout, do: @date_selection_hover_end, else: nil %>
+                    if @date_selection_type == :blackout,
+                      do: @date_selection_hover_end,
+                      else: nil %>
                   <% is_in_range =
-                    @date_selection_type == :blackout && @date_selection_start && date &&
-                      date_selection_in_range?(date, @date_selection_start, hover_end) %>
+                    @date_selection_type == :blackout && @date_selection_start &&
+                      date &&
+                      date_selection_in_range?(
+                        date,
+                        @date_selection_start,
+                        hover_end
+                      ) %>
                   <% base_bg =
                     cond do
                       is_selected_start -> "bg-red-200"
@@ -1782,7 +1975,9 @@ defmodule YscWeb.AdminBookingsLive do
                   </div>
                 <% end %>
                 <%= for blackout <- @filtered_blackouts do
-                  raw(render_blackout_div(blackout, @calendar_start_date, total_days))
+                  raw(
+                    render_blackout_div(blackout, @calendar_start_date, total_days)
+                  )
                 end %>
               </div>
               <!-- Full Buyout Row -->
@@ -1796,10 +1991,16 @@ defmodule YscWeb.AdminBookingsLive do
                     @date_selection_type == :buyout && @date_selection_start && date &&
                       Date.compare(date, @date_selection_start) == :eq %>
                   <% hover_end =
-                    if @date_selection_type == :buyout, do: @date_selection_hover_end, else: nil %>
+                    if @date_selection_type == :buyout,
+                      do: @date_selection_hover_end,
+                      else: nil %>
                   <% is_in_range =
                     @date_selection_type == :buyout && @date_selection_start && date &&
-                      date_selection_in_range?(date, @date_selection_start, hover_end) %>
+                      date_selection_in_range?(
+                        date,
+                        @date_selection_start,
+                        hover_end
+                      ) %>
                   <% base_bg =
                     cond do
                       is_selected_start -> "bg-green-200"
@@ -1813,7 +2014,9 @@ defmodule YscWeb.AdminBookingsLive do
                     phx-click="select-date-buyout"
                     phx-value-date={if date, do: Date.to_string(date), else: ""}
                     data-date={if date, do: Date.to_string(date), else: ""}
-                    data-selection-type={if @date_selection_type == :buyout, do: "buyout", else: ""}
+                    data-selection-type={
+                      if @date_selection_type == :buyout, do: "buyout", else: ""
+                    }
                     title={
                       if date,
                         do: "Click to select date range for buyout booking",
@@ -1844,13 +2047,18 @@ defmodule YscWeb.AdminBookingsLive do
                         @date_selection_room_id == room_id_str && date &&
                         Date.compare(date, @date_selection_start) == :eq %>
                     <% hover_end =
-                      if @date_selection_type == :room && @date_selection_room_id == room_id_str,
-                        do: @date_selection_hover_end,
-                        else: nil %>
+                      if @date_selection_type == :room &&
+                           @date_selection_room_id == room_id_str,
+                         do: @date_selection_hover_end,
+                         else: nil %>
                     <% is_in_range =
                       @date_selection_type == :room && @date_selection_start &&
                         @date_selection_room_id == room_id_str && date &&
-                        date_selection_in_range?(date, @date_selection_start, hover_end) %>
+                        date_selection_in_range?(
+                          date,
+                          @date_selection_start,
+                          hover_end
+                        ) %>
                     <% base_bg =
                       cond do
                         is_selected_start -> "bg-blue-200"
@@ -1866,9 +2074,10 @@ defmodule YscWeb.AdminBookingsLive do
                       phx-value-room-id={room.id}
                       data-date={if date, do: Date.to_string(date), else: ""}
                       data-selection-type={
-                        if @date_selection_type == :room && @date_selection_room_id == room_id_str,
-                          do: "room",
-                          else: ""
+                        if @date_selection_type == :room &&
+                             @date_selection_room_id == room_id_str,
+                           do: "room",
+                           else: ""
                       }
                       data-room-id={room_id_str}
                       title={
@@ -1886,9 +2095,12 @@ defmodule YscWeb.AdminBookingsLive do
                   <%= for booking <-
                             @room_bookings
                             |> Enum.filter(fn b ->
-                              Ecto.assoc_loaded?(b.rooms) && Enum.any?(b.rooms, &(&1.id == room.id))
+                              Ecto.assoc_loaded?(b.rooms) &&
+                                Enum.any?(b.rooms, &(&1.id == room.id))
                             end) do
-                    raw(render_booking_div(booking, @calendar_start_date, total_days))
+                    raw(
+                      render_booking_div(booking, @calendar_start_date, total_days)
+                    )
                   end %>
                 </div>
               <% end %>
@@ -1905,7 +2117,9 @@ defmodule YscWeb.AdminBookingsLive do
                 All Reservations
               </h2>
               <p class="text-xs sm:text-sm text-zinc-500 mt-1">
-                Search and filter reservations for <%= atom_to_readable(@selected_property) %>
+                Search and filter reservations for <%= atom_to_readable(
+                  @selected_property
+                ) %>
               </p>
             </div>
           </div>
@@ -1998,10 +2212,14 @@ defmodule YscWeb.AdminBookingsLive do
                 </:col>
                 <:col :let={{_, booking}} label="Guests" field={:guests_count}>
                   <% adults_count = booking.guests_count
-                  total_guests = booking.guests_count + (booking.children_count || 0) %>
+
+                  total_guests =
+                    booking.guests_count + (booking.children_count || 0) %>
                   <div class="text-sm text-zinc-600">
                     <%= if adults_count > 0 do %>
-                      <%= adults_count %> <%= if adults_count == 1, do: "adult", else: "adults" %>
+                      <%= adults_count %> <%= if adults_count == 1,
+                        do: "adult",
+                        else: "adults" %>
                     <% end %>
                     <%= if (booking.children_count || 0) > 0 do %>
                       <%= if adults_count > 0, do: ", ", else: "" %><%= booking.children_count %> <%= if booking.children_count ==
@@ -2035,29 +2253,46 @@ defmodule YscWeb.AdminBookingsLive do
                       <% end %>
                     </div>
                   <% else %>
-                    <.badge type="green" class="whitespace-nowrap flex-shrink-0">Full Buyout</.badge>
+                    <.badge type="green" class="whitespace-nowrap flex-shrink-0">
+                      Full Buyout
+                    </.badge>
                   <% end %>
                 </:col>
                 <:col :let={{_, booking}} label="Status" field={:status}>
                   <%= case booking.status do %>
                     <% :draft -> %>
-                      <.badge type="dark" class="whitespace-nowrap flex-shrink-0">Draft</.badge>
+                      <.badge type="dark" class="whitespace-nowrap flex-shrink-0">
+                        Draft
+                      </.badge>
                     <% :hold -> %>
-                      <.badge type="yellow" class="whitespace-nowrap flex-shrink-0">Hold</.badge>
+                      <.badge type="yellow" class="whitespace-nowrap flex-shrink-0">
+                        Hold
+                      </.badge>
                     <% :complete -> %>
-                      <.badge type="green" class="whitespace-nowrap flex-shrink-0">Complete</.badge>
+                      <.badge type="green" class="whitespace-nowrap flex-shrink-0">
+                        Complete
+                      </.badge>
                     <% :refunded -> %>
-                      <.badge type="sky" class="whitespace-nowrap flex-shrink-0">Refunded</.badge>
+                      <.badge type="sky" class="whitespace-nowrap flex-shrink-0">
+                        Refunded
+                      </.badge>
                     <% :canceled -> %>
-                      <.badge type="red" class="whitespace-nowrap flex-shrink-0">Canceled</.badge>
+                      <.badge type="red" class="whitespace-nowrap flex-shrink-0">
+                        Canceled
+                      </.badge>
                     <% _ -> %>
-                      <.badge type="dark" class="whitespace-nowrap flex-shrink-0">—</.badge>
+                      <.badge type="dark" class="whitespace-nowrap flex-shrink-0">
+                        —
+                      </.badge>
                   <% end %>
                 </:col>
                 <:col :let={{_, booking}} label="Checked In">
                   <%= if Ecto.assoc_loaded?(booking.check_ins) && length(booking.check_ins) > 0 do %>
                     <div class="flex items-center gap-1.5">
-                      <.icon name="hero-check-circle" class="w-5 h-5 text-green-600" />
+                      <.icon
+                        name="hero-check-circle"
+                        class="w-5 h-5 text-green-600"
+                      />
                       <span class="text-sm text-green-700 font-medium">Yes</span>
                     </div>
                   <% else %>
@@ -2093,7 +2328,10 @@ defmodule YscWeb.AdminBookingsLive do
                         }
 
                         query_string = URI.encode_query(query_params)
-                        JS.navigate("/admin/bookings/bookings/#{booking.id}/edit?#{query_string}")
+
+                        JS.navigate(
+                          "/admin/bookings/bookings/#{booking.id}/edit?#{query_string}"
+                        )
                       }
                       class="text-blue-600 font-semibold hover:underline cursor-pointer text-sm whitespace-nowrap"
                     >
@@ -2123,7 +2361,8 @@ defmodule YscWeb.AdminBookingsLive do
                     class="rounded mx-auto hover:bg-zinc-100 w-36 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-100/80"
                     phx-click="clear-reservation-filters"
                   >
-                    <.icon name="hero-x-circle" class="w-5 h-5 -mt-1" /> Clear filters
+                    <.icon name="hero-x-circle" class="w-5 h-5 -mt-1" />
+                    Clear filters
                   </button>
                 </div>
               </div>
@@ -2132,7 +2371,9 @@ defmodule YscWeb.AdminBookingsLive do
                 meta={@reservation_meta}
                 path={~p"/admin/bookings"}
                 opts={[
-                  wrapper_attrs: [class: "flex items-center justify-center py-10 h-10 text-base"],
+                  wrapper_attrs: [
+                    class: "flex items-center justify-center py-10 h-10 text-base"
+                  ],
                   pagination_list_attrs: [
                     class: [
                       "flex gap-0 order-2 justify-center items-center"
@@ -2174,7 +2415,9 @@ defmodule YscWeb.AdminBookingsLive do
                     <div class="flex-1">
                       <div class="flex items-center gap-3 mb-2">
                         <.link
-                          navigate={~p"/admin/bookings/#{pending_refund.booking.id}"}
+                          navigate={
+                            ~p"/admin/bookings/#{pending_refund.booking.id}"
+                          }
                           class="font-semibold text-zinc-900 hover:text-blue-600"
                         >
                           Booking: <%= pending_refund.booking.reference_id %>
@@ -2186,11 +2429,17 @@ defmodule YscWeb.AdminBookingsLive do
                       <div class="text-sm text-zinc-600 space-y-1">
                         <div>
                           <span class="font-medium">Check-in:</span>
-                          <%= Calendar.strftime(pending_refund.booking.checkin_date, "%B %d, %Y") %>
+                          <%= Calendar.strftime(
+                            pending_refund.booking.checkin_date,
+                            "%B %d, %Y"
+                          ) %>
                         </div>
                         <div>
                           <span class="font-medium">Check-out:</span>
-                          <%= Calendar.strftime(pending_refund.booking.checkout_date, "%B %d, %Y") %>
+                          <%= Calendar.strftime(
+                            pending_refund.booking.checkout_date,
+                            "%B %d, %Y"
+                          ) %>
                         </div>
                         <div>
                           <span class="font-medium">User:</span>
@@ -2229,14 +2478,16 @@ defmodule YscWeb.AdminBookingsLive do
                       phx-value-id={pending_refund.id}
                       class="bg-green-600 hover:bg-green-700 text-white"
                     >
-                      <.icon name="hero-check" class="w-4 h-4 me-1" /> Approve Policy Amount
+                      <.icon name="hero-check" class="w-4 h-4 me-1" />
+                      Approve Policy Amount
                     </.button>
                     <.button
                       phx-click="show-approve-refund-modal"
                       phx-value-id={pending_refund.id}
                       class="bg-blue-600 hover:bg-blue-700 text-white"
                     >
-                      <.icon name="hero-pencil" class="w-4 h-4 me-1" /> Approve Custom Amount
+                      <.icon name="hero-pencil" class="w-4 h-4 me-1" />
+                      Approve Custom Amount
                     </.button>
                     <.button
                       phx-click="show-reject-refund-modal"
@@ -2268,22 +2519,32 @@ defmodule YscWeb.AdminBookingsLive do
           <div class="mb-6 p-4 bg-blue-50 rounded border border-blue-200">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-sm font-semibold text-zinc-700 mb-1">Current Active Code</p>
-                <p :if={@active_door_code} class="text-2xl font-mono font-bold text-blue-700">
+                <p class="text-sm font-semibold text-zinc-700 mb-1">
+                  Current Active Code
+                </p>
+                <p
+                  :if={@active_door_code}
+                  class="text-2xl font-mono font-bold text-blue-700"
+                >
                   <%= @active_door_code.code %>
                 </p>
                 <p :if={!@active_door_code} class="text-sm text-zinc-500 italic">
                   No active code set
                 </p>
                 <p :if={@active_door_code} class="text-xs text-zinc-500 mt-1">
-                  Active since <%= format_datetime(@active_door_code.active_from, @timezone) %>
+                  Active since <%= format_datetime(
+                    @active_door_code.active_from,
+                    @timezone
+                  ) %>
                 </p>
               </div>
             </div>
           </div>
           <!-- New Door Code Form -->
           <div class="mb-6">
-            <h3 class="text-md font-semibold text-zinc-800 mb-3">Set New Door Code</h3>
+            <h3 class="text-md font-semibold text-zinc-800 mb-3">
+              Set New Door Code
+            </h3>
             <.simple_form
               for={@door_code_form}
               id="door-code-form"
@@ -2321,7 +2582,10 @@ defmodule YscWeb.AdminBookingsLive do
               class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800"
             >
               <div class="flex items-start">
-                <.icon name="hero-exclamation-triangle" class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+                <.icon
+                  name="hero-exclamation-triangle"
+                  class="w-5 h-5 mr-2 flex-shrink-0 mt-0.5"
+                />
                 <div>
                   <p class="font-semibold mb-1">Warning: Code Reuse Detected</p>
                   <p><%= @door_code_warning %></p>
@@ -2331,7 +2595,9 @@ defmodule YscWeb.AdminBookingsLive do
           </div>
           <!-- Previous Door Codes List -->
           <div>
-            <h3 class="text-md font-semibold text-zinc-800 mb-3">Previous Door Codes</h3>
+            <h3 class="text-md font-semibold text-zinc-800 mb-3">
+              Previous Door Codes
+            </h3>
             <div :if={@door_codes == []} class="text-sm text-zinc-500 italic py-4">
               No previous door codes
             </div>
@@ -2340,7 +2606,9 @@ defmodule YscWeb.AdminBookingsLive do
                 <thead class="text-left border-b border-zinc-200">
                   <tr>
                     <th class="pb-3 pr-6 font-semibold text-zinc-700">Code</th>
-                    <th class="pb-3 pr-6 font-semibold text-zinc-700">Active From</th>
+                    <th class="pb-3 pr-6 font-semibold text-zinc-700">
+                      Active From
+                    </th>
                     <th class="pb-3 pr-6 font-semibold text-zinc-700">Active To</th>
                     <th class="pb-3 font-semibold text-zinc-700">Status</th>
                   </tr>
@@ -2398,7 +2666,9 @@ defmodule YscWeb.AdminBookingsLive do
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Property</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Name</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Date Range</th>
-                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Advance Booking</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">
+                    Advance Booking
+                  </th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Max Nights</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Default</th>
                   <th class="pb-3 font-semibold text-zinc-700">Actions</th>
@@ -2424,7 +2694,8 @@ defmodule YscWeb.AdminBookingsLive do
                     end %>
                   </td>
                   <td class="py-3 pr-6 text-zinc-600">
-                    <%= if season.advance_booking_days && season.advance_booking_days > 0 do
+                    <%= if season.advance_booking_days &&
+                             season.advance_booking_days > 0 do
                       "#{season.advance_booking_days} days"
                     else
                       "No limit"
@@ -2442,7 +2713,10 @@ defmodule YscWeb.AdminBookingsLive do
                     end %>
                   </td>
                   <td class="py-3 pr-6">
-                    <span :if={season.is_default} class="text-xs font-semibold text-green-600">
+                    <span
+                      :if={season.is_default}
+                      class="text-xs font-semibold text-green-600"
+                    >
                       Default
                     </span>
                     <span :if={!season.is_default} class="text-zinc-400">—</span>
@@ -2494,7 +2768,9 @@ defmodule YscWeb.AdminBookingsLive do
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Price Unit</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Specificity</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Price</th>
-                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Children Price</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">
+                    Children Price
+                  </th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Season</th>
                   <th class="pb-3 font-semibold text-zinc-700">Actions</th>
                 </tr>
@@ -2588,7 +2864,9 @@ defmodule YscWeb.AdminBookingsLive do
               <thead class="text-left border-b border-zinc-200">
                 <tr>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Property</th>
-                  <th class="pb-3 pr-6 font-semibold text-zinc-700">Booking Mode</th>
+                  <th class="pb-3 pr-6 font-semibold text-zinc-700">
+                    Booking Mode
+                  </th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Name</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Rules</th>
                   <th class="pb-3 pr-6 font-semibold text-zinc-700">Status</th>
@@ -2596,7 +2874,10 @@ defmodule YscWeb.AdminBookingsLive do
                 </tr>
               </thead>
               <tbody class="divide-y divide-zinc-100">
-                <tr :for={policy <- @filtered_refund_policies} class="hover:bg-zinc-50">
+                <tr
+                  :for={policy <- @filtered_refund_policies}
+                  class="hover:bg-zinc-50"
+                >
                   <td class="py-3 pr-6">
                     <.badge type="sky">
                       <%= atom_to_readable(policy.property) %>
@@ -2614,10 +2895,16 @@ defmodule YscWeb.AdminBookingsLive do
                     <%= length(policy.rules || []) %> rule(s)
                   </td>
                   <td class="py-3 pr-6">
-                    <span :if={policy.is_active} class="text-xs font-semibold text-green-600">
+                    <span
+                      :if={policy.is_active}
+                      class="text-xs font-semibold text-green-600"
+                    >
                       Active
                     </span>
-                    <span :if={!policy.is_active} class="text-xs font-semibold text-zinc-400">
+                    <span
+                      :if={!policy.is_active}
+                      class="text-xs font-semibold text-zinc-400"
+                    >
                       Inactive
                     </span>
                   </td>
@@ -2699,7 +2986,8 @@ defmodule YscWeb.AdminBookingsLive do
                     >
                       <img
                         src={
-                          room.image.thumbnail_path || room.image.optimized_image_path ||
+                          room.image.thumbnail_path ||
+                            room.image.optimized_image_path ||
                             room.image.raw_image_path
                         }
                         alt={room.name}
@@ -2717,7 +3005,10 @@ defmodule YscWeb.AdminBookingsLive do
                     <div class="font-medium text-zinc-800">
                       <%= room.name %>
                     </div>
-                    <div :if={room.description} class="text-xs text-zinc-500 mt-0.5 line-clamp-2">
+                    <div
+                      :if={room.description}
+                      class="text-xs text-zinc-500 mt-0.5 line-clamp-2"
+                    >
                       <%= room.description %>
                     </div>
                   </td>
@@ -2730,7 +3021,10 @@ defmodule YscWeb.AdminBookingsLive do
                   <td class="py-3 pr-6 text-zinc-600">
                     Max: <%= room.capacity_max %>
                     <span
-                      :if={room.min_billable_occupancy && room.min_billable_occupancy > 1}
+                      :if={
+                        room.min_billable_occupancy &&
+                          room.min_billable_occupancy > 1
+                      }
                       class="text-xs text-zinc-500"
                     >
                       <br />Min billable: <%= room.min_billable_occupancy %>
@@ -2739,7 +3033,8 @@ defmodule YscWeb.AdminBookingsLive do
                   <td class="py-3 pr-6 text-zinc-600 text-xs">
                     <%= if room.single_beds > 0 || room.queen_beds > 0 || room.king_beds > 0 do %>
                       <%= if room.single_beds > 0,
-                        do: "#{room.single_beds} Single#{if room.single_beds > 1, do: "s", else: ""}" %>
+                        do:
+                          "#{room.single_beds} Single#{if room.single_beds > 1, do: "s", else: ""}" %>
                       <%= if room.queen_beds > 0 do %>
                         <%= if room.single_beds > 0, do: ", " %><%= room.queen_beds %> Queen<%= if room.queen_beds >
                                                                                                      1,
@@ -2761,10 +3056,16 @@ defmodule YscWeb.AdminBookingsLive do
                     <% end %>
                   </td>
                   <td class="py-3 pr-6">
-                    <span :if={room.is_active} class="text-xs font-semibold text-green-600">
+                    <span
+                      :if={room.is_active}
+                      class="text-xs font-semibold text-green-600"
+                    >
                       Active
                     </span>
-                    <span :if={!room.is_active} class="text-xs font-semibold text-zinc-400">
+                    <span
+                      :if={!room.is_active}
+                      class="text-xs font-semibold text-zinc-400"
+                    >
                       Inactive
                     </span>
                   </td>
@@ -2783,7 +3084,10 @@ defmodule YscWeb.AdminBookingsLive do
                 </tr>
               </tbody>
             </table>
-            <div :if={@filtered_rooms == []} class="text-sm text-zinc-500 italic py-4 text-center">
+            <div
+              :if={@filtered_rooms == []}
+              class="text-sm text-zinc-500 italic py-4 text-center"
+            >
               No rooms configured
             </div>
           </div>
@@ -2990,7 +3294,12 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:refund_policies, refund_policies)
      |> assign(:door_codes, door_codes)
      |> assign(:active_door_code, active_door_code)
-     |> assign_filtered_data(selected_property, seasons, pricing_rules, refund_policies)
+     |> assign_filtered_data(
+       selected_property,
+       seasons,
+       pricing_rules,
+       refund_policies
+     )
      |> update_calendar_view(selected_property)}
   end
 
@@ -3039,7 +3348,8 @@ defmodule YscWeb.AdminBookingsLive do
           rescue
             _error ->
               # Fallback to existing dates or default
-              if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+              if socket.assigns[:calendar_start_date] &&
+                   socket.assigns[:calendar_end_date] do
                 {socket, false}
               else
                 {start_date, end_date} = default_date_range()
@@ -3053,7 +3363,8 @@ defmodule YscWeb.AdminBookingsLive do
               end
           end
 
-        socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] ->
+        socket.assigns[:calendar_start_date] &&
+            socket.assigns[:calendar_end_date] ->
           {socket, false}
 
         true ->
@@ -3105,7 +3416,8 @@ defmodule YscWeb.AdminBookingsLive do
 
     # Update calendar view only if dates or property changed (avoid duplicate queries on initial mount)
     socket =
-      if (dates_changed || property_changed) && socket.assigns.live_action == :index do
+      if (dates_changed || property_changed) &&
+           socket.assigns.live_action == :index do
         update_calendar_view(socket, socket.assigns.selected_property)
       else
         socket
@@ -3141,7 +3453,8 @@ defmodule YscWeb.AdminBookingsLive do
       end
 
     # Load pending refunds counts per property for tab badges (parallelize with property count)
-    property_counts_task = Task.async(fn -> load_property_pending_refunds_counts_data() end)
+    property_counts_task =
+      Task.async(fn -> load_property_pending_refunds_counts_data() end)
 
     # Load full pending refunds list if on that section
     socket =
@@ -3156,13 +3469,21 @@ defmodule YscWeb.AdminBookingsLive do
 
     socket =
       socket
-      |> assign(:tahoe_pending_refunds_count, Map.get(property_counts, :tahoe, 0))
-      |> assign(:clear_lake_pending_refunds_count, Map.get(property_counts, :clear_lake, 0))
+      |> assign(
+        :tahoe_pending_refunds_count,
+        Map.get(property_counts, :tahoe, 0)
+      )
+      |> assign(
+        :clear_lake_pending_refunds_count,
+        Map.get(property_counts, :clear_lake, 0)
+      )
 
     # Await property-specific count if needed
     socket =
       if pending_refunds_count_task do
-        pending_refunds_count = Task.await(pending_refunds_count_task, :infinity)
+        pending_refunds_count =
+          Task.await(pending_refunds_count_task, :infinity)
+
         assign(socket, :pending_refunds_count, pending_refunds_count)
       else
         socket
@@ -3207,7 +3528,8 @@ defmodule YscWeb.AdminBookingsLive do
       # Check if key looks like a query string (contains & and =)
       # Also check if value is empty string (which indicates malformed param)
       cond do
-        is_binary(key) && String.contains?(key, "&") && String.contains?(key, "=") ->
+        is_binary(key) && String.contains?(key, "&") &&
+            String.contains?(key, "=") ->
           # This looks like a malformed query string
           key
 
@@ -3360,7 +3682,8 @@ defmodule YscWeb.AdminBookingsLive do
 
     # Calendar dates should already be set from handle_params, but ensure they're preserved
     socket =
-      if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+      if socket.assigns[:calendar_start_date] &&
+           socket.assigns[:calendar_end_date] do
         socket
       else
         # Fallback to current month if dates aren't set
@@ -3383,7 +3706,11 @@ defmodule YscWeb.AdminBookingsLive do
     booking = Bookings.get_booking!(id)
 
     booking =
-      Ysc.Repo.preload(booking, [:user, rooms: :room_category, check_ins: :check_in_vehicles])
+      Ysc.Repo.preload(booking, [
+        :user,
+        rooms: :room_category,
+        check_ins: :check_in_vehicles
+      ])
 
     # Ensure selected_property matches the booking's property
     socket =
@@ -3395,7 +3722,8 @@ defmodule YscWeb.AdminBookingsLive do
 
     # Calendar dates should already be set from handle_params, but ensure they're preserved
     socket =
-      if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+      if socket.assigns[:calendar_start_date] &&
+           socket.assigns[:calendar_end_date] do
         socket
       else
         # Fallback to current month if dates aren't set
@@ -3418,7 +3746,8 @@ defmodule YscWeb.AdminBookingsLive do
     # Initialize refund form if there's a payment
     refund_form =
       if primary_payment do
-        {%{}, %{amount: :string, reason: :string, release_availability: :boolean}}
+        {%{},
+         %{amount: :string, reason: :string, release_availability: :boolean}}
         |> Ecto.Changeset.cast(%{}, [:amount, :reason, :release_availability])
         |> to_form(as: "refund")
       else
@@ -3740,13 +4069,18 @@ defmodule YscWeb.AdminBookingsLive do
      |> update_calendar_view(property_atom)}
   end
 
-  def handle_event("validate-blackout", %{"blackout" => blackout_params}, socket) do
+  def handle_event(
+        "validate-blackout",
+        %{"blackout" => blackout_params},
+        socket
+      ) do
     changeset =
       (socket.assigns.blackout || %Ysc.Bookings.Blackout{})
       |> Ysc.Bookings.Blackout.changeset(blackout_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :blackout_form, to_form(changeset, as: "blackout"))}
+    {:noreply,
+     assign(socket, :blackout_form, to_form(changeset, as: "blackout"))}
   end
 
   def handle_event("save-blackout", %{"blackout" => blackout_params}, socket) do
@@ -3772,7 +4106,8 @@ defmodule YscWeb.AdminBookingsLive do
         query_params = %{property: socket.assigns.selected_property}
 
         query_params =
-          if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+          if socket.assigns[:calendar_start_date] &&
+               socket.assigns[:calendar_end_date] do
             Map.merge(query_params, %{
               from_date: Date.to_string(socket.assigns.calendar_start_date),
               to_date: Date.to_string(socket.assigns.calendar_end_date)
@@ -3784,11 +4119,14 @@ defmodule YscWeb.AdminBookingsLive do
         {:noreply,
          socket
          |> put_flash(:info, "Blackout saved successfully")
-         |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
+         |> push_navigate(
+           to: ~p"/admin/bookings?#{URI.encode_query(query_params)}"
+         )
          |> update_calendar_view(socket.assigns.selected_property)}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, :blackout_form, to_form(changeset, as: "blackout"))}
+        {:noreply,
+         assign(socket, :blackout_form, to_form(changeset, as: "blackout"))}
     end
   end
 
@@ -3800,7 +4138,8 @@ defmodule YscWeb.AdminBookingsLive do
     query_params = %{property: socket.assigns.selected_property}
 
     query_params =
-      if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+      if socket.assigns[:calendar_start_date] &&
+           socket.assigns[:calendar_end_date] do
         Map.merge(query_params, %{
           from_date: Date.to_string(socket.assigns.calendar_start_date),
           to_date: Date.to_string(socket.assigns.calendar_end_date)
@@ -3830,7 +4169,8 @@ defmodule YscWeb.AdminBookingsLive do
         query_params = %{property: socket.assigns.selected_property}
 
         query_params =
-          if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+          if socket.assigns[:calendar_start_date] &&
+               socket.assigns[:calendar_end_date] do
             Map.merge(query_params, %{
               from_date: Date.to_string(socket.assigns.calendar_start_date),
               to_date: Date.to_string(socket.assigns.calendar_end_date)
@@ -3840,7 +4180,9 @@ defmodule YscWeb.AdminBookingsLive do
           end
 
         socket
-        |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
+        |> push_navigate(
+          to: ~p"/admin/bookings?#{URI.encode_query(query_params)}"
+        )
         |> update_calendar_view(socket.assigns.selected_property)
       end
 
@@ -3849,8 +4191,11 @@ defmodule YscWeb.AdminBookingsLive do
 
   def handle_event("view-booking", %{"booking-id" => booking_id}, socket) do
     # Ensure we have valid dates before building query params
-    start_date = socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
-    end_date = socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
+    start_date =
+      socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
+
+    end_date =
+      socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
 
     # Start with base query params
     base_query_params = %{
@@ -3869,7 +4214,8 @@ defmodule YscWeb.AdminBookingsLive do
 
     # Preserve search and filter parameters from reservation_params if on reservations tab
     query_params =
-      if socket.assigns[:current_section] == :reservations && socket.assigns[:reservation_params] do
+      if socket.assigns[:current_section] == :reservations &&
+           socket.assigns[:reservation_params] do
         reservation_params = socket.assigns[:reservation_params]
 
         # Preserve search query if it exists
@@ -3888,14 +4234,22 @@ defmodule YscWeb.AdminBookingsLive do
 
             filter_map =
               if filter_params["filter_start_date"] do
-                Map.put(filter_map, "filter_start_date", filter_params["filter_start_date"])
+                Map.put(
+                  filter_map,
+                  "filter_start_date",
+                  filter_params["filter_start_date"]
+                )
               else
                 filter_map
               end
 
             filter_map =
               if filter_params["filter_end_date"] do
-                Map.put(filter_map, "filter_end_date", filter_params["filter_end_date"])
+                Map.put(
+                  filter_map,
+                  "filter_end_date",
+                  filter_params["filter_end_date"]
+                )
               else
                 filter_map
               end
@@ -3926,8 +4280,11 @@ defmodule YscWeb.AdminBookingsLive do
 
   def handle_event("view-blackout", %{"blackout-id" => blackout_id}, socket) do
     # Ensure we have valid dates before building query params
-    start_date = socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
-    end_date = socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
+    start_date =
+      socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
+
+    end_date =
+      socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
 
     query_params = [
       property: socket.assigns.selected_property,
@@ -3949,7 +4306,8 @@ defmodule YscWeb.AdminBookingsLive do
     date = Date.from_iso8601!(date_str)
 
     # If we already have a start date selected, this is the end date
-    if socket.assigns[:date_selection_type] == :blackout && socket.assigns[:date_selection_start] do
+    if socket.assigns[:date_selection_type] == :blackout &&
+         socket.assigns[:date_selection_start] do
       start_date_selected = socket.assigns.date_selection_start
       # Ensure end date is after start date
       {final_start, final_end} =
@@ -3960,8 +4318,11 @@ defmodule YscWeb.AdminBookingsLive do
         end
 
       # Navigate to form with date range
-      calendar_start = socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
-      calendar_end = socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
+      calendar_start =
+        socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
+
+      calendar_end =
+        socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
 
       query_params = [
         property: socket.assigns.selected_property,
@@ -3975,7 +4336,9 @@ defmodule YscWeb.AdminBookingsLive do
        socket
        |> assign(:date_selection_type, nil)
        |> assign(:date_selection_start, nil)
-       |> push_navigate(to: ~p"/admin/bookings/blackouts/new?#{URI.encode_query(query_params)}")}
+       |> push_navigate(
+         to: ~p"/admin/bookings/blackouts/new?#{URI.encode_query(query_params)}"
+       )}
     else
       # First click - set start date
       {:noreply,
@@ -3990,7 +4353,8 @@ defmodule YscWeb.AdminBookingsLive do
     date = Date.from_iso8601!(date_str)
 
     # If we already have a start date selected, this is the end date
-    if socket.assigns[:date_selection_type] == :buyout && socket.assigns[:date_selection_start] do
+    if socket.assigns[:date_selection_type] == :buyout &&
+         socket.assigns[:date_selection_start] do
       start_date_selected = socket.assigns.date_selection_start
       # Ensure end date is after start date
       {final_start, final_end} =
@@ -4001,8 +4365,11 @@ defmodule YscWeb.AdminBookingsLive do
         end
 
       # Navigate to form with date range
-      calendar_start = socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
-      calendar_end = socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
+      calendar_start =
+        socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
+
+      calendar_end =
+        socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
 
       query_params = [
         property: socket.assigns.selected_property,
@@ -4018,7 +4385,9 @@ defmodule YscWeb.AdminBookingsLive do
        |> assign(:date_selection_type, nil)
        |> assign(:date_selection_start, nil)
        |> assign(:date_selection_hover_end, nil)
-       |> push_navigate(to: ~p"/admin/bookings/bookings/new?#{URI.encode_query(query_params)}")}
+       |> push_navigate(
+         to: ~p"/admin/bookings/bookings/new?#{URI.encode_query(query_params)}"
+       )}
     else
       # First click - set start date
       {:noreply,
@@ -4029,7 +4398,11 @@ defmodule YscWeb.AdminBookingsLive do
     end
   end
 
-  def handle_event("select-date-room", %{"date" => date_str, "room-id" => room_id}, socket) do
+  def handle_event(
+        "select-date-room",
+        %{"date" => date_str, "room-id" => room_id},
+        socket
+      ) do
     date = Date.from_iso8601!(date_str)
 
     # If we already have a start date selected for this room, this is the end date
@@ -4046,8 +4419,11 @@ defmodule YscWeb.AdminBookingsLive do
         end
 
       # Navigate to form with date range
-      calendar_start = socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
-      calendar_end = socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
+      calendar_start =
+        socket.assigns[:calendar_start_date] || Date.add(Date.utc_today(), -2)
+
+      calendar_end =
+        socket.assigns[:calendar_end_date] || Date.add(Date.utc_today(), 14)
 
       query_params = [
         property: socket.assigns.selected_property,
@@ -4065,7 +4441,9 @@ defmodule YscWeb.AdminBookingsLive do
        |> assign(:date_selection_start, nil)
        |> assign(:date_selection_room_id, nil)
        |> assign(:date_selection_hover_end, nil)
-       |> push_navigate(to: ~p"/admin/bookings/bookings/new?#{URI.encode_query(query_params)}")}
+       |> push_navigate(
+         to: ~p"/admin/bookings/bookings/new?#{URI.encode_query(query_params)}"
+       )}
     else
       # First click - set start date and room
       {:noreply,
@@ -4090,12 +4468,17 @@ defmodule YscWeb.AdminBookingsLive do
   # Handle hover over calendar cells to show ghost preview
   def handle_event(
         "hover-date",
-        %{"date" => date_str, "selection_type" => selection_type, "room_id" => room_id},
+        %{
+          "date" => date_str,
+          "selection_type" => selection_type,
+          "room_id" => room_id
+        },
         socket
       ) do
     # Only show hover if we have a start date selected and the selection type matches
     if socket.assigns[:date_selection_type] &&
-         String.to_existing_atom(selection_type) == socket.assigns.date_selection_type &&
+         String.to_existing_atom(selection_type) ==
+           socket.assigns.date_selection_type &&
          (socket.assigns[:date_selection_type] != :room ||
             socket.assigns[:date_selection_room_id] == room_id) do
       date = Date.from_iso8601!(date_str)
@@ -4112,7 +4495,8 @@ defmodule YscWeb.AdminBookingsLive do
       ) do
     # For blackout and buyout (no room_id)
     if socket.assigns[:date_selection_type] &&
-         String.to_existing_atom(selection_type) == socket.assigns.date_selection_type do
+         String.to_existing_atom(selection_type) ==
+           socket.assigns.date_selection_type do
       date = Date.from_iso8601!(date_str)
       {:noreply, assign(socket, :date_selection_hover_end, date)}
     else
@@ -4139,7 +4523,8 @@ defmodule YscWeb.AdminBookingsLive do
     }
 
     query_params =
-      if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+      if socket.assigns[:calendar_start_date] &&
+           socket.assigns[:calendar_end_date] do
         Map.merge(query_params, %{
           "from_date" => Date.to_string(socket.assigns.calendar_start_date),
           "to_date" => Date.to_string(socket.assigns.calendar_end_date)
@@ -4169,14 +4554,22 @@ defmodule YscWeb.AdminBookingsLive do
 
             filter_map =
               if filter_params["filter_start_date"] do
-                Map.put(filter_map, "filter_start_date", filter_params["filter_start_date"])
+                Map.put(
+                  filter_map,
+                  "filter_start_date",
+                  filter_params["filter_start_date"]
+                )
               else
                 filter_map
               end
 
             filter_map =
               if filter_params["filter_end_date"] do
-                Map.put(filter_map, "filter_end_date", filter_params["filter_end_date"])
+                Map.put(
+                  filter_map,
+                  "filter_end_date",
+                  filter_params["filter_end_date"]
+                )
               else
                 filter_map
               end
@@ -4200,7 +4593,11 @@ defmodule YscWeb.AdminBookingsLive do
       |> assign(:current_section, section_atom)
       |> then(fn s ->
         if section_atom == :reservations do
-          assign(s, :reservations_path, build_reservations_path(s, query_params))
+          assign(
+            s,
+            :reservations_path,
+            build_reservations_path(s, query_params)
+          )
         else
           s
         end
@@ -4216,7 +4613,12 @@ defmodule YscWeb.AdminBookingsLive do
   def handle_event("approve-refund", %{"id" => id}, socket) do
     pending_refund = Bookings.get_pending_refund!(id)
 
-    case Bookings.approve_pending_refund(pending_refund, nil, nil, socket.assigns.current_user) do
+    case Bookings.approve_pending_refund(
+           pending_refund,
+           nil,
+           nil,
+           socket.assigns.current_user
+         ) do
       {:ok, _updated_refund, _stripe_refund_id} ->
         {:noreply,
          socket
@@ -4262,7 +4664,11 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:reject_refund_form, form)}
   end
 
-  def handle_event("approve-refund-custom", %{"approve_refund" => params}, socket) do
+  def handle_event(
+        "approve-refund-custom",
+        %{"approve_refund" => params},
+        socket
+      ) do
     pending_refund = socket.assigns.selected_pending_refund
 
     # Parse custom refund amount
@@ -4299,7 +4705,11 @@ defmodule YscWeb.AdminBookingsLive do
     pending_refund = socket.assigns.selected_pending_refund
     admin_notes = params["admin_notes"]
 
-    case Bookings.reject_pending_refund(pending_refund, admin_notes, socket.assigns.current_user) do
+    case Bookings.reject_pending_refund(
+           pending_refund,
+           admin_notes,
+           socket.assigns.current_user
+         ) do
       {:ok, _updated_refund} ->
         {:noreply,
          socket
@@ -4358,7 +4768,11 @@ defmodule YscWeb.AdminBookingsLive do
     {:noreply, assign(socket, :show_refund_modal, false)}
   end
 
-  def handle_event("process-booking-refund", %{"refund" => refund_params}, socket) do
+  def handle_event(
+        "process-booking-refund",
+        %{"refund" => refund_params},
+        socket
+      ) do
     booking = socket.assigns.booking
     primary_payment = socket.assigns.primary_payment
 
@@ -4375,7 +4789,8 @@ defmodule YscWeb.AdminBookingsLive do
 
       # Process refund via Stripe first, then ledger
       result =
-        if primary_payment.external_payment_id && primary_payment.external_provider == :stripe do
+        if primary_payment.external_payment_id &&
+             primary_payment.external_provider == :stripe do
           # Use the same create_stripe_refund approach as approve_pending_refund
           case Bookings.create_stripe_refund_for_admin(
                  primary_payment.external_payment_id,
@@ -4409,7 +4824,8 @@ defmodule YscWeb.AdminBookingsLive do
           query_params = %{property: socket.assigns.selected_property}
 
           query_params =
-            if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+            if socket.assigns[:calendar_start_date] &&
+                 socket.assigns[:calendar_end_date] do
               Map.merge(query_params, %{
                 from_date: Date.to_string(socket.assigns.calendar_start_date),
                 to_date: Date.to_string(socket.assigns.calendar_end_date)
@@ -4422,29 +4838,50 @@ defmodule YscWeb.AdminBookingsLive do
            socket
            |> put_flash(:info, "Refund processed successfully")
            |> assign(:show_refund_modal, false)
-           |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
+           |> push_navigate(
+             to: ~p"/admin/bookings?#{URI.encode_query(query_params)}"
+           )
            |> update_calendar_view(socket.assigns.selected_property)}
 
         {:error, {:already_processed, _, _}} ->
-          {:noreply, put_flash(socket, :error, "Refund has already been processed.")}
+          {:noreply,
+           put_flash(socket, :error, "Refund has already been processed.")}
 
         {:error, {:stripe_error, msg}} ->
           {:noreply, put_flash(socket, :error, "Stripe error: #{inspect(msg)}")}
 
         {:error, :no_stripe_payment} ->
-          {:noreply, put_flash(socket, :error, "Cannot process refund: No Stripe payment found.")}
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Cannot process refund: No Stripe payment found."
+           )}
 
         {:error, reason} ->
-          {:noreply, put_flash(socket, :error, "Failed to process refund: #{inspect(reason)}")}
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             "Failed to process refund: #{inspect(reason)}"
+           )}
       end
     end
   end
 
-  def handle_event("validate-booking-refund", %{"refund" => refund_params}, socket) do
+  def handle_event(
+        "validate-booking-refund",
+        %{"refund" => refund_params},
+        socket
+      ) do
     # Simple validation changeset for the form
     changeset =
       {%{}, %{amount: :string, reason: :string, release_availability: :boolean}}
-      |> Ecto.Changeset.cast(refund_params, [:amount, :reason, :release_availability])
+      |> Ecto.Changeset.cast(refund_params, [
+        :amount,
+        :reason,
+        :release_availability
+      ])
       |> Ecto.Changeset.validate_required([:amount, :reason])
       |> Ecto.Changeset.validate_length(:reason, min: 1, max: 1000)
       |> validate_amount_format()
@@ -4584,7 +5021,11 @@ defmodule YscWeb.AdminBookingsLive do
      |> update_calendar_view(updated_socket.assigns.selected_property)}
   end
 
-  def handle_event("validate-pricing-rule", %{"pricing_rule" => pricing_rule_params}, socket) do
+  def handle_event(
+        "validate-pricing-rule",
+        %{"pricing_rule" => pricing_rule_params},
+        socket
+      ) do
     changeset =
       (socket.assigns.pricing_rule || %Ysc.Bookings.PricingRule{})
       |> Ysc.Bookings.PricingRule.changeset(pricing_rule_params)
@@ -4743,7 +5184,8 @@ defmodule YscWeb.AdminBookingsLive do
         query_params = %{property: socket.assigns.selected_property}
 
         query_params =
-          if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+          if socket.assigns[:calendar_start_date] &&
+               socket.assigns[:calendar_end_date] do
             Map.merge(query_params, %{
               from_date: Date.to_string(socket.assigns.calendar_start_date),
               to_date: Date.to_string(socket.assigns.calendar_end_date)
@@ -4760,41 +5202,65 @@ defmodule YscWeb.AdminBookingsLive do
            :info,
            "Booking #{action_word} successfully. Confirmation email sent to user."
          )
-         |> push_navigate(to: ~p"/admin/bookings?#{URI.encode_query(query_params)}")
+         |> push_navigate(
+           to: ~p"/admin/bookings?#{URI.encode_query(query_params)}"
+         )
          |> update_calendar_view(socket.assigns.selected_property)}
 
       {:error, {:error, changeset}} when is_struct(changeset, Ecto.Changeset) ->
-        {:noreply, assign(socket, :booking_form, to_form(changeset, as: "booking"))}
+        {:noreply,
+         assign(socket, :booking_form, to_form(changeset, as: "booking"))}
 
       {:error, changeset} when is_struct(changeset, Ecto.Changeset) ->
-        {:noreply, assign(socket, :booking_form, to_form(changeset, as: "booking"))}
+        {:noreply,
+         assign(socket, :booking_form, to_form(changeset, as: "booking"))}
 
       {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to create booking: #{inspect(reason)}")}
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Failed to create booking: #{inspect(reason)}"
+         )}
     end
   end
 
-  def handle_event("change-reservation-search", %{"search" => %{"query" => search_query}}, socket) do
+  def handle_event(
+        "change-reservation-search",
+        %{"search" => %{"query" => search_query}},
+        socket
+      ) do
     # Prevent default form submission
     new_reservation_params =
       if search_query == "" do
         # Remove search from params if empty
         Map.delete(socket.assigns[:reservation_params] || %{}, "search")
       else
-        Map.put(socket.assigns[:reservation_params] || %{}, "search", %{"query" => search_query})
+        Map.put(socket.assigns[:reservation_params] || %{}, "search", %{
+          "query" => search_query
+        })
       end
 
-    updated_params = build_reservation_query_params(socket, new_reservation_params)
+    updated_params =
+      build_reservation_query_params(socket, new_reservation_params)
+
     query_string = URI.encode_query(updated_params)
 
     {:noreply,
      socket
      |> assign(:reservation_params, new_reservation_params)
-     |> assign(:reservations_path, build_reservations_path(socket, updated_params))
+     |> assign(
+       :reservations_path,
+       build_reservations_path(socket, updated_params)
+     )
      |> push_patch(to: "/admin/bookings?#{query_string}")}
   end
 
-  def handle_event("change-reservation-search", %{"search" => search_query}, socket)
+  def handle_event(
+        "change-reservation-search",
+        %{"search" => search_query},
+        socket
+      )
       when is_binary(search_query) do
     # Prevent default form submission
     new_reservation_params =
@@ -4802,16 +5268,23 @@ defmodule YscWeb.AdminBookingsLive do
         # Remove search from params if empty
         Map.delete(socket.assigns[:reservation_params] || %{}, "search")
       else
-        Map.put(socket.assigns[:reservation_params] || %{}, "search", %{"query" => search_query})
+        Map.put(socket.assigns[:reservation_params] || %{}, "search", %{
+          "query" => search_query
+        })
       end
 
-    updated_params = build_reservation_query_params(socket, new_reservation_params)
+    updated_params =
+      build_reservation_query_params(socket, new_reservation_params)
+
     query_string = URI.encode_query(updated_params)
 
     {:noreply,
      socket
      |> assign(:reservation_params, new_reservation_params)
-     |> assign(:reservations_path, build_reservations_path(socket, updated_params))
+     |> assign(
+       :reservations_path,
+       build_reservations_path(socket, updated_params)
+     )
      |> push_patch(to: "/admin/bookings?#{query_string}")}
   end
 
@@ -4846,12 +5319,18 @@ defmodule YscWeb.AdminBookingsLive do
       filter_params
       |> (fn f ->
             if filter_start_date,
-              do: Map.put(f, "filter_start_date", Date.to_string(filter_start_date)),
+              do:
+                Map.put(
+                  f,
+                  "filter_start_date",
+                  Date.to_string(filter_start_date)
+                ),
               else: Map.delete(f, "filter_start_date")
           end).()
       |> (fn f ->
             if filter_end_date,
-              do: Map.put(f, "filter_end_date", Date.to_string(filter_end_date)),
+              do:
+                Map.put(f, "filter_end_date", Date.to_string(filter_end_date)),
               else: Map.delete(f, "filter_end_date")
           end).()
 
@@ -4864,7 +5343,10 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:reservation_params, new_params)
      |> assign(:reservation_filter_start_date, filter_start_date)
      |> assign(:reservation_filter_end_date, filter_end_date)
-     |> assign(:reservations_path, build_reservations_path(socket, updated_params))
+     |> assign(
+       :reservations_path,
+       build_reservations_path(socket, updated_params)
+     )
      |> push_patch(to: "/admin/bookings?#{query_string}")}
   end
 
@@ -4877,11 +5359,18 @@ defmodule YscWeb.AdminBookingsLive do
      |> assign(:reservation_params, %{})
      |> assign(:reservation_filter_start_date, nil)
      |> assign(:reservation_filter_end_date, nil)
-     |> assign(:reservations_path, build_reservations_path(socket, updated_params))
+     |> assign(
+       :reservations_path,
+       build_reservations_path(socket, updated_params)
+     )
      |> push_patch(to: "/admin/bookings?#{query_string}")}
   end
 
-  def handle_event("save-pricing-rule", %{"pricing_rule" => pricing_rule_params}, socket) do
+  def handle_event(
+        "save-pricing-rule",
+        %{"pricing_rule" => pricing_rule_params},
+        socket
+      ) do
     # Convert amount string to Money struct
     pricing_rule_params =
       if amount_str = pricing_rule_params["amount"] do
@@ -4929,7 +5418,10 @@ defmodule YscWeb.AdminBookingsLive do
 
     result =
       if socket.assigns.pricing_rule do
-        Bookings.update_pricing_rule(socket.assigns.pricing_rule, pricing_rule_params)
+        Bookings.update_pricing_rule(
+          socket.assigns.pricing_rule,
+          pricing_rule_params
+        )
       else
         Bookings.create_pricing_rule(pricing_rule_params)
       end
@@ -4945,11 +5437,16 @@ defmodule YscWeb.AdminBookingsLive do
          )}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, :form, to_form(changeset, as: "pricing_rule"))}
+        {:noreply,
+         assign(socket, :form, to_form(changeset, as: "pricing_rule"))}
     end
   end
 
-  def handle_event("validate-door-code", %{"door_code" => door_code_params}, socket) do
+  def handle_event(
+        "validate-door-code",
+        %{"door_code" => door_code_params},
+        socket
+      ) do
     code = String.trim(door_code_params["code"] || "")
     property = socket.assigns.selected_property
 
@@ -5010,8 +5507,11 @@ defmodule YscWeb.AdminBookingsLive do
           Map.put(season_params, "advance_booking_days", nil)
         else
           case Integer.parse(advance_days_str) do
-            {days, _} when days > 0 -> Map.put(season_params, "advance_booking_days", days)
-            _ -> Map.put(season_params, "advance_booking_days", nil)
+            {days, _} when days > 0 ->
+              Map.put(season_params, "advance_booking_days", days)
+
+            _ ->
+              Map.put(season_params, "advance_booking_days", nil)
           end
         end
       else
@@ -5027,8 +5527,11 @@ defmodule YscWeb.AdminBookingsLive do
           Map.put(season_params, "max_nights", nil)
         else
           case Integer.parse(max_nights_str) do
-            {nights, _} when nights > 0 -> Map.put(season_params, "max_nights", nights)
-            _ -> Map.put(season_params, "max_nights", nil)
+            {nights, _} when nights > 0 ->
+              Map.put(season_params, "max_nights", nights)
+
+            _ ->
+              Map.put(season_params, "max_nights", nil)
           end
         end
       else
@@ -5053,24 +5556,39 @@ defmodule YscWeb.AdminBookingsLive do
            socket.assigns.refund_policies
          )
          |> push_navigate(
-           to: ~p"/admin/bookings?property=#{socket.assigns.selected_property}&section=config"
+           to:
+             ~p"/admin/bookings?property=#{socket.assigns.selected_property}&section=config"
          )}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, :season_form, to_form(changeset, as: "season"))}
+        {:noreply,
+         assign(socket, :season_form, to_form(changeset, as: "season"))}
     end
   end
 
-  def handle_event("validate-refund-policy", %{"refund_policy" => refund_policy_params}, socket) do
+  def handle_event(
+        "validate-refund-policy",
+        %{"refund_policy" => refund_policy_params},
+        socket
+      ) do
     changeset =
       (socket.assigns.refund_policy || %Ysc.Bookings.RefundPolicy{})
       |> Ysc.Bookings.RefundPolicy.changeset(refund_policy_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :refund_policy_form, to_form(changeset, as: "refund_policy"))}
+    {:noreply,
+     assign(
+       socket,
+       :refund_policy_form,
+       to_form(changeset, as: "refund_policy")
+     )}
   end
 
-  def handle_event("save-refund-policy", %{"refund_policy" => refund_policy_params}, socket) do
+  def handle_event(
+        "save-refund-policy",
+        %{"refund_policy" => refund_policy_params},
+        socket
+      ) do
     # Convert property string to atom
     refund_policy_params =
       if property_str = refund_policy_params["property"] do
@@ -5087,7 +5605,10 @@ defmodule YscWeb.AdminBookingsLive do
 
     result =
       if socket.assigns.refund_policy do
-        Bookings.update_refund_policy(socket.assigns.refund_policy, refund_policy_params)
+        Bookings.update_refund_policy(
+          socket.assigns.refund_policy,
+          refund_policy_params
+        )
       else
         Bookings.create_refund_policy(refund_policy_params)
       end
@@ -5113,23 +5634,41 @@ defmodule YscWeb.AdminBookingsLive do
          )}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, :refund_policy_form, to_form(changeset, as: "refund_policy"))}
+        {:noreply,
+         assign(
+           socket,
+           :refund_policy_form,
+           to_form(changeset, as: "refund_policy")
+         )}
     end
   end
 
-  def handle_event("validate-refund-policy-rule", %{"refund_policy_rule" => rule_params}, socket) do
+  def handle_event(
+        "validate-refund-policy-rule",
+        %{"refund_policy_rule" => rule_params},
+        socket
+      ) do
     changeset =
       %Ysc.Bookings.RefundPolicyRule{}
       |> Ysc.Bookings.RefundPolicyRule.changeset(rule_params)
       |> Map.put(:action, :validate)
 
     {:noreply,
-     assign(socket, :refund_policy_rule_form, to_form(changeset, as: "refund_policy_rule"))}
+     assign(
+       socket,
+       :refund_policy_rule_form,
+       to_form(changeset, as: "refund_policy_rule")
+     )}
   end
 
-  def handle_event("save-refund-policy-rule", %{"refund_policy_rule" => rule_params}, socket) do
+  def handle_event(
+        "save-refund-policy-rule",
+        %{"refund_policy_rule" => rule_params},
+        socket
+      ) do
     # Ensure refund_policy_id is included
-    rule_params = Map.put(rule_params, "refund_policy_id", socket.assigns.refund_policy.id)
+    rule_params =
+      Map.put(rule_params, "refund_policy_id", socket.assigns.refund_policy.id)
 
     # Convert refund_percentage to Decimal
     rule_params =
@@ -5158,7 +5697,8 @@ defmodule YscWeb.AdminBookingsLive do
     case result do
       {:ok, _rule} ->
         # Reload rules
-        refund_policy_rules = Bookings.list_refund_policy_rules(socket.assigns.refund_policy.id)
+        refund_policy_rules =
+          Bookings.list_refund_policy_rules(socket.assigns.refund_policy.id)
 
         # Reset form
         rule_form =
@@ -5187,7 +5727,10 @@ defmodule YscWeb.AdminBookingsLive do
            :error,
            "Failed to save refund policy rule. Please check the form for errors."
          )
-         |> assign(:refund_policy_rule_form, to_form(changeset, as: "refund_policy_rule"))}
+         |> assign(
+           :refund_policy_rule_form,
+           to_form(changeset, as: "refund_policy_rule")
+         )}
     end
   end
 
@@ -5196,7 +5739,8 @@ defmodule YscWeb.AdminBookingsLive do
     Bookings.delete_refund_policy_rule(rule)
 
     # Reload rules
-    refund_policy_rules = Bookings.list_refund_policy_rules(socket.assigns.refund_policy.id)
+    refund_policy_rules =
+      Bookings.list_refund_policy_rules(socket.assigns.refund_policy.id)
 
     {:noreply,
      socket
@@ -5447,7 +5991,9 @@ defmodule YscWeb.AdminBookingsLive do
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
     end)
-    |> Enum.map_join("; ", fn {field, errors} -> "#{field}: #{Enum.join(errors, ", ")}" end)
+    |> Enum.map_join("; ", fn {field, errors} ->
+      "#{field}: #{Enum.join(errors, ", ")}"
+    end)
   end
 
   defp maybe_convert_atom(params, key) do
@@ -5463,9 +6009,18 @@ defmodule YscWeb.AdminBookingsLive do
     end
   end
 
-  defp assign_filtered_data(socket, property, seasons, pricing_rules, refund_policies) do
-    filtered_seasons = Enum.filter(seasons, fn season -> season.property == property end)
-    filtered_pricing_rules = Enum.filter(pricing_rules, fn rule -> rule.property == property end)
+  defp assign_filtered_data(
+         socket,
+         property,
+         seasons,
+         pricing_rules,
+         refund_policies
+       ) do
+    filtered_seasons =
+      Enum.filter(seasons, fn season -> season.property == property end)
+
+    filtered_pricing_rules =
+      Enum.filter(pricing_rules, fn rule -> rule.property == property end)
 
     filtered_refund_policies =
       Enum.filter(refund_policies, fn policy -> policy.property == property end)
@@ -5473,7 +6028,9 @@ defmodule YscWeb.AdminBookingsLive do
     # Filter rooms by property (rooms are already loaded in socket.assigns.rooms)
     filtered_rooms =
       if socket.assigns[:rooms] do
-        Enum.filter(socket.assigns.rooms, fn room -> room.property == property end)
+        Enum.filter(socket.assigns.rooms, fn room ->
+          room.property == property
+        end)
       else
         []
       end
@@ -5506,7 +6063,10 @@ defmodule YscWeb.AdminBookingsLive do
   end
 
   defp format_money_for_input(nil), do: ""
-  defp format_money_for_input(%Money{} = money), do: MoneyHelper.format_money!(money)
+
+  defp format_money_for_input(%Money{} = money),
+    do: MoneyHelper.format_money!(money)
+
   defp format_money_for_input(_), do: ""
 
   defp format_season_dates(start_date, end_date) do
@@ -5607,7 +6167,12 @@ defmodule YscWeb.AdminBookingsLive do
   # Day 0: columns 1-2, Day 1: columns 3-4, etc.
   # Bookings start on second half of check-in day, end on first half of check-out day
   # Returns {col_start, col_end, extends_before, extends_after}
-  defp get_booking_grid_columns(start_date, checkin_date, checkout_date, total_days) do
+  defp get_booking_grid_columns(
+         start_date,
+         checkin_date,
+         checkout_date,
+         total_days
+       ) do
     total_cols = total_days * 2
 
     # Calculate actual day indices (not clamped)
@@ -5696,7 +6261,9 @@ defmodule YscWeb.AdminBookingsLive do
     style_val =
       "grid-column: #{col_start} / #{col_end}; grid-row: 1; margin-left: 1px; margin-right: 1px; position: relative; z-index: 5;"
 
-    title_val = "Blackout: #{blackout.reason} • #{blackout.start_date} → #{blackout.end_date}"
+    title_val =
+      "Blackout: #{blackout.reason} • #{blackout.start_date} → #{blackout.end_date}"
+
     {:safe, escaped_reason_str} = Phoenix.HTML.html_escape(blackout.reason)
     {:safe, escaped_title_str} = Phoenix.HTML.html_escape(title_val)
 
@@ -5775,9 +6342,11 @@ defmodule YscWeb.AdminBookingsLive do
     # Use green colors for buyout bookings, blue for regular room bookings
     {bg_color, border_color, text_color, hover_color} =
       if is_buyout do
-        {"bg-green-100", "border-green-400/50", "text-green-900", "hover:bg-green-200"}
+        {"bg-green-100", "border-green-400/50", "text-green-900",
+         "hover:bg-green-200"}
       else
-        {"bg-blue-100", "border-blue-400/50", "text-blue-900", "hover:bg-blue-200"}
+        {"bg-blue-100", "border-blue-400/50", "text-blue-900",
+         "hover:bg-blue-200"}
       end
 
     # Add fade effect if booking extends beyond visible range
@@ -5785,8 +6354,10 @@ defmodule YscWeb.AdminBookingsLive do
       cond do
         extends_before && extends_after ->
           if is_buyout,
-            do: "bg-gradient-to-r from-transparent via-green-100 to-transparent",
-            else: "bg-gradient-to-r from-transparent via-blue-100 to-transparent"
+            do:
+              "bg-gradient-to-r from-transparent via-green-100 to-transparent",
+            else:
+              "bg-gradient-to-r from-transparent via-blue-100 to-transparent"
 
         extends_before ->
           if is_buyout,
@@ -5806,6 +6377,7 @@ defmodule YscWeb.AdminBookingsLive do
     right_indicator =
       if extends_after do
         arrow_color = if is_buyout, do: "text-green-600", else: "text-blue-600"
+
         "<div class=\"absolute right-1 top-1/2 -translate-y-1/2 #{arrow_color} opacity-75\">
         <span class=\"hero-arrow-right w-3 h-3\"></span>
       </div>"
@@ -5848,7 +6420,9 @@ defmodule YscWeb.AdminBookingsLive do
     end_date = socket.assigns.calendar_end_date
 
     filtered_rooms =
-      Enum.filter(rooms, fn room -> room.property == property && room.is_active end)
+      Enum.filter(rooms, fn room ->
+        room.property == property && room.is_active
+      end)
       |> Enum.sort_by(& &1.name)
 
     calendar_dates = generate_calendar_dates(start_date, end_date)
@@ -5857,7 +6431,9 @@ defmodule YscWeb.AdminBookingsLive do
     [filtered_blackouts, bookings_in_range] =
       Task.await_many(
         [
-          Task.async(fn -> Bookings.list_blackouts(property, start_date, end_date) end),
+          Task.async(fn ->
+            Bookings.list_blackouts(property, start_date, end_date)
+          end),
           Task.async(fn ->
             Bookings.list_bookings(property, start_date, end_date,
               preload: [:rooms, :user, check_ins: :check_in_vehicles]
@@ -5926,7 +6502,8 @@ defmodule YscWeb.AdminBookingsLive do
   end
 
   # Check if a date is in the selected range (for visual feedback)
-  defp date_selection_in_range?(_date, start_date, _hover_end) when is_nil(start_date), do: false
+  defp date_selection_in_range?(_date, start_date, _hover_end)
+       when is_nil(start_date), do: false
 
   defp date_selection_in_range?(date, start_date, hover_end) do
     # Use hover_end if available (for ghost preview), otherwise show all dates after start
@@ -5941,7 +6518,8 @@ defmodule YscWeb.AdminBookingsLive do
           {start_date, end_date}
         end
 
-      Date.compare(date, actual_start) != :lt && Date.compare(date, actual_end) != :gt
+      Date.compare(date, actual_start) != :lt &&
+        Date.compare(date, actual_end) != :gt
     else
       false
     end
@@ -5993,7 +6571,10 @@ defmodule YscWeb.AdminBookingsLive do
         order_by = p["order_by"] || p[:order_by]
 
         if order_by == nil || order_by == [] do
-          Map.merge(p, %{"order_by" => ["inserted_at"], "order_directions" => ["desc"]})
+          Map.merge(p, %{
+            "order_by" => ["inserted_at"],
+            "order_directions" => ["desc"]
+          })
         else
           p
         end
@@ -6068,7 +6649,8 @@ defmodule YscWeb.AdminBookingsLive do
 
     # Add calendar date range if available
     params_with_calendar =
-      if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+      if socket.assigns[:calendar_start_date] &&
+           socket.assigns[:calendar_end_date] do
         Map.merge(base_params, %{
           "from_date" => Date.to_string(socket.assigns.calendar_start_date),
           "to_date" => Date.to_string(socket.assigns.calendar_end_date)
@@ -6086,7 +6668,8 @@ defmodule YscWeb.AdminBookingsLive do
   # Accepts either complete params (already includes property, section, etc.) or just reservation params
   defp build_reservations_path(socket, params) do
     # Check if params already includes base keys (means it's already complete)
-    has_base_keys = Map.has_key?(params, "property") || Map.has_key?(params, :property)
+    has_base_keys =
+      Map.has_key?(params, "property") || Map.has_key?(params, :property)
 
     final_params =
       if has_base_keys && params != %{} do
@@ -6102,7 +6685,8 @@ defmodule YscWeb.AdminBookingsLive do
 
         # Add calendar date range if available
         params_with_calendar =
-          if socket.assigns[:calendar_start_date] && socket.assigns[:calendar_end_date] do
+          if socket.assigns[:calendar_start_date] &&
+               socket.assigns[:calendar_end_date] do
             Map.merge(base_params, %{
               from_date: Date.to_string(socket.assigns.calendar_start_date),
               to_date: Date.to_string(socket.assigns.calendar_end_date)
@@ -6113,7 +6697,9 @@ defmodule YscWeb.AdminBookingsLive do
 
         # Use params if provided, otherwise use socket assigns
         reservation_params =
-          if params != %{}, do: params, else: socket.assigns[:reservation_params] || %{}
+          if params != %{},
+            do: params,
+            else: socket.assigns[:reservation_params] || %{}
 
         # Flatten nested maps before merging
         flattened_params = flatten_query_params(reservation_params)
@@ -6176,7 +6762,8 @@ defmodule YscWeb.AdminBookingsLive do
         if is_list(value) do
           has_indexed_keys =
             Enum.any?(params, fn {k, _v} ->
-              is_binary(k) && String.starts_with?(k, "#{key}[") && String.contains?(k, "]")
+              is_binary(k) && String.starts_with?(k, "#{key}[") &&
+                String.contains?(k, "]")
             end)
 
           if has_indexed_keys do
@@ -6282,7 +6869,11 @@ defmodule YscWeb.AdminBookingsLive do
       amount_string ->
         case MoneyHelper.parse_money(amount_string) do
           nil ->
-            Ecto.Changeset.add_error(changeset, :amount, "Invalid amount format")
+            Ecto.Changeset.add_error(
+              changeset,
+              :amount,
+              "Invalid amount format"
+            )
 
           _money ->
             changeset
@@ -6347,7 +6938,11 @@ defmodule YscWeb.AdminBookingsLive do
 
     filter_map =
       if filter_params["filter_start_date"] do
-        Map.put(filter_map, "filter_start_date", filter_params["filter_start_date"])
+        Map.put(
+          filter_map,
+          "filter_start_date",
+          filter_params["filter_start_date"]
+        )
       else
         filter_map
       end

@@ -42,7 +42,10 @@ defmodule YscWeb.AdminSearchComponent do
           Searching...
         </div>
 
-        <div :if={!@loading && has_results?(@results)} class="divide-y divide-zinc-200">
+        <div
+          :if={!@loading && has_results?(@results)}
+          class="divide-y divide-zinc-200"
+        >
           <!-- Events -->
           <div :if={length(@results.events) > 0} class="p-2">
             <div class="px-3 py-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">
@@ -58,9 +61,12 @@ defmodule YscWeb.AdminSearchComponent do
                 <div class="font-medium"><%= event.title %></div>
                 <div class="text-xs text-zinc-500">
                   <%= if event.organizer,
-                    do: "#{event.organizer.first_name} #{event.organizer.last_name}",
+                    do:
+                      "#{event.organizer.first_name} #{event.organizer.last_name}",
                     else: "No organizer" %>
-                  <span :if={event.reference_id} class="ml-2">• <%= event.reference_id %></span>
+                  <span :if={event.reference_id} class="ml-2">
+                    • <%= event.reference_id %>
+                  </span>
                 </div>
               </.link>
             </div>
@@ -162,7 +168,10 @@ defmodule YscWeb.AdminSearchComponent do
           </div>
         </div>
 
-        <div :if={!@loading && !has_results?(@results)} class="p-4 text-center text-sm text-zinc-500">
+        <div
+          :if={!@loading && !has_results?(@results)}
+          class="p-4 text-center text-sm text-zinc-500"
+        >
           No results found
         </div>
       </div>
@@ -175,7 +184,13 @@ defmodule YscWeb.AdminSearchComponent do
     {:ok,
      socket
      |> assign(:query, "")
-     |> assign(:results, %{events: [], posts: [], tickets: [], users: [], bookings: []})
+     |> assign(:results, %{
+       events: [],
+       posts: [],
+       tickets: [],
+       users: [],
+       bookings: []
+     })
      |> assign(:loading, false)
      |> assign(:show_results, false)}
   end
@@ -188,7 +203,13 @@ defmodule YscWeb.AdminSearchComponent do
       {:noreply,
        socket
        |> assign(:query, "")
-       |> assign(:results, %{events: [], posts: [], tickets: [], users: [], bookings: []})
+       |> assign(:results, %{
+         events: [],
+         posts: [],
+         tickets: [],
+         users: [],
+         bookings: []
+       })
        |> assign(:show_results, false)
        |> assign(:loading, false)}
     else

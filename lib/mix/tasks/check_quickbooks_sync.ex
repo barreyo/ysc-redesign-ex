@@ -20,11 +20,14 @@ defmodule Mix.Tasks.CheckQuickbooksSync do
 
   def run(args) do
     {opts, _, _} =
-      OptionParser.parse(args, strict: [expense_report_id: :string, trigger: :string])
+      OptionParser.parse(args,
+        strict: [expense_report_id: :string, trigger: :string]
+      )
 
     Mix.Task.run("app.start")
 
-    expense_report_id = Keyword.get(opts, :expense_report_id) || Keyword.get(opts, :trigger)
+    expense_report_id =
+      Keyword.get(opts, :expense_report_id) || Keyword.get(opts, :trigger)
 
     if expense_report_id do
       check_and_trigger(expense_report_id, Keyword.has_key?(opts, :trigger))
@@ -45,15 +48,26 @@ defmodule Mix.Tasks.CheckQuickbooksSync do
         Logger.info("Expense Report Status:")
         Logger.info("  ID: #{expense_report.id}")
         Logger.info("  Status: #{expense_report.status}")
-        Logger.info("  QuickBooks Sync Status: #{expense_report.quickbooks_sync_status}")
-        Logger.info("  QuickBooks Bill ID: #{inspect(expense_report.quickbooks_bill_id)}")
-        Logger.info("  QuickBooks Vendor ID: #{inspect(expense_report.quickbooks_vendor_id)}")
+
+        Logger.info(
+          "  QuickBooks Sync Status: #{expense_report.quickbooks_sync_status}"
+        )
+
+        Logger.info(
+          "  QuickBooks Bill ID: #{inspect(expense_report.quickbooks_bill_id)}"
+        )
+
+        Logger.info(
+          "  QuickBooks Vendor ID: #{inspect(expense_report.quickbooks_vendor_id)}"
+        )
 
         Logger.info(
           "  Last Sync Attempt: #{inspect(expense_report.quickbooks_last_sync_attempt_at)}"
         )
 
-        Logger.info("  Synced At: #{inspect(expense_report.quickbooks_synced_at)}")
+        Logger.info(
+          "  Synced At: #{inspect(expense_report.quickbooks_synced_at)}"
+        )
 
         # Check for Oban jobs
         Logger.info("")
@@ -61,8 +75,14 @@ defmodule Mix.Tasks.CheckQuickbooksSync do
 
         jobs =
           from(j in Oban.Job,
-            where: j.worker == "YscWeb.Workers.QuickbooksSyncExpenseReportWorker",
-            where: fragment("?->>'expense_report_id' = ?", j.args, ^expense_report_id),
+            where:
+              j.worker == "YscWeb.Workers.QuickbooksSyncExpenseReportWorker",
+            where:
+              fragment(
+                "?->>'expense_report_id' = ?",
+                j.args,
+                ^expense_report_id
+              ),
             order_by: [desc: j.inserted_at]
           )
           |> Repo.all()
@@ -79,7 +99,10 @@ defmodule Mix.Tasks.CheckQuickbooksSync do
             Logger.info("    Attempt: #{job.attempt}/#{job.max_attempts}")
             Logger.info("    Inserted: #{job.inserted_at}")
             Logger.info("    Scheduled: #{job.scheduled_at}")
-            if job.attempted_at, do: Logger.info("    Attempted: #{job.attempted_at}")
+
+            if job.attempted_at,
+              do: Logger.info("    Attempted: #{job.attempted_at}")
+
             if job.errors, do: Logger.info("    Errors: #{inspect(job.errors)}")
           end)
         end
@@ -88,7 +111,9 @@ defmodule Mix.Tasks.CheckQuickbooksSync do
           Logger.info("")
           Logger.info("=== Triggering QuickBooks Sync ===")
 
-          case QuickbooksSyncExpenseReportWorker.new(%{"expense_report_id" => expense_report_id})
+          case QuickbooksSyncExpenseReportWorker.new(%{
+                 "expense_report_id" => expense_report_id
+               })
                |> Oban.insert() do
             {:ok, job} ->
               Logger.info("Successfully enqueued QuickBooks sync job",
@@ -97,7 +122,9 @@ defmodule Mix.Tasks.CheckQuickbooksSync do
               )
 
             {:error, reason} ->
-              Logger.error("Failed to enqueue QuickBooks sync job", error: inspect(reason))
+              Logger.error("Failed to enqueue QuickBooks sync job",
+                error: inspect(reason)
+              )
           end
         end
     end

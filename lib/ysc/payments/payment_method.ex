@@ -77,8 +77,13 @@ defmodule Ysc.Payments.PaymentMethod do
     |> validate_length(:account_type, max: 255)
     |> validate_length(:routing_number, max: 255)
     |> validate_length(:bank_name, max: 255)
-    |> validate_inclusion(:exp_month, 1..12, message: "must be between 1 and 12")
-    |> validate_number(:exp_year, greater_than: 2000, message: "must be greater than 2000")
+    |> validate_inclusion(:exp_month, 1..12,
+      message: "must be between 1 and 12"
+    )
+    |> validate_number(:exp_year,
+      greater_than: 2000,
+      message: "must be greater than 2000"
+    )
     |> unique_constraint([:provider, :provider_id])
     |> foreign_key_constraint(:user_id)
   end

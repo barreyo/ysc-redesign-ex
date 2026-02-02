@@ -132,7 +132,9 @@ defmodule YscWeb.UserSettingsEmailChangeTest do
       assert result =~ "Invalid password"
     end
 
-    test "sends verification code to new email after successful re-auth", %{conn: conn} do
+    test "sends verification code to new email after successful re-auth", %{
+      conn: conn
+    } do
       user = user_fixture()
       conn = log_in_user(conn, user)
 
@@ -255,7 +257,10 @@ defmodule YscWeb.UserSettingsEmailChangeTest do
       {:ok, user: user}
     end
 
-    test "shows only passkey option for users without password", %{conn: conn, user: user} do
+    test "shows only passkey option for users without password", %{
+      conn: conn,
+      user: user
+    } do
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/users/settings")
@@ -274,7 +279,10 @@ defmodule YscWeb.UserSettingsEmailChangeTest do
       assert render(view) =~ "Continue with Passkey"
     end
 
-    test "can change email using passkey authentication", %{conn: conn, user: user} do
+    test "can change email using passkey authentication", %{
+      conn: conn,
+      user: user
+    } do
       conn = log_in_user(conn, user)
 
       {:ok, view, _html} = live(conn, ~p"/users/settings")
@@ -325,7 +333,9 @@ defmodule YscWeb.UserSettingsEmailChangeTest do
   end
 
   describe "email verification after re-auth" do
-    test "displays email verification modal after successful re-auth", %{conn: conn} do
+    test "displays email verification modal after successful re-auth", %{
+      conn: conn
+    } do
       user = user_fixture()
       conn = log_in_user(conn, user)
 
@@ -335,7 +345,10 @@ defmodule YscWeb.UserSettingsEmailChangeTest do
 
       # Complete email change request with re-auth
       render_submit(view, "request_email_change", %{user: %{email: new_email}})
-      render_submit(view, "reauth_with_password", %{password: valid_user_password()})
+
+      render_submit(view, "reauth_with_password", %{
+        password: valid_user_password()
+      })
 
       # Should show email verification modal
       assert has_element?(view, "#email-verification-modal")
@@ -353,7 +366,10 @@ defmodule YscWeb.UserSettingsEmailChangeTest do
 
       # Complete re-auth
       render_submit(view, "request_email_change", %{user: %{email: new_email}})
-      render_submit(view, "reauth_with_password", %{password: valid_user_password()})
+
+      render_submit(view, "reauth_with_password", %{
+        password: valid_user_password()
+      })
 
       # Get verification code
       code = Accounts.get_email_verification_code(user)

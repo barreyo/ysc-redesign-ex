@@ -55,7 +55,8 @@ defmodule YscWeb.AdminUserDetailsLive do
                   navigate={~p"/admin/users/#{@user_id}/details"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
-                    @live_action == :profile && "text-blue-600 border-blue-600 active",
+                    @live_action == :profile &&
+                      "text-blue-600 border-blue-600 active",
                     @live_action != :profile &&
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
@@ -68,7 +69,8 @@ defmodule YscWeb.AdminUserDetailsLive do
                   navigate={~p"/admin/users/#{@user_id}/details/orders"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
-                    @live_action == :orders && "text-blue-600 border-blue-600 active",
+                    @live_action == :orders &&
+                      "text-blue-600 border-blue-600 active",
                     @live_action != :orders &&
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
@@ -81,7 +83,8 @@ defmodule YscWeb.AdminUserDetailsLive do
                   navigate={~p"/admin/users/#{@user_id}/details/bookings"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
-                    @live_action == :bookings && "text-blue-600 border-blue-600 active",
+                    @live_action == :bookings &&
+                      "text-blue-600 border-blue-600 active",
                     @live_action != :bookings &&
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
@@ -94,7 +97,8 @@ defmodule YscWeb.AdminUserDetailsLive do
                   navigate={~p"/admin/users/#{@user_id}/details/application"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
-                    @live_action == :application && "text-blue-600 border-blue-600 active",
+                    @live_action == :application &&
+                      "text-blue-600 border-blue-600 active",
                     @live_action != :application &&
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
@@ -107,7 +111,8 @@ defmodule YscWeb.AdminUserDetailsLive do
                   navigate={~p"/admin/users/#{@user_id}/details/membership"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
-                    @live_action == :membership && "text-blue-600 border-blue-600 active",
+                    @live_action == :membership &&
+                      "text-blue-600 border-blue-600 active",
                     @live_action != :membership &&
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
@@ -120,7 +125,8 @@ defmodule YscWeb.AdminUserDetailsLive do
                   navigate={~p"/admin/users/#{@user_id}/details/notifications"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
-                    @live_action == :notifications && "text-blue-600 border-blue-600 active",
+                    @live_action == :notifications &&
+                      "text-blue-600 border-blue-600 active",
                     @live_action != :notifications &&
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
@@ -133,7 +139,8 @@ defmodule YscWeb.AdminUserDetailsLive do
                   navigate={~p"/admin/users/#{@user_id}/details/bank-accounts"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
-                    @live_action == :bank_accounts && "text-blue-600 border-blue-600 active",
+                    @live_action == :bank_accounts &&
+                      "text-blue-600 border-blue-600 active",
                     @live_action != :bank_accounts &&
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
@@ -146,7 +153,8 @@ defmodule YscWeb.AdminUserDetailsLive do
                   navigate={~p"/admin/users/#{@user_id}/details/family"}
                   class={[
                     "inline-block p-4 border-b-2 rounded-t-lg",
-                    @live_action == :family && "text-blue-600 border-blue-600 active",
+                    @live_action == :family &&
+                      "text-blue-600 border-blue-600 active",
                     @live_action != :family &&
                       "hover:text-zinc-600 hover:border-zinc-300 border-transparent"
                   ]}
@@ -172,7 +180,12 @@ defmodule YscWeb.AdminUserDetailsLive do
         </div>
 
         <div :if={@live_action == :profile} class="max-w-lg px-2 space-y-8">
-          <.simple_form for={@form} phx-change="validate" phx-submit="save" class="py-8">
+          <.simple_form
+            for={@form}
+            phx-change="validate"
+            phx-submit="save"
+            class="py-8"
+          >
             <!-- Personal Information -->
             <div class="space-y-4">
               <h3 class="text-lg font-semibold text-zinc-800 border-b border-zinc-200 pb-2">
@@ -191,12 +204,22 @@ defmodule YscWeb.AdminUserDetailsLive do
                 <.input field={@form[:first_name]} label="First Name" />
                 <.input field={@form[:last_name]} label="Last Name" />
               </div>
-              <.input field={@form[:date_of_birth]} type="date" label="Date of Birth" />
+              <.input
+                field={@form[:date_of_birth]}
+                type="date"
+                label="Date of Birth"
+              />
               <.input
                 field={@form[:most_connected_country]}
                 label="Most connected Nordic country:"
                 type="select"
-                options={[Sweden: "SE", Norway: "NO", Finland: "FI", Denmark: "DK", Iceland: "IS"]}
+                options={[
+                  Sweden: "SE",
+                  Norway: "NO",
+                  Finland: "FI",
+                  Denmark: "DK",
+                  Iceland: "IS"
+                ]}
               />
             </div>
             <!-- Contact Information -->
@@ -221,7 +244,10 @@ defmodule YscWeb.AdminUserDetailsLive do
               </div>
               <p class="text-xs text-zinc-600 mt-1">
                 By voluntarily providing your phone number and explicitly opting in to text messaging, you consent to receive SMS notifications from Young Scandinavians Club (YSC). Message and data rates may apply. Users can opt out in their notification settings. See our
-                <.link navigate={~p"/privacy-policy"} class="text-blue-600 hover:underline">
+                <.link
+                  navigate={~p"/privacy-policy"}
+                  class="text-blue-600 hover:underline"
+                >
                   Privacy Policy
                 </.link>
                 for more information.
@@ -349,15 +375,25 @@ defmodule YscWeb.AdminUserDetailsLive do
               <:col :let={{_, order}} label="Status" field={:status}>
                 <%= case order.status do %>
                   <% :pending -> %>
-                    <.badge type="yellow" class="whitespace-nowrap flex-shrink-0">Pending</.badge>
+                    <.badge type="yellow" class="whitespace-nowrap flex-shrink-0">
+                      Pending
+                    </.badge>
                   <% :completed -> %>
-                    <.badge type="green" class="whitespace-nowrap flex-shrink-0">Completed</.badge>
+                    <.badge type="green" class="whitespace-nowrap flex-shrink-0">
+                      Completed
+                    </.badge>
                   <% :cancelled -> %>
-                    <.badge type="red" class="whitespace-nowrap flex-shrink-0">Cancelled</.badge>
+                    <.badge type="red" class="whitespace-nowrap flex-shrink-0">
+                      Cancelled
+                    </.badge>
                   <% :expired -> %>
-                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">Expired</.badge>
+                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">
+                      Expired
+                    </.badge>
                   <% _ -> %>
-                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">—</.badge>
+                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">
+                      —
+                    </.badge>
                 <% end %>
               </:col>
               <:col :let={{_, order}} label="Order Date" field={:inserted_at}>
@@ -372,7 +408,9 @@ defmodule YscWeb.AdminUserDetailsLive do
               meta={@ticket_orders_meta}
               path={~p"/admin/users/#{@user_id}/details/orders"}
               opts={[
-                wrapper_attrs: [class: "flex items-center justify-center py-10 h-10 text-base"],
+                wrapper_attrs: [
+                  class: "flex items-center justify-center py-10 h-10 text-base"
+                ],
                 pagination_list_attrs: [
                   class: [
                     "flex gap-0 order-2 justify-center items-center"
@@ -450,30 +488,46 @@ defmodule YscWeb.AdminUserDetailsLive do
                         </div>
                         <%= if room.room_category do %>
                           <div class="text-xs text-zinc-500 mt-0.5">
-                            <%= String.capitalize(to_string(room.room_category.name)) %>
+                            <%= String.capitalize(
+                              to_string(room.room_category.name)
+                            ) %>
                           </div>
                         <% end %>
                       </div>
                     <% end %>
                   </div>
                 <% else %>
-                  <.badge type="green" class="whitespace-nowrap flex-shrink-0">Full Buyout</.badge>
+                  <.badge type="green" class="whitespace-nowrap flex-shrink-0">
+                    Full Buyout
+                  </.badge>
                 <% end %>
               </:col>
               <:col :let={{_, booking}} label="Status" field={:status}>
                 <%= case booking.status do %>
                   <% :draft -> %>
-                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">Draft</.badge>
+                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">
+                      Draft
+                    </.badge>
                   <% :hold -> %>
-                    <.badge type="yellow" class="whitespace-nowrap flex-shrink-0">Hold</.badge>
+                    <.badge type="yellow" class="whitespace-nowrap flex-shrink-0">
+                      Hold
+                    </.badge>
                   <% :complete -> %>
-                    <.badge type="green" class="whitespace-nowrap flex-shrink-0">Complete</.badge>
+                    <.badge type="green" class="whitespace-nowrap flex-shrink-0">
+                      Complete
+                    </.badge>
                   <% :refunded -> %>
-                    <.badge type="sky" class="whitespace-nowrap flex-shrink-0">Refunded</.badge>
+                    <.badge type="sky" class="whitespace-nowrap flex-shrink-0">
+                      Refunded
+                    </.badge>
                   <% :canceled -> %>
-                    <.badge type="red" class="whitespace-nowrap flex-shrink-0">Canceled</.badge>
+                    <.badge type="red" class="whitespace-nowrap flex-shrink-0">
+                      Canceled
+                    </.badge>
                   <% _ -> %>
-                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">—</.badge>
+                    <.badge type="dark" class="whitespace-nowrap flex-shrink-0">
+                      —
+                    </.badge>
                 <% end %>
               </:col>
               <:col :let={{_, booking}} label="Booked" field={:inserted_at}>
@@ -496,7 +550,9 @@ defmodule YscWeb.AdminUserDetailsLive do
               meta={@bookings_meta}
               path={~p"/admin/users/#{@user_id}/details/bookings"}
               opts={[
-                wrapper_attrs: [class: "flex items-center justify-center py-10 h-10 text-base"],
+                wrapper_attrs: [
+                  class: "flex items-center justify-center py-10 h-10 text-base"
+                ],
                 pagination_list_attrs: [
                   class: [
                     "flex gap-0 order-2 justify-center items-center"
@@ -562,16 +618,22 @@ defmodule YscWeb.AdminUserDetailsLive do
               <span class="font-semibold">Reviewed at:</span>
               <.badge>
                 <%= if @selected_user_application.reviewed_at do
-                  format_datetime_for_display(@selected_user_application.reviewed_at)
+                  format_datetime_for_display(
+                    @selected_user_application.reviewed_at
+                  )
                 else
                   "N/A"
                 end %>
               </.badge>
             </p>
 
-            <h3 class="leading-6 text-zinc-800 font-semibold mb-2">Applicant Details</h3>
+            <h3 class="leading-6 text-zinc-800 font-semibold mb-2">
+              Applicant Details
+            </h3>
             <ul class="leading-6 text-zinc-800 text-sm pb-6">
-              <li><span class="font-semibold">Email:</span> <%= @selected_user.email %></li>
+              <li>
+                <span class="font-semibold">Email:</span> <%= @selected_user.email %>
+              </li>
               <li>
                 <span class="font-semibold">Name:</span> <%= "#{@selected_user.first_name} #{@selected_user.last_name}" %>
               </li>
@@ -592,7 +654,9 @@ defmodule YscWeb.AdminUserDetailsLive do
               </li>
             </ul>
 
-            <h3 class="leading-6 text-zinc-800 font-semibold mb-2">Application Answers</h3>
+            <h3 class="leading-6 text-zinc-800 font-semibold mb-2">
+              Application Answers
+            </h3>
             <ul class="leading-6 text-sm text-zinc-800 pb-6">
               <li>
                 <span class="font-semibold">Membership type:</span> <%= @selected_user_application.membership_type %>
@@ -601,8 +665,13 @@ defmodule YscWeb.AdminUserDetailsLive do
               <li class="pt-2">
                 <p class="font-semibold">Eligibility:</p>
                 <ul class="space-y-1 text-zinc-800 list-disc list-inside">
-                  <li :for={reason <- @selected_user_application.membership_eligibility}>
-                    <%= Map.get(Ysc.Accounts.SignupApplication.eligibility_lookup(), reason) %>
+                  <li :for={
+                    reason <- @selected_user_application.membership_eligibility
+                  }>
+                    <%= Map.get(
+                      Ysc.Accounts.SignupApplication.eligibility_lookup(),
+                      reason
+                    ) %>
                   </li>
                 </ul>
               </li>
@@ -656,7 +725,9 @@ defmodule YscWeb.AdminUserDetailsLive do
               :if={@has_lifetime_membership}
               class="bg-blue-50 border border-blue-200 rounded-lg p-4"
             >
-              <h3 class="text-lg font-semibold text-blue-900 mb-3">Lifetime Membership</h3>
+              <h3 class="text-lg font-semibold text-blue-900 mb-3">
+                Lifetime Membership
+              </h3>
               <div class="space-y-2 text-sm text-blue-800">
                 <p>
                   <span class="font-semibold">Status:</span>
@@ -667,7 +738,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                 <p>
                   <span class="font-semibold">Awarded on:</span>
                   <%= if @selected_user.lifetime_membership_awarded_at do
-                    format_datetime_for_display(@selected_user.lifetime_membership_awarded_at)
+                    format_datetime_for_display(
+                      @selected_user.lifetime_membership_awarded_at
+                    )
                   else
                     "N/A"
                   end %>
@@ -678,9 +751,14 @@ defmodule YscWeb.AdminUserDetailsLive do
               </div>
             </div>
 
-            <div :if={@active_subscription == nil && !@has_lifetime_membership} class="space-y-4">
+            <div
+              :if={@active_subscription == nil && !@has_lifetime_membership}
+              class="space-y-4"
+            >
               <div class="bg-zinc-50 border border-zinc-200 rounded-lg p-4">
-                <p class="text-sm text-zinc-800">No active membership subscription found</p>
+                <p class="text-sm text-zinc-800">
+                  No active membership subscription found
+                </p>
                 <p class="text-xs text-zinc-600 mt-2">
                   Create a subscription paid elsewhere (e.g. cash) or award lifetime membership below.
                 </p>
@@ -717,7 +795,9 @@ defmodule YscWeb.AdminUserDetailsLive do
 
             <div :if={@active_subscription != nil} class="space-y-6">
               <div>
-                <h3 class="text-lg font-semibold text-zinc-800 mb-4">Current Membership</h3>
+                <h3 class="text-lg font-semibold text-zinc-800 mb-4">
+                  Current Membership
+                </h3>
                 <div class="space-y-2 text-sm text-zinc-800">
                   <p>
                     <span class="font-semibold">Plan:</span>
@@ -732,7 +812,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                   <p>
                     <span class="font-semibold">Current Period Start:</span>
                     <%= if @active_subscription.current_period_start do
-                      format_datetime_for_display(@active_subscription.current_period_start)
+                      format_datetime_for_display(
+                        @active_subscription.current_period_start
+                      )
                     else
                       "N/A"
                     end %>
@@ -740,7 +822,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                   <p>
                     <span class="font-semibold">Current Period End:</span>
                     <%= if @active_subscription.current_period_end do
-                      format_datetime_for_display(@active_subscription.current_period_end)
+                      format_datetime_for_display(
+                        @active_subscription.current_period_end
+                      )
                     else
                       "N/A"
                     end %>
@@ -759,7 +843,9 @@ defmodule YscWeb.AdminUserDetailsLive do
               </div>
 
               <div class="border-t border-zinc-200 pt-6">
-                <h3 class="text-lg font-semibold text-zinc-800 mb-4">Change Membership Type</h3>
+                <h3 class="text-lg font-semibold text-zinc-800 mb-4">
+                  Change Membership Type
+                </h3>
                 <p class="text-sm text-zinc-600 mb-4">
                   Change the user's membership plan. Upgrades will be charged immediately, downgrades will take effect at the next renewal.
                 </p>
@@ -776,15 +862,19 @@ defmodule YscWeb.AdminUserDetailsLive do
                   />
                   <div class="flex flex-row justify-end w-full pt-4">
                     <.button phx-disable-with="Changing..." type="submit">
-                      <.icon name="hero-arrows-right-left" class="w-5 h-5 mb-0.5 me-1" />
-                      Change Membership Type
+                      <.icon
+                        name="hero-arrows-right-left"
+                        class="w-5 h-5 mb-0.5 me-1"
+                      /> Change Membership Type
                     </.button>
                   </div>
                 </.simple_form>
               </div>
 
               <div class="border-t border-zinc-200 pt-6">
-                <h3 class="text-lg font-semibold text-zinc-800 mb-4">Override Membership Length</h3>
+                <h3 class="text-lg font-semibold text-zinc-800 mb-4">
+                  Override Membership Length
+                </h3>
                 <p class="text-sm text-zinc-600 mb-4">
                   Set a new period end date for this subscription. This will update the billing cycle anchor in Stripe.
                 </p>
@@ -799,28 +889,41 @@ defmodule YscWeb.AdminUserDetailsLive do
                     label="New Period End Date"
                     value={
                       if @membership_form[:period_end_date].value do
-                        format_datetime_local(@membership_form[:period_end_date].value)
+                        format_datetime_local(
+                          @membership_form[:period_end_date].value
+                        )
                       else
-                        format_datetime_local(@active_subscription.current_period_end)
+                        format_datetime_local(
+                          @active_subscription.current_period_end
+                        )
                       end
                     }
                   />
                   <div class="flex flex-row justify-end w-full pt-4">
                     <.button phx-disable-with="Updating..." type="submit">
-                      <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" /> Update Period End
+                      <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" />
+                      Update Period End
                     </.button>
                   </div>
                 </.simple_form>
               </div>
 
               <div class="border-t border-zinc-200 pt-6">
-                <h3 class="text-lg font-semibold text-zinc-800 mb-4">Payment History</h3>
+                <h3 class="text-lg font-semibold text-zinc-800 mb-4">
+                  Payment History
+                </h3>
 
-                <div :if={length(@subscription_payments) == 0} class="text-sm text-zinc-600">
+                <div
+                  :if={length(@subscription_payments) == 0}
+                  class="text-sm text-zinc-600"
+                >
                   <p>No payment history found for this subscription.</p>
                 </div>
 
-                <div :if={length(@subscription_payments) > 0} class="overflow-x-auto">
+                <div
+                  :if={length(@subscription_payments) > 0}
+                  class="overflow-x-auto"
+                >
                   <table class="min-w-full divide-y divide-zinc-200">
                     <thead class="bg-zinc-50">
                       <tr>
@@ -842,7 +945,10 @@ defmodule YscWeb.AdminUserDetailsLive do
                       </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-zinc-200">
-                      <tr :for={payment <- @subscription_payments} class="hover:bg-zinc-50">
+                      <tr
+                        :for={payment <- @subscription_payments}
+                        class="hover:bg-zinc-50"
+                      >
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-800">
                           <%= if payment.payment_date do
                             format_datetime_for_display(payment.payment_date)
@@ -903,7 +1009,9 @@ defmodule YscWeb.AdminUserDetailsLive do
             </div>
 
             <div class="border-t border-zinc-200 pt-6">
-              <h3 class="text-lg font-semibold text-zinc-800 mb-4">Lifetime Membership Management</h3>
+              <h3 class="text-lg font-semibold text-zinc-800 mb-4">
+                Lifetime Membership Management
+              </h3>
               <p class="text-sm text-zinc-600 mb-4">
                 Award or revoke lifetime membership. Lifetime members never need to pay and have all Family membership perks.
                 <strong>This works regardless of subscription status.</strong>
@@ -933,7 +1041,8 @@ defmodule YscWeb.AdminUserDetailsLive do
                 />
                 <div class="flex flex-row justify-end w-full pt-4">
                   <.button phx-disable-with="Saving..." type="submit">
-                    <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" /> Save Lifetime Membership
+                    <.icon name="hero-check" class="w-5 h-5 mb-0.5 me-1" />
+                    Save Lifetime Membership
                   </.button>
                 </div>
               </.simple_form>
@@ -941,9 +1050,14 @@ defmodule YscWeb.AdminUserDetailsLive do
           </div>
         </div>
 
-        <div :if={@live_action == :bank_accounts && @is_treasurer} class="max-w-full py-8 px-2">
+        <div
+          :if={@live_action == :bank_accounts && @is_treasurer}
+          class="max-w-full py-8 px-2"
+        >
           <div class="space-y-6">
-            <h2 class="text-2xl font-semibold leading-8 text-zinc-800">Bank Accounts</h2>
+            <h2 class="text-2xl font-semibold leading-8 text-zinc-800">
+              Bank Accounts
+            </h2>
             <p class="text-sm text-zinc-600">
               View bank accounts for expense report reimbursements. Click "Unseal" to view encrypted account and routing numbers.
             </p>
@@ -957,7 +1071,10 @@ defmodule YscWeb.AdminUserDetailsLive do
                         Account ending in ••••<%= bank_account.account_number_last_4 %>
                       </h3>
                       <p class="text-sm text-zinc-600 mt-1">
-                        Added <%= Calendar.strftime(bank_account.inserted_at, "%B %d, %Y") %>
+                        Added <%= Calendar.strftime(
+                          bank_account.inserted_at,
+                          "%B %d, %Y"
+                        ) %>
                       </p>
                     </div>
                     <button
@@ -1025,7 +1142,10 @@ defmodule YscWeb.AdminUserDetailsLive do
               phx-update="ignore"
               class={[
                 "resizable-left flex-1 flex-auto overflow-auto",
-                if(@selected_notification, do: "flex-[0_0_auto]", else: "flex-[1_1_auto]")
+                if(@selected_notification,
+                  do: "flex-[0_0_auto]",
+                  else: "flex-[1_1_auto]"
+                )
               ]}
               style={
                 if @selected_notification && @panel_width do
@@ -1035,9 +1155,14 @@ defmodule YscWeb.AdminUserDetailsLive do
                 end
               }
             >
-              <h2 class="text-xl font-semibold text-zinc-800 mb-4">Notifications</h2>
+              <h2 class="text-xl font-semibold text-zinc-800 mb-4">
+                Notifications
+              </h2>
               <div class="w-full">
-                <div :if={length(@notifications) == 0} class="text-sm text-zinc-600 py-8">
+                <div
+                  :if={length(@notifications) == 0}
+                  class="text-sm text-zinc-600 py-8"
+                >
                   <p>No notifications found for this user.</p>
                 </div>
 
@@ -1066,7 +1191,8 @@ defmodule YscWeb.AdminUserDetailsLive do
                         phx-value-id={notification.id}
                         class={[
                           "hover:bg-zinc-50 cursor-pointer",
-                          @selected_notification && notification.id == @selected_notification.id &&
+                          @selected_notification &&
+                            notification.id == @selected_notification.id &&
                             "bg-blue-50"
                         ]}
                       >
@@ -1075,9 +1201,13 @@ defmodule YscWeb.AdminUserDetailsLive do
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap">
                           <.badge type={
-                            if notification.message_type == :email, do: "default", else: "green"
+                            if notification.message_type == :email,
+                              do: "default",
+                              else: "green"
                           }>
-                            <%= notification.message_type |> to_string() |> String.upcase() %>
+                            <%= notification.message_type
+                            |> to_string()
+                            |> String.upcase() %>
                           </.badge>
                         </td>
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-zinc-600">
@@ -1132,7 +1262,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                 class="flex-1 p-6 overflow-auto"
               >
                 <div class="flex justify-between items-start mb-4">
-                  <h3 class="text-lg font-semibold text-zinc-800">Message Details</h3>
+                  <h3 class="text-lg font-semibold text-zinc-800">
+                    Message Details
+                  </h3>
                   <button
                     phx-click="close_notification_panel"
                     class="text-zinc-400 hover:text-zinc-600"
@@ -1148,7 +1280,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                       Sent
                     </p>
                     <p class="text-sm text-zinc-800">
-                      <%= format_datetime_for_display(@selected_notification.inserted_at) %>
+                      <%= format_datetime_for_display(
+                        @selected_notification.inserted_at
+                      ) %>
                     </p>
                   </div>
 
@@ -1158,7 +1292,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                     </p>
                     <p class="text-sm text-zinc-800">
                       <.badge>
-                        <%= @selected_notification.message_type |> to_string() |> String.capitalize() %>
+                        <%= @selected_notification.message_type
+                        |> to_string()
+                        |> String.capitalize() %>
                       </.badge>
                     </p>
                   </div>
@@ -1207,14 +1343,17 @@ defmodule YscWeb.AdminUserDetailsLive do
                         </iframe>
                       <% else %>
                         <div class="p-4">
-                          <p class="text-sm text-zinc-400 italic">No message content available</p>
+                          <p class="text-sm text-zinc-400 italic">
+                            No message content available
+                          </p>
                         </div>
                       <% end %>
                     </div>
                   </div>
 
                   <div :if={
-                    @selected_notification.params && map_size(@selected_notification.params) > 0
+                    @selected_notification.params &&
+                      map_size(@selected_notification.params) > 0
                   }>
                     <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">
                       Parameters
@@ -1235,7 +1374,9 @@ defmodule YscWeb.AdminUserDetailsLive do
           <div class="space-y-6">
             <!-- Primary User (Parent Account) -->
             <div :if={@primary_user} class="border border-zinc-200 rounded-lg p-6">
-              <h3 class="text-lg font-semibold text-zinc-800 mb-4">Primary Account</h3>
+              <h3 class="text-lg font-semibold text-zinc-800 mb-4">
+                Primary Account
+              </h3>
               <div class="space-y-3">
                 <.link
                   navigate={~p"/admin/users/#{@primary_user.id}/details"}
@@ -1252,7 +1393,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                       <div class="font-semibold text-zinc-900">
                         <%= "#{@primary_user.first_name} #{@primary_user.last_name}" %>
                       </div>
-                      <div class="text-sm text-zinc-600"><%= @primary_user.email %></div>
+                      <div class="text-sm text-zinc-600">
+                        <%= @primary_user.email %>
+                      </div>
                       <%= if @primary_user.phone_number do %>
                         <div class="text-sm text-zinc-500">
                           <%= format_phone_number(@primary_user.phone_number) %>
@@ -1267,7 +1410,10 @@ defmodule YscWeb.AdminUserDetailsLive do
               </div>
             </div>
             <!-- Sub Accounts -->
-            <div :if={length(@sub_accounts) > 0} class="border border-zinc-200 rounded-lg p-6">
+            <div
+              :if={length(@sub_accounts) > 0}
+              class="border border-zinc-200 rounded-lg p-6"
+            >
               <h3 class="text-lg font-semibold text-zinc-800 mb-4">
                 Sub Accounts (<%= length(@sub_accounts) %>)
               </h3>
@@ -1288,7 +1434,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                       <div class="font-semibold text-zinc-900">
                         <%= "#{sub_account.first_name} #{sub_account.last_name}" %>
                       </div>
-                      <div class="text-sm text-zinc-600"><%= sub_account.email %></div>
+                      <div class="text-sm text-zinc-600">
+                        <%= sub_account.email %>
+                      </div>
                       <%= if sub_account.phone_number do %>
                         <div class="text-sm text-zinc-500">
                           <%= format_phone_number(sub_account.phone_number) %>
@@ -1303,12 +1451,18 @@ defmodule YscWeb.AdminUserDetailsLive do
               </div>
             </div>
             <!-- Family Members (Non-User Entities) -->
-            <div :if={length(@family_members) > 0} class="border border-zinc-200 rounded-lg p-6">
+            <div
+              :if={length(@family_members) > 0}
+              class="border border-zinc-200 rounded-lg p-6"
+            >
               <h3 class="text-lg font-semibold text-zinc-800 mb-4">
                 Family Members (<%= length(@family_members) %>)
               </h3>
               <div class="space-y-3">
-                <div :for={family_member <- @family_members} class="p-4 bg-zinc-50 rounded-lg">
+                <div
+                  :for={family_member <- @family_members}
+                  class="p-4 bg-zinc-50 rounded-lg"
+                >
                   <div class="flex items-center gap-4">
                     <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
                       <span class="text-blue-600 font-semibold text-lg">
@@ -1326,7 +1480,10 @@ defmodule YscWeb.AdminUserDetailsLive do
                       </div>
                       <%= if family_member.birth_date do %>
                         <div class="text-sm text-zinc-600">
-                          Birth date: <%= Calendar.strftime(family_member.birth_date, "%B %d, %Y") %>
+                          Birth date: <%= Calendar.strftime(
+                            family_member.birth_date,
+                            "%B %d, %Y"
+                          ) %>
                         </div>
                       <% end %>
                     </div>
@@ -1336,7 +1493,10 @@ defmodule YscWeb.AdminUserDetailsLive do
             </div>
             <!-- Empty State -->
             <div
-              :if={!@primary_user && length(@sub_accounts) == 0 && length(@family_members) == 0}
+              :if={
+                !@primary_user && length(@sub_accounts) == 0 &&
+                  length(@family_members) == 0
+              }
               class="text-center py-12 border border-zinc-200 rounded-lg"
             >
               <p class="text-zinc-500">No family members found for this user.</p>
@@ -1380,7 +1540,9 @@ defmodule YscWeb.AdminUserDetailsLive do
             <div class="bg-white border border-zinc-200 rounded-lg p-6">
               <h3 class="text-lg font-semibold text-zinc-800 mb-4">Timeline</h3>
               <div :if={length(@user_notes) == 0} class="text-center py-12">
-                <p class="text-zinc-500">No notes yet. Add a note above to get started.</p>
+                <p class="text-zinc-500">
+                  No notes yet. Add a note above to get started.
+                </p>
               </div>
               <div :if={length(@user_notes) > 0} class="relative">
                 <div class="absolute left-4 top-0 bottom-0 w-0.5 bg-zinc-200"></div>
@@ -1389,7 +1551,10 @@ defmodule YscWeb.AdminUserDetailsLive do
                     <div class="relative flex gap-4">
                       <div class="flex-shrink-0">
                         <div class="w-8 h-8 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center relative z-10">
-                          <.icon name="hero-document-text" class="w-4 h-4 text-blue-600" />
+                          <.icon
+                            name="hero-document-text"
+                            class="w-4 h-4 text-blue-600"
+                          />
                         </div>
                       </div>
                       <div class="flex-1 pb-6">
@@ -1405,7 +1570,9 @@ defmodule YscWeb.AdminUserDetailsLive do
                                   <% end %>
                                 </p>
                                 <.badge type={
-                                  if note.category == :violation, do: "red", else: "default"
+                                  if note.category == :violation,
+                                    do: "red",
+                                    else: "default"
                                 }>
                                   <%= String.capitalize("#{note.category}") %>
                                 </.badge>
@@ -1443,19 +1610,29 @@ defmodule YscWeb.AdminUserDetailsLive do
     current_user = socket.assigns[:current_user]
 
     selected_user =
-      Accounts.get_user!(id, [:family_members, :billing_address, :primary_user, :sub_accounts])
+      Accounts.get_user!(id, [
+        :family_members,
+        :billing_address,
+        :primary_user,
+        :sub_accounts
+      ])
 
     # Note: We don't pre-create billing_address here. cast_assoc will handle creating new records when billing_address is nil
 
     application =
       try do
-        Accounts.get_signup_application_from_user_id!(id, current_user, [:reviewed_by])
+        Accounts.get_signup_application_from_user_id!(id, current_user, [
+          :reviewed_by
+        ])
       rescue
         Ecto.NoResultsError -> nil
       end
 
-    user_changeset = Accounts.User.update_user_with_address_changeset(selected_user, %{})
+    user_changeset =
+      Accounts.User.update_user_with_address_changeset(selected_user, %{})
+
     user_form = to_form(user_changeset, as: "user")
+
     # Extract original data after form is created to ensure consistent formatting
     original_form_data = extract_form_data(user_form)
 
@@ -1482,16 +1659,20 @@ defmodule YscWeb.AdminUserDetailsLive do
     has_lifetime = Accounts.has_lifetime_membership?(selected_user)
 
     # Check if current user is treasurer
-    is_treasurer = current_user.board_position == :treasurer && current_user.state == :active
+    is_treasurer =
+      current_user.board_position == :treasurer && current_user.state == :active
 
     # Load bank accounts if treasurer
     bank_accounts =
-      if is_treasurer, do: ExpenseReports.list_bank_accounts(selected_user), else: []
+      if is_treasurer,
+        do: ExpenseReports.list_bank_accounts(selected_user),
+        else: []
 
     # Create membership form changeset
     membership_changeset =
       %{
-        period_end_date: active_subscription && active_subscription.current_period_end
+        period_end_date:
+          active_subscription && active_subscription.current_period_end
       }
       |> membership_changeset()
 
@@ -1499,12 +1680,14 @@ defmodule YscWeb.AdminUserDetailsLive do
     lifetime_changeset =
       %{
         has_lifetime: has_lifetime,
-        awarded_at: selected_user.lifetime_membership_awarded_at || DateTime.utc_now()
+        awarded_at:
+          selected_user.lifetime_membership_awarded_at || DateTime.utc_now()
       }
       |> lifetime_membership_changeset()
 
     # Create membership type form changeset
-    current_membership_type = get_current_membership_type_from_subscription(active_subscription)
+    current_membership_type =
+      get_current_membership_type_from_subscription(active_subscription)
 
     membership_type_changeset =
       %{
@@ -1529,8 +1712,14 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:active_subscription, active_subscription)
      |> assign(:subscription_payments, subscription_payments)
      |> assign(:has_lifetime_membership, has_lifetime)
-     |> assign(:membership_form, to_form(membership_changeset, as: "membership"))
-     |> assign(:membership_type_form, to_form(membership_type_changeset, as: "membership_type"))
+     |> assign(
+       :membership_form,
+       to_form(membership_changeset, as: "membership")
+     )
+     |> assign(
+       :membership_type_form,
+       to_form(membership_type_changeset, as: "membership_type")
+     )
      |> assign(:lifetime_form, to_form(lifetime_changeset, as: "lifetime"))
      |> assign(
        :create_paid_membership_form,
@@ -1550,7 +1739,10 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:sub_accounts, [])
      |> assign(:family_members, [])
      |> assign(:user_notes, [])
-     |> assign(:note_form, to_form(note_changeset(%{category: "general"}), as: "note"))
+     |> assign(
+       :note_form,
+       to_form(note_changeset(%{category: "general"}), as: "note")
+     )
      |> assign(form: user_form)}
   end
 
@@ -1614,7 +1806,10 @@ defmodule YscWeb.AdminUserDetailsLive do
       {:error, changeset} ->
         # Log the actual error for debugging
         require Logger
-        Logger.error("Failed to update user with address: #{inspect(changeset.errors)}")
+
+        Logger.error(
+          "Failed to update user with address: #{inspect(changeset.errors)}"
+        )
 
         {:noreply,
          socket
@@ -1624,7 +1819,9 @@ defmodule YscWeb.AdminUserDetailsLive do
 
   def handle_event("validate", %{"user" => user_params}, socket) do
     assigned = socket.assigns[:selected_user]
-    form_data = Accounts.User.update_user_with_address_changeset(assigned, user_params)
+
+    form_data =
+      Accounts.User.update_user_with_address_changeset(assigned, user_params)
 
     {:noreply,
      assign_form(socket, form_data)
@@ -1633,18 +1830,28 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:role, user_params["role"])}
   end
 
-  def handle_event("validate_lifetime", %{"lifetime" => lifetime_params}, socket) do
+  def handle_event(
+        "validate_lifetime",
+        %{"lifetime" => lifetime_params},
+        socket
+      ) do
     changeset = lifetime_params |> lifetime_membership_changeset()
 
-    {:noreply, assign(socket, lifetime_form: to_form(changeset, as: "lifetime"))}
+    {:noreply,
+     assign(socket, lifetime_form: to_form(changeset, as: "lifetime"))}
   end
 
-  def handle_event("update_lifetime_membership", %{"lifetime" => lifetime_params}, socket) do
+  def handle_event(
+        "update_lifetime_membership",
+        %{"lifetime" => lifetime_params},
+        socket
+      ) do
     selected_user = socket.assigns[:selected_user]
     active_subscription = socket.assigns[:active_subscription]
 
     has_lifetime =
-      lifetime_params["has_lifetime"] == "true" || lifetime_params["has_lifetime"] == true
+      lifetime_params["has_lifetime"] == "true" ||
+        lifetime_params["has_lifetime"] == true
 
     update_params =
       if has_lifetime do
@@ -1660,7 +1867,11 @@ defmodule YscWeb.AdminUserDetailsLive do
         %{lifetime_membership_awarded_at: nil}
       end
 
-    case Accounts.update_user(selected_user, update_params, socket.assigns[:current_user]) do
+    case Accounts.update_user(
+           selected_user,
+           update_params,
+           socket.assigns[:current_user]
+         ) do
       {:ok, updated_user} ->
         # Reload user to get updated lifetime membership status
         updated_user = Accounts.get_user!(updated_user.id)
@@ -1677,8 +1888,10 @@ defmodule YscWeb.AdminUserDetailsLive do
         # If awarding lifetime membership and user has an active :single or :family subscription,
         # cancel it in Stripe so they are no longer charged
         cancelled_subscription =
-          if has_lifetime && active_subscription && Subscriptions.active?(active_subscription) do
-            membership_type = get_current_membership_type_from_subscription(active_subscription)
+          if has_lifetime && active_subscription &&
+               Subscriptions.active?(active_subscription) do
+            membership_type =
+              get_current_membership_type_from_subscription(active_subscription)
 
             if membership_type in [:single, :family] do
               case Subscriptions.cancel(active_subscription) do
@@ -1716,7 +1929,8 @@ defmodule YscWeb.AdminUserDetailsLive do
         lifetime_changeset =
           %{
             has_lifetime: Accounts.has_lifetime_membership?(updated_user),
-            awarded_at: updated_user.lifetime_membership_awarded_at || DateTime.utc_now()
+            awarded_at:
+              updated_user.lifetime_membership_awarded_at || DateTime.utc_now()
           }
           |> lifetime_membership_changeset()
 
@@ -1735,7 +1949,10 @@ defmodule YscWeb.AdminUserDetailsLive do
          socket
          |> assign(:selected_user, updated_user)
          |> assign(:active_subscription, updated_active_subscription)
-         |> assign(:has_lifetime_membership, Accounts.has_lifetime_membership?(updated_user))
+         |> assign(
+           :has_lifetime_membership,
+           Accounts.has_lifetime_membership?(updated_user)
+         )
          |> assign(:lifetime_form, to_form(lifetime_changeset, as: "lifetime"))
          |> put_flash(:info, flash_message)}
 
@@ -1749,10 +1966,15 @@ defmodule YscWeb.AdminUserDetailsLive do
     end
   end
 
-  def handle_event("validate_membership", %{"membership" => membership_params}, socket) do
+  def handle_event(
+        "validate_membership",
+        %{"membership" => membership_params},
+        socket
+      ) do
     changeset = membership_params |> membership_changeset()
 
-    {:noreply, assign(socket, membership_form: to_form(changeset, as: "membership"))}
+    {:noreply,
+     assign(socket, membership_form: to_form(changeset, as: "membership"))}
   end
 
   def handle_event(
@@ -1762,7 +1984,10 @@ defmodule YscWeb.AdminUserDetailsLive do
       ) do
     changeset = membership_type_params |> membership_type_changeset()
 
-    {:noreply, assign(socket, membership_type_form: to_form(changeset, as: "membership_type"))}
+    {:noreply,
+     assign(socket,
+       membership_type_form: to_form(changeset, as: "membership_type")
+     )}
   end
 
   def handle_event(
@@ -1773,10 +1998,17 @@ defmodule YscWeb.AdminUserDetailsLive do
     changeset = params |> create_paid_membership_changeset()
 
     {:noreply,
-     assign(socket, create_paid_membership_form: to_form(changeset, as: "create_paid_membership"))}
+     assign(socket,
+       create_paid_membership_form:
+         to_form(changeset, as: "create_paid_membership")
+     )}
   end
 
-  def handle_event("create_paid_membership", %{"create_paid_membership" => params}, socket) do
+  def handle_event(
+        "create_paid_membership",
+        %{"create_paid_membership" => params},
+        socket
+      ) do
     selected_user = socket.assigns[:selected_user]
     plan_id_str = params["plan_id"]
 
@@ -1785,16 +2017,22 @@ defmodule YscWeb.AdminUserDetailsLive do
     else
       plan_id = String.to_existing_atom(plan_id_str)
 
-      case Subscriptions.create_subscription_paid_out_of_band(selected_user, plan_id) do
+      case Subscriptions.create_subscription_paid_out_of_band(
+             selected_user,
+             plan_id
+           ) do
         {:ok, subscription} ->
           subscription = Repo.preload(subscription, :subscription_items)
-          subscription_payments = Ledgers.get_payments_for_subscription(subscription.id)
+
+          subscription_payments =
+            Ledgers.get_payments_for_subscription(subscription.id)
 
           membership_changeset =
             %{period_end_date: subscription.current_period_end}
             |> membership_changeset()
 
-          current_membership_type = get_current_membership_type_from_subscription(subscription)
+          current_membership_type =
+            get_current_membership_type_from_subscription(subscription)
 
           membership_type_changeset =
             %{membership_type: current_membership_type}
@@ -1808,34 +2046,55 @@ defmodule YscWeb.AdminUserDetailsLive do
            socket
            |> assign(:active_subscription, subscription)
            |> assign(:subscription_payments, subscription_payments)
-           |> assign(:membership_form, to_form(membership_changeset, as: "membership"))
+           |> assign(
+             :membership_form,
+             to_form(membership_changeset, as: "membership")
+           )
            |> assign(
              :membership_type_form,
              to_form(membership_type_changeset, as: "membership_type")
            )
            |> assign(
              :create_paid_membership_form,
-             to_form(create_paid_membership_changeset, as: "create_paid_membership")
+             to_form(create_paid_membership_changeset,
+               as: "create_paid_membership"
+             )
            )
-           |> put_flash(:info, "Membership subscription created (paid elsewhere).")}
+           |> put_flash(
+             :info,
+             "Membership subscription created (paid elsewhere)."
+           )}
 
         {:error, :sub_accounts_cannot_create_subscriptions} ->
           {:noreply,
-           socket |> put_flash(:error, "Sub-accounts cannot have their own subscriptions.")}
+           socket
+           |> put_flash(
+             :error,
+             "Sub-accounts cannot have their own subscriptions."
+           )}
 
         {:error, :user_already_has_active_subscription} ->
-          {:noreply, socket |> put_flash(:error, "User already has an active subscription.")}
+          {:noreply,
+           socket
+           |> put_flash(:error, "User already has an active subscription.")}
 
         {:error, :invalid_plan} ->
-          {:noreply, socket |> put_flash(:error, "Invalid membership plan selected.")}
+          {:noreply,
+           socket |> put_flash(:error, "Invalid membership plan selected.")}
 
         {:error, :could_not_create_stripe_customer} ->
           {:noreply,
-           socket |> put_flash(:error, "Could not create or link Stripe customer for user.")}
+           socket
+           |> put_flash(
+             :error,
+             "Could not create or link Stripe customer for user."
+           )}
 
         {:error, err} ->
           message =
-            if is_binary(err), do: err, else: "Failed to create subscription: #{inspect(err)}"
+            if is_binary(err),
+              do: err,
+              else: "Failed to create subscription: #{inspect(err)}"
 
           {:noreply, socket |> put_flash(:error, message)}
       end
@@ -1852,12 +2111,16 @@ defmodule YscWeb.AdminUserDetailsLive do
     if is_nil(active_subscription) do
       {:noreply,
        socket
-       |> put_flash(:error, "User does not have an active subscription to change")}
+       |> put_flash(
+         :error,
+         "User does not have an active subscription to change"
+       )}
     else
       new_membership_type_str = membership_type_params["membership_type"]
 
       if is_nil(new_membership_type_str) or new_membership_type_str == "" do
-        {:noreply, socket |> put_flash(:error, "Please select a membership type")}
+        {:noreply,
+         socket |> put_flash(:error, "Please select a membership type")}
       else
         new_membership_type = String.to_existing_atom(new_membership_type_str)
 
@@ -1865,23 +2128,34 @@ defmodule YscWeb.AdminUserDetailsLive do
         membership_plans = Application.get_env(:ysc, :membership_plans, [])
 
         # Find current and new plans
-        current_type = get_current_membership_type_from_subscription(active_subscription)
+        current_type =
+          get_current_membership_type_from_subscription(active_subscription)
+
         current_plan = Enum.find(membership_plans, &(&1.id == current_type))
         new_plan = Enum.find(membership_plans, &(&1.id == new_membership_type))
 
         cond do
           is_nil(new_plan) ->
-            {:noreply, socket |> put_flash(:error, "Invalid membership type selected")}
+            {:noreply,
+             socket |> put_flash(:error, "Invalid membership type selected")}
 
           current_type == new_membership_type ->
-            {:noreply, socket |> put_flash(:info, "User is already on that membership plan")}
+            {:noreply,
+             socket
+             |> put_flash(:info, "User is already on that membership plan")}
 
           is_nil(current_plan) ->
-            {:noreply, socket |> put_flash(:error, "Could not determine current membership plan")}
+            {:noreply,
+             socket
+             |> put_flash(:error, "Could not determine current membership plan")}
 
           true ->
             new_price_id = new_plan.stripe_price_id
-            direction = if new_plan.amount > current_plan.amount, do: :upgrade, else: :downgrade
+
+            direction =
+              if new_plan.amount > current_plan.amount,
+                do: :upgrade,
+                else: :downgrade
 
             case Subscriptions.change_membership_plan(
                    active_subscription,
@@ -1920,7 +2194,11 @@ defmodule YscWeb.AdminUserDetailsLive do
                   end
 
                 {:noreply,
-                 socket |> put_flash(:error, "Failed to change membership type: #{error_message}")}
+                 socket
+                 |> put_flash(
+                   :error,
+                   "Failed to change membership type: #{error_message}"
+                 )}
             end
         end
       end
@@ -1931,7 +2209,10 @@ defmodule YscWeb.AdminUserDetailsLive do
     if socket.assigns.is_treasurer do
       selected_user = Accounts.get_user!(socket.assigns.user_id)
 
-      case ExpenseReports.get_decrypted_bank_account(bank_account_id, selected_user) do
+      case ExpenseReports.get_decrypted_bank_account(
+             bank_account_id,
+             selected_user
+           ) do
         nil ->
           {:noreply,
            socket
@@ -1957,7 +2238,11 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:unsealed_account, nil)}
   end
 
-  def handle_event("update_membership_period", %{"membership" => membership_params}, socket) do
+  def handle_event(
+        "update_membership_period",
+        %{"membership" => membership_params},
+        socket
+      ) do
     active_subscription = socket.assigns[:active_subscription]
 
     if active_subscription == nil do
@@ -1965,10 +2250,14 @@ defmodule YscWeb.AdminUserDetailsLive do
     else
       case parse_datetime(membership_params["period_end_date"]) do
         {:ok, new_end_date} ->
-          case Subscriptions.update_period_end(active_subscription, new_end_date) do
+          case Subscriptions.update_period_end(
+                 active_subscription,
+                 new_end_date
+               ) do
             {:ok, updated_subscription} ->
               # Reload the subscription with items
-              updated_subscription = Repo.preload(updated_subscription, :subscription_items)
+              updated_subscription =
+                Repo.preload(updated_subscription, :subscription_items)
 
               # Reload payments for the subscription
               subscription_payments =
@@ -1982,13 +2271,19 @@ defmodule YscWeb.AdminUserDetailsLive do
                socket
                |> assign(:active_subscription, updated_subscription)
                |> assign(:subscription_payments, subscription_payments)
-               |> assign(:membership_form, to_form(membership_changeset, as: "membership"))
+               |> assign(
+                 :membership_form,
+                 to_form(membership_changeset, as: "membership")
+               )
                |> put_flash(:info, "Membership period updated successfully")}
 
             {:error, error} ->
               {:noreply,
                socket
-               |> put_flash(:error, "Failed to update membership period: #{inspect(error)}")}
+               |> put_flash(
+                 :error,
+                 "Failed to update membership period: #{inspect(error)}"
+               )}
           end
 
         {:error, _reason} ->
@@ -2011,7 +2306,10 @@ defmodule YscWeb.AdminUserDetailsLive do
       {:ok, _note} ->
         {:noreply,
          socket
-         |> assign(:note_form, to_form(note_changeset(%{category: "general"}), as: "note"))
+         |> assign(
+           :note_form,
+           to_form(note_changeset(%{category: "general"}), as: "note")
+         )
          |> assign(:user_notes, Accounts.list_user_notes(selected_user.id))
          |> put_flash(:info, "Note added successfully")}
 
@@ -2019,7 +2317,10 @@ defmodule YscWeb.AdminUserDetailsLive do
         {:noreply,
          socket
          |> assign(:note_form, to_form(changeset, as: "note"))
-         |> put_flash(:error, "Failed to add note: #{format_changeset_errors(changeset)}")}
+         |> put_flash(
+           :error,
+           "Failed to add note: #{format_changeset_errors(changeset)}"
+         )}
     end
   end
 
@@ -2089,7 +2390,12 @@ defmodule YscWeb.AdminUserDetailsLive do
   end
 
   defp load_family_data(socket, user_id) do
-    selected_user = Accounts.get_user!(user_id, [:family_members, :primary_user, :sub_accounts])
+    selected_user =
+      Accounts.get_user!(user_id, [
+        :family_members,
+        :primary_user,
+        :sub_accounts
+      ])
 
     # Get primary user if this is a sub-account
     primary_user = Accounts.get_primary_user(selected_user)
@@ -2110,7 +2416,8 @@ defmodule YscWeb.AdminUserDetailsLive do
     family_members =
       if primary_user do
         # Load primary user with family_members
-        primary_user_with_members = Accounts.get_user!(primary_user.id, [:family_members])
+        primary_user_with_members =
+          Accounts.get_user!(primary_user.id, [:family_members])
 
         case primary_user_with_members.family_members do
           %Ecto.Association.NotLoaded{} -> []
@@ -2218,7 +2525,8 @@ defmodule YscWeb.AdminUserDetailsLive do
   defp get_membership_type_options_for_create do
     membership_plans = Application.get_env(:ysc, :membership_plans, [])
 
-    available_plans = Enum.filter(membership_plans, &(&1.id in [:single, :family]))
+    available_plans =
+      Enum.filter(membership_plans, &(&1.id in [:single, :family]))
 
     Enum.map(available_plans, fn plan ->
       label = "#{plan.name} - $#{plan.amount}/year"
@@ -2272,10 +2580,17 @@ defmodule YscWeb.AdminUserDetailsLive do
 
     billing_address_struct =
       cond do
-        is_struct(billing_address_value, Ecto.Changeset) -> billing_address_value.data
-        is_struct(billing_address_value, Ysc.Accounts.Address) -> billing_address_value
-        is_nil(billing_address_value) -> %Ysc.Accounts.Address{}
-        true -> %Ysc.Accounts.Address{}
+        is_struct(billing_address_value, Ecto.Changeset) ->
+          billing_address_value.data
+
+        is_struct(billing_address_value, Ysc.Accounts.Address) ->
+          billing_address_value
+
+        is_nil(billing_address_value) ->
+          %Ysc.Accounts.Address{}
+
+        true ->
+          %Ysc.Accounts.Address{}
       end
 
     # Normalize all values to strings for consistent comparison
@@ -2285,7 +2600,8 @@ defmodule YscWeb.AdminUserDetailsLive do
         params["date_of_birth"] ->
           params["date_of_birth"]
 
-        form[:date_of_birth].value && is_struct(form[:date_of_birth].value, Date) ->
+        form[:date_of_birth].value &&
+            is_struct(form[:date_of_birth].value, Date) ->
           Date.to_iso8601(form[:date_of_birth].value)
 
         form[:date_of_birth].value ->
@@ -2296,29 +2612,48 @@ defmodule YscWeb.AdminUserDetailsLive do
       end
 
     %{
-      "first_name" => to_string(params["first_name"] || form[:first_name].value || ""),
-      "last_name" => to_string(params["last_name"] || form[:last_name].value || ""),
+      "first_name" =>
+        to_string(params["first_name"] || form[:first_name].value || ""),
+      "last_name" =>
+        to_string(params["last_name"] || form[:last_name].value || ""),
       "email" => to_string(params["email"] || form[:email].value || ""),
-      "phone_number" => to_string(params["phone_number"] || form[:phone_number].value || ""),
+      "phone_number" =>
+        to_string(params["phone_number"] || form[:phone_number].value || ""),
       "date_of_birth" => date_of_birth_value,
       "most_connected_country" =>
-        to_string(params["most_connected_country"] || form[:most_connected_country].value || ""),
+        to_string(
+          params["most_connected_country"] ||
+            form[:most_connected_country].value || ""
+        ),
       "state" => to_string(params["state"] || form[:state].value || ""),
       "role" => to_string(params["role"] || form[:role].value || ""),
       "board_position" =>
         to_string(params["board_position"] || form[:board_position].value || ""),
       "billing_address" => %{
         "address" =>
-          to_string(billing_address_params["address"] || billing_address_struct.address || ""),
-        "city" => to_string(billing_address_params["city"] || billing_address_struct.city || ""),
+          to_string(
+            billing_address_params["address"] || billing_address_struct.address ||
+              ""
+          ),
+        "city" =>
+          to_string(
+            billing_address_params["city"] || billing_address_struct.city || ""
+          ),
         "region" =>
-          to_string(billing_address_params["region"] || billing_address_struct.region || ""),
+          to_string(
+            billing_address_params["region"] || billing_address_struct.region ||
+              ""
+          ),
         "postal_code" =>
           to_string(
-            billing_address_params["postal_code"] || billing_address_struct.postal_code || ""
+            billing_address_params["postal_code"] ||
+              billing_address_struct.postal_code || ""
           ),
         "country" =>
-          to_string(billing_address_params["country"] || billing_address_struct.country || "")
+          to_string(
+            billing_address_params["country"] || billing_address_struct.country ||
+              ""
+          )
       }
     }
   end

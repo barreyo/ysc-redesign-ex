@@ -74,7 +74,14 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
         |> Task.async_stream(
           fn user ->
             Ysc.DataCase.allow_sandbox(self(), owner)
-            BookingLocker.create_room_booking(user.id, [room.id], checkin_date, checkout_date, 2)
+
+            BookingLocker.create_room_booking(
+              user.id,
+              [room.id],
+              checkin_date,
+              checkout_date,
+              2
+            )
           end,
           max_concurrency: 5,
           timeout: 5_000
@@ -105,7 +112,14 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
           fn {user, index} ->
             Ysc.DataCase.allow_sandbox(self(), owner)
             room_id = if rem(index, 2) == 0, do: room1.id, else: room2.id
-            BookingLocker.create_room_booking(user.id, [room_id], checkin_date, checkout_date, 2)
+
+            BookingLocker.create_room_booking(
+              user.id,
+              [room_id],
+              checkin_date,
+              checkout_date,
+              2
+            )
           end,
           max_concurrency: 4,
           timeout: 5_000

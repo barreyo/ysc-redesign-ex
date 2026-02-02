@@ -20,7 +20,8 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         expires_in: 3_600_000
       ]
 
-      assert {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
+      assert {:ok, fields} =
+               SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
 
       assert is_map(fields)
       assert fields["key"] == "public/test-file.jpg"
@@ -155,7 +156,9 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
           expires_in: 3_600_000
         ]
 
-        assert {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
+        assert {:ok, fields} =
+                 SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
+
         assert fields["content-type"] == content_type
       end)
     end
@@ -171,7 +174,8 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
           expires_in: 3_600_000
         ]
 
-        assert {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
+        assert {:ok, fields} =
+                 SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
 
         # Verify the policy includes the correct max file size
         policy_json = Base.decode64!(fields["policy"])
@@ -193,7 +197,8 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
           expires_in: expires_in
         ]
 
-        assert {:ok, fields} = SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
+        assert {:ok, fields} =
+                 SimpleS3Upload.sign_form_upload(@config, @bucket, opts)
 
         # Verify expiration is set in the future
         policy_json = Base.decode64!(fields["policy"])
@@ -221,7 +226,9 @@ defmodule YscWeb.S3.SimpleS3UploadTest do
         expires_in: 3_600_000
       ]
 
-      assert {:ok, fields} = SimpleS3Upload.sign_form_upload(tigris_config, @bucket, opts)
+      assert {:ok, fields} =
+               SimpleS3Upload.sign_form_upload(tigris_config, @bucket, opts)
+
       assert fields["x-amz-credential"] =~ "auto"
     end
 

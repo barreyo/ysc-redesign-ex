@@ -35,7 +35,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
     user =
       user
       |> Ecto.Changeset.change(
-        lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        lifetime_membership_awarded_at:
+          DateTime.truncate(DateTime.utc_now(), :second)
       )
       |> Repo.update!()
 
@@ -43,7 +44,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
     organizer =
       user_fixture()
       |> Ecto.Changeset.change(
-        lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        lifetime_membership_awarded_at:
+          DateTime.truncate(DateTime.utc_now(), :second)
       )
       |> Repo.update!()
 
@@ -53,7 +55,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
         description: "Testing donation ticket processing",
         state: :published,
         organizer_id: organizer.id,
-        start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
+        start_date:
+          DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
         max_attendees: 100,
         published_at: DateTime.truncate(DateTime.utc_now(), :second)
       })
@@ -174,12 +177,13 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
       assert Money.equal?(ticket_order.total_amount, expected_total)
     end
 
-    test "process_ledger_payment correctly calculates event and donation amounts", %{
-      user: user,
-      event: event,
-      paid_tier: paid_tier,
-      donation_tier: donation_tier
-    } do
+    test "process_ledger_payment correctly calculates event and donation amounts",
+         %{
+           user: user,
+           event: event,
+           paid_tier: paid_tier,
+           donation_tier: donation_tier
+         } do
       # Create ticket order with mixed tickets
       ticket_selections = %{
         paid_tier.id => 2,
@@ -187,7 +191,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
         donation_tier.id => 3_000
       }
 
-      {:ok, ticket_order} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
+      {:ok, ticket_order} =
+        Tickets.create_ticket_order(user.id, event.id, ticket_selections)
 
       # Reload with tickets and tiers
       ticket_order = Tickets.get_ticket_order(ticket_order.id)
@@ -217,10 +222,14 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
 
       # Verify ticket types
       paid_tickets =
-        Enum.filter(ticket_order.tickets, fn t -> t.ticket_tier_id == paid_tier.id end)
+        Enum.filter(ticket_order.tickets, fn t ->
+          t.ticket_tier_id == paid_tier.id
+        end)
 
       donation_tickets =
-        Enum.filter(ticket_order.tickets, fn t -> t.ticket_tier_id == donation_tier.id end)
+        Enum.filter(ticket_order.tickets, fn t ->
+          t.ticket_tier_id == donation_tier.id
+        end)
 
       assert length(paid_tickets) == 2
       assert length(donation_tickets) == 1
@@ -228,10 +237,11 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
   end
 
   describe "ledger processing for ticket payments with donations" do
-    test "process_event_payment_with_donations creates correct ledger entries", %{
-      user: user,
-      event: event
-    } do
+    test "process_event_payment_with_donations creates correct ledger entries",
+         %{
+           user: user,
+           event: event
+         } do
       # $100.00 total: $60.00 event + $40.00 donation
       total_amount = Money.new(10_000, :USD)
       event_amount = Money.new(6_000, :USD)
@@ -266,7 +276,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
       # Verify event revenue entry
       event_revenue_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Event revenue from tickets" && e.debit_credit == :credit
+          e.description =~ "Event revenue from tickets" &&
+            e.debit_credit == :credit
         end)
 
       assert event_revenue_entry != nil
@@ -277,19 +288,28 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
       # Verify donation revenue entry
       donation_revenue_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Donation revenue from tickets" && e.debit_credit == :credit
+          e.description =~ "Donation revenue from tickets" &&
+            e.debit_credit == :credit
         end)
 
       assert donation_revenue_entry != nil
       assert donation_revenue_entry.amount == donation_amount
-      assert donation_revenue_entry.related_entity_type in [:donation, "donation"]
+
+      assert donation_revenue_entry.related_entity_type in [
+               :donation,
+               "donation"
+             ]
+
       assert donation_revenue_entry.related_entity_id == event.id
 
       # Verify ledger balance
       assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
     end
 
-    test "handles donation-only ticket order correctly", %{user: user, event: event} do
+    test "handles donation-only ticket order correctly", %{
+      user: user,
+      event: event
+    } do
       # $50.00 donation only
       total_amount = Money.new(5_000, :USD)
       event_amount = Money.new(0, :USD)
@@ -320,7 +340,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
       # Should have donation revenue entry
       donation_revenue_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Donation revenue from tickets" && e.debit_credit == :credit
+          e.description =~ "Donation revenue from tickets" &&
+            e.debit_credit == :credit
         end)
 
       assert donation_revenue_entry != nil
@@ -406,7 +427,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
         # Find event line item
         event_line =
           Enum.find(params.line, fn line ->
-            get_in(line, [:sales_item_line_detail, :item_ref, :value]) == "event_item_123"
+            get_in(line, [:sales_item_line_detail, :item_ref, :value]) ==
+              "event_item_123"
           end)
 
         assert event_line != nil
@@ -419,14 +441,19 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
         # Find donation line item
         donation_line =
           Enum.find(params.line, fn line ->
-            get_in(line, [:sales_item_line_detail, :item_ref, :value]) == "donation_item_123"
+            get_in(line, [:sales_item_line_detail, :item_ref, :value]) ==
+              "donation_item_123"
           end)
 
         assert donation_line != nil
         assert donation_line.amount == Decimal.new("4000.00")
         assert donation_line.description =~ "Donation"
 
-        assert get_in(donation_line, [:sales_item_line_detail, :class_ref, :value]) ==
+        assert get_in(donation_line, [
+                 :sales_item_line_detail,
+                 :class_ref,
+                 :value
+               ]) ==
                  "admin_class_default"
 
         # Verify total
@@ -508,7 +535,11 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
 
         donation_line = List.first(params.line)
 
-        assert get_in(donation_line, [:sales_item_line_detail, :item_ref, :value]) ==
+        assert get_in(donation_line, [
+                 :sales_item_line_detail,
+                 :item_ref,
+                 :value
+               ]) ==
                  "donation_item_123"
 
         assert donation_line.amount == Decimal.new("5000.00")
@@ -537,7 +568,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
         donation_tier.id => 2_500
       }
 
-      {:ok, ticket_order} = Tickets.create_ticket_order(user.id, event.id, ticket_selections)
+      {:ok, ticket_order} =
+        Tickets.create_ticket_order(user.id, event.id, ticket_selections)
 
       # Verify order created
       # The total calculation happens in BookingLocker, which should handle donations correctly
@@ -602,7 +634,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
       # Verify ledger entries
       event_revenue_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Event revenue from tickets" && e.debit_credit == :credit
+          e.description =~ "Event revenue from tickets" &&
+            e.debit_credit == :credit
         end)
 
       # Verify event revenue entry matches calculated event amount
@@ -610,7 +643,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
 
       donation_revenue_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Donation revenue from tickets" && e.debit_credit == :credit
+          e.description =~ "Donation revenue from tickets" &&
+            e.debit_credit == :credit
         end)
 
       # Verify donation revenue entry matches calculated donation amount
@@ -649,7 +683,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
         # Verify event line
         event_line =
           Enum.find(params.line, fn line ->
-            get_in(line, [:sales_item_line_detail, :item_ref, :value]) == "event_item_123"
+            get_in(line, [:sales_item_line_detail, :item_ref, :value]) ==
+              "event_item_123"
           end)
 
         # Event amount should match calculated event amount
@@ -664,7 +699,8 @@ defmodule Ysc.Tickets.PaymentWithDonationsTest do
         # Verify donation line
         donation_line =
           Enum.find(params.line, fn line ->
-            get_in(line, [:sales_item_line_detail, :item_ref, :value]) == "donation_item_123"
+            get_in(line, [:sales_item_line_detail, :item_ref, :value]) ==
+              "donation_item_123"
           end)
 
         # Donation amount should match calculated donation amount

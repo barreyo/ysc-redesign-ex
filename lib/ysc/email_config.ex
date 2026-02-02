@@ -36,7 +36,8 @@ defmodule Ysc.EmailConfig do
   Returns the membership email address.
   """
   def membership_email do
-    Application.get_env(:ysc, :emails)[:membership_email] || "membership@ysc.org"
+    Application.get_env(:ysc, :emails)[:membership_email] ||
+      "membership@ysc.org"
   end
 
   @doc """

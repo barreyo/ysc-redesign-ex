@@ -33,14 +33,24 @@ defmodule Ysc.ExpenseReports.BankAccount do
   """
   def changeset(bank_account, attrs) do
     bank_account
-    |> cast(attrs, [:user_id, :routing_number, :account_number, :account_number_last_4])
+    |> cast(attrs, [
+      :user_id,
+      :routing_number,
+      :account_number,
+      :account_number_last_4
+    ])
     |> validate_required([:user_id, :routing_number, :account_number])
     |> validate_routing_number()
     |> validate_account_number()
     |> validate_routing_number_checksum()
     |> maybe_extract_last_4()
-    |> validate_length(:account_number_last_4, is: 4, message: "must be 4 digits")
-    |> validate_format(:account_number_last_4, ~r/^\d{4}$/, message: "must be 4 digits")
+    |> validate_length(:account_number_last_4,
+      is: 4,
+      message: "must be 4 digits"
+    )
+    |> validate_format(:account_number_last_4, ~r/^\d{4}$/,
+      message: "must be 4 digits"
+    )
     |> unique_constraint(:user_id)
   end
 
@@ -48,11 +58,20 @@ defmodule Ysc.ExpenseReports.BankAccount do
     changeset
     |> validate_change(:routing_number, fn :routing_number, value ->
       cond do
-        is_nil(value) -> []
-        not is_binary(value) -> [routing_number: "must be a string"]
-        String.length(value) != 9 -> [routing_number: "must be 9 digits"]
-        not String.match?(value, ~r/^\d{9}$/) -> [routing_number: "must be 9 digits"]
-        true -> []
+        is_nil(value) ->
+          []
+
+        not is_binary(value) ->
+          [routing_number: "must be a string"]
+
+        String.length(value) != 9 ->
+          [routing_number: "must be 9 digits"]
+
+        not String.match?(value, ~r/^\d{9}$/) ->
+          [routing_number: "must be 9 digits"]
+
+        true ->
+          []
       end
     end)
   end
@@ -61,11 +80,20 @@ defmodule Ysc.ExpenseReports.BankAccount do
     changeset
     |> validate_change(:account_number, fn :account_number, value ->
       cond do
-        is_nil(value) -> []
-        not is_binary(value) -> [account_number: "must be a string"]
-        String.length(value) < 4 -> [account_number: "must be at least 4 digits"]
-        not String.match?(value, ~r/^\d+$/) -> [account_number: "must contain only digits"]
-        true -> []
+        is_nil(value) ->
+          []
+
+        not is_binary(value) ->
+          [account_number: "must be a string"]
+
+        String.length(value) < 4 ->
+          [account_number: "must be at least 4 digits"]
+
+        not String.match?(value, ~r/^\d+$/) ->
+          [account_number: "must contain only digits"]
+
+        true ->
+          []
       end
     end)
   end
@@ -79,7 +107,11 @@ defmodule Ysc.ExpenseReports.BankAccount do
         if valid_routing_number_checksum?(routing_number) do
           changeset
         else
-          add_error(changeset, :routing_number, "is not a valid US routing number")
+          add_error(
+            changeset,
+            :routing_number,
+            "is not a valid US routing number"
+          )
         end
 
       _ ->

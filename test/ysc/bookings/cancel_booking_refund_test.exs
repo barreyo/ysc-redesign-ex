@@ -78,7 +78,13 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
 
   describe "cancel_booking refund logic" do
     # Helper to create a booking with payment
-    defp create_booking_with_payment(user, property, booking_mode, checkin_date, checkout_date) do
+    defp create_booking_with_payment(
+           user,
+           property,
+           booking_mode,
+           checkin_date,
+           checkout_date
+         ) do
       # Create booking
       {:ok, booking} =
         case booking_mode do
@@ -170,9 +176,10 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       policy
     end
 
-    test "processes full refund immediately when no policy rule applies (Tahoe, buyout)", %{
-      user: user
-    } do
+    test "processes full refund immediately when no policy rule applies (Tahoe, buyout)",
+         %{
+           user: user
+         } do
       # Create booking with payment
       checkin_date = ~D[2025-12-15]
       checkout_date = ~D[2025-12-18]
@@ -180,14 +187,21 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       cancellation_date = ~D[2025-11-01]
 
       {booking, payment} =
-        create_booking_with_payment(user, :tahoe, :buyout, checkin_date, checkout_date)
+        create_booking_with_payment(
+          user,
+          :tahoe,
+          :buyout,
+          checkin_date,
+          checkout_date
+        )
 
       # No refund policy exists - should attempt to process refund immediately
       # Note: This will fail at Stripe call, but we can verify the logic path
       # by checking that it doesn't create a pending refund
 
       # Cancel booking - will fail at Stripe but we can check the logic
-      result = Bookings.cancel_booking(booking, cancellation_date, "User requested")
+      result =
+        Bookings.cancel_booking(booking, cancellation_date, "User requested")
 
       # Should attempt Stripe refund (will fail without proper Stripe setup, but that's OK)
       # The key is that it should NOT create a pending refund
@@ -200,7 +214,9 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
 
           # Should NOT create a pending refund
           pending_refunds =
-            from(pr in PendingRefund, where: pr.booking_id == ^canceled_booking.id)
+            from(pr in PendingRefund,
+              where: pr.booking_id == ^canceled_booking.id
+            )
             |> Repo.all()
 
           assert pending_refunds == []
@@ -213,7 +229,9 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
 
           # Should NOT create a pending refund even if Stripe fails
           pending_refunds =
-            from(pr in PendingRefund, where: pr.booking_id == ^canceled_booking.id)
+            from(pr in PendingRefund,
+              where: pr.booking_id == ^canceled_booking.id
+            )
             |> Repo.all()
 
           assert pending_refunds == []
@@ -244,23 +262,36 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       cancellation_date = ~D[2025-11-15]
 
       {booking, payment} =
-        create_booking_with_payment(user, :tahoe, :room, checkin_date, checkout_date)
+        create_booking_with_payment(
+          user,
+          :tahoe,
+          :room,
+          checkin_date,
+          checkout_date
+        )
 
       # Cancel booking
-      result = Bookings.cancel_booking(booking, cancellation_date, "User requested")
+      result =
+        Bookings.cancel_booking(booking, cancellation_date, "User requested")
 
       # Should create pending refund (not process immediately)
       # If policy isn't found, it will try to process immediately and fail at Stripe
       # In that case, we should still verify the booking was canceled
       case result do
-        {:ok, canceled_booking, refund_amount, pending_refund} when is_struct(pending_refund) ->
+        {:ok, canceled_booking, refund_amount, pending_refund}
+        when is_struct(pending_refund) ->
           # Success case: Policy found, pending refund created
           assert canceled_booking.status == :canceled
           # Full refund amount
           assert Money.equal?(refund_amount, payment.amount)
           assert %PendingRefund{} = pending_refund
           assert pending_refund.status == :pending
-          assert Money.equal?(pending_refund.policy_refund_amount, payment.amount)
+
+          assert Money.equal?(
+                   pending_refund.policy_refund_amount,
+                   payment.amount
+                 )
+
           assert pending_refund.applied_rule_days_before_checkin == 30
 
           assert Decimal.equal?(
@@ -275,7 +306,9 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
 
           # Should NOT create a pending refund if policy wasn't found
           pending_refunds =
-            from(pr in PendingRefund, where: pr.booking_id == ^canceled_booking.id)
+            from(pr in PendingRefund,
+              where: pr.booking_id == ^canceled_booking.id
+            )
             |> Repo.all()
 
           assert pending_refunds == []
@@ -288,9 +321,10 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       # Verify by checking that no refund was created in Stripe
     end
 
-    test "creates pending refund for partial refund via policy (Clear Lake, buyout)", %{
-      user: user
-    } do
+    test "creates pending refund for partial refund via policy (Clear Lake, buyout)",
+         %{
+           user: user
+         } do
       # Create refund policy with 50% refund rule
       _policy =
         create_refund_policy(:clear_lake, :buyout, [
@@ -305,10 +339,17 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       cancellation_date = ~D[2025-12-01]
 
       {booking, _payment} =
-        create_booking_with_payment(user, :clear_lake, :buyout, checkin_date, checkout_date)
+        create_booking_with_payment(
+          user,
+          :clear_lake,
+          :buyout,
+          checkin_date,
+          checkout_date
+        )
 
       # Cancel booking
-      result = Bookings.cancel_booking(booking, cancellation_date, "User requested")
+      result =
+        Bookings.cancel_booking(booking, cancellation_date, "User requested")
 
       # Should create pending refund
       assert {:ok, canceled_booking, refund_amount, pending_refund} = result
@@ -317,7 +358,12 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       assert Money.equal?(refund_amount, Money.new(5_000, :USD))
       assert %PendingRefund{} = pending_refund
       assert pending_refund.status == :pending
-      assert Money.equal?(pending_refund.policy_refund_amount, Money.new(5_000, :USD))
+
+      assert Money.equal?(
+               pending_refund.policy_refund_amount,
+               Money.new(5_000, :USD)
+             )
+
       assert pending_refund.applied_rule_days_before_checkin == 14
 
       assert Decimal.equal?(
@@ -326,7 +372,9 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
              )
     end
 
-    test "creates pending refund for $0 refund via policy (Tahoe, room)", %{user: user} do
+    test "creates pending refund for $0 refund via policy (Tahoe, room)", %{
+      user: user
+    } do
       # Create refund policy with 0% refund rule
       _policy =
         create_refund_policy(:tahoe, :room, [
@@ -341,10 +389,17 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       cancellation_date = ~D[2025-12-10]
 
       {booking, _payment} =
-        create_booking_with_payment(user, :tahoe, :room, checkin_date, checkout_date)
+        create_booking_with_payment(
+          user,
+          :tahoe,
+          :room,
+          checkin_date,
+          checkout_date
+        )
 
       # Cancel booking
-      result = Bookings.cancel_booking(booking, cancellation_date, "User requested")
+      result =
+        Bookings.cancel_booking(booking, cancellation_date, "User requested")
 
       # Should create pending refund even for $0
       assert {:ok, canceled_booking, refund_amount, pending_refund} = result
@@ -352,7 +407,12 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       assert Money.equal?(refund_amount, Money.new(0, :USD))
       assert %PendingRefund{} = pending_refund
       assert pending_refund.status == :pending
-      assert Money.equal?(pending_refund.policy_refund_amount, Money.new(0, :USD))
+
+      assert Money.equal?(
+               pending_refund.policy_refund_amount,
+               Money.new(0, :USD)
+             )
+
       assert pending_refund.applied_rule_days_before_checkin == 7
 
       assert Decimal.equal?(
@@ -361,9 +421,10 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
              )
     end
 
-    test "no pending refund when $0 refund and no policy rule (Clear Lake, buyout)", %{
-      user: user
-    } do
+    test "no pending refund when $0 refund and no policy rule (Clear Lake, buyout)",
+         %{
+           user: user
+         } do
       # Create booking with payment
       checkin_date = ~D[2025-12-15]
       checkout_date = ~D[2025-12-18]
@@ -371,12 +432,19 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       cancellation_date = ~D[2025-12-20]
 
       {booking, _payment} =
-        create_booking_with_payment(user, :clear_lake, :buyout, checkin_date, checkout_date)
+        create_booking_with_payment(
+          user,
+          :clear_lake,
+          :buyout,
+          checkin_date,
+          checkout_date
+        )
 
       # Cancel booking (after check-in, so no refund and no policy rule applies)
       # Note: calculate_refund returns {:ok, Money.new(0, :USD), nil} when cancellation is after check-in
       # This means no policy rule was applied, so no pending refund should be created
-      result = Bookings.cancel_booking(booking, cancellation_date, "User requested")
+      result =
+        Bookings.cancel_booking(booking, cancellation_date, "User requested")
 
       # Should return $0 refund but no pending refund
       # The booking should be canceled regardless of refund processing
@@ -404,7 +472,9 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       assert pending_refunds == []
     end
 
-    test "handles multiple policy rules correctly (Tahoe, buyout)", %{user: user} do
+    test "handles multiple policy rules correctly (Tahoe, buyout)", %{
+      user: user
+    } do
       # Create refund policy with multiple rules
       _policy =
         create_refund_policy(:tahoe, :buyout, [
@@ -423,9 +493,21 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       cancellation_date_30 = ~D[2025-11-15]
 
       {booking1, payment1} =
-        create_booking_with_payment(user, :tahoe, :buyout, checkin_date, checkout_date)
+        create_booking_with_payment(
+          user,
+          :tahoe,
+          :buyout,
+          checkin_date,
+          checkout_date
+        )
 
-      result1 = Bookings.cancel_booking(booking1, cancellation_date_30, "User requested")
+      result1 =
+        Bookings.cancel_booking(
+          booking1,
+          cancellation_date_30,
+          "User requested"
+        )
+
       # Policy rule applies (even though it's 100%), so should create pending refund
       # Note: This test verifies that even full refunds via policy require admin approval
       assert {:ok, _, refund_amount1, pending_refund1} = result1
@@ -439,9 +521,21 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       cancellation_date_14 = ~D[2025-12-01]
 
       {booking2, _payment2} =
-        create_booking_with_payment(user, :tahoe, :buyout, checkin_date, checkout_date)
+        create_booking_with_payment(
+          user,
+          :tahoe,
+          :buyout,
+          checkin_date,
+          checkout_date
+        )
 
-      result2 = Bookings.cancel_booking(booking2, cancellation_date_14, "User requested")
+      result2 =
+        Bookings.cancel_booking(
+          booking2,
+          cancellation_date_14,
+          "User requested"
+        )
+
       assert {:ok, _, refund_amount2, pending_refund2} = result2
       assert Money.equal?(refund_amount2, Money.new(5_000, :USD))
       assert %PendingRefund{} = pending_refund2
@@ -452,9 +546,17 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       cancellation_date_5 = ~D[2025-12-10]
 
       {booking3, _payment3} =
-        create_booking_with_payment(user, :tahoe, :buyout, checkin_date, checkout_date)
+        create_booking_with_payment(
+          user,
+          :tahoe,
+          :buyout,
+          checkin_date,
+          checkout_date
+        )
 
-      result3 = Bookings.cancel_booking(booking3, cancellation_date_5, "User requested")
+      result3 =
+        Bookings.cancel_booking(booking3, cancellation_date_5, "User requested")
+
       assert {:ok, _, refund_amount3, pending_refund3} = result3
       assert Money.equal?(refund_amount3, Money.new(0, :USD))
       assert %PendingRefund{} = pending_refund3
@@ -482,13 +584,20 @@ defmodule Ysc.Bookings.CancelBookingRefundTest do
       cancellation_date = ~D[2025-12-01]
 
       {booking, _payment} =
-        create_booking_with_payment(user, :tahoe, :room, checkin_date, checkout_date)
+        create_booking_with_payment(
+          user,
+          :tahoe,
+          :room,
+          checkin_date,
+          checkout_date
+        )
 
       cancellation_reason = "Emergency - family issue"
 
       # Cancel booking
       # This should create a pending refund because the policy rule applies (14 days before, 50% refund)
-      result = Bookings.cancel_booking(booking, cancellation_date, cancellation_reason)
+      result =
+        Bookings.cancel_booking(booking, cancellation_date, cancellation_reason)
 
       assert {:ok, _, _, pending_refund} = result
       assert %PendingRefund{} = pending_refund

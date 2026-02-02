@@ -45,7 +45,9 @@ defmodule Ysc.DataCase do
   Returns the owner PID so it can be passed to concurrent tasks.
   """
   def setup_sandbox(tags) do
-    pid = Ecto.Adapters.SQL.Sandbox.start_owner!(Ysc.Repo, shared: not tags[:async])
+    pid =
+      Ecto.Adapters.SQL.Sandbox.start_owner!(Ysc.Repo, shared: not tags[:async])
+
     on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
     pid
   end
@@ -59,7 +61,9 @@ defmodule Ysc.DataCase do
   When async: false, the owner is available from Repo.config()[:owner].
   """
   def allow_sandbox(pid \\ self(), owner \\ nil) do
-    owner = owner || Ysc.Repo.config()[:owner] || Process.get({Ecto.Adapters.SQL.Sandbox, :owner})
+    owner =
+      owner || Ysc.Repo.config()[:owner] ||
+        Process.get({Ecto.Adapters.SQL.Sandbox, :owner})
 
     if owner do
       Ecto.Adapters.SQL.Sandbox.allow(Ysc.Repo, pid, owner)

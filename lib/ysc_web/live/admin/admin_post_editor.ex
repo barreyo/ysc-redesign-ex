@@ -124,16 +124,22 @@ defmodule YscWeb.AdminPostEditorLive do
         on_cancel={JS.navigate(~p"/admin/posts/#{@post_id}")}
       >
         <div class="flex flex-col">
-          <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-4">Post Settings</h2>
+          <h2 class="text-2xl font-semibold leading-8 text-zinc-800 mb-4">
+            Post Settings
+          </h2>
 
           <div class="rounded border border-1 border-zinc-100 px-3 py-4">
             <p class="text-lg font-semibold mb-3">Featured Image</p>
 
             <div class="flex flex-col gap-3">
-              <div :if={@post.image_id && @post.featured_image} class="flex items-center gap-3">
+              <div
+                :if={@post.image_id && @post.featured_image}
+                class="flex items-center gap-3"
+              >
                 <img
                   src={
-                    @post.featured_image.thumbnail_path || @post.featured_image.optimized_image_path ||
+                    @post.featured_image.thumbnail_path ||
+                      @post.featured_image.optimized_image_path ||
                       @post.featured_image.raw_image_path
                   }
                   class="w-64 object-cover rounded border border-1 border-zinc-200"
@@ -142,7 +148,9 @@ defmodule YscWeb.AdminPostEditorLive do
                 />
               </div>
 
-              <div :if={!@post.image_id} class="text-sm text-red-600">No featured image set.</div>
+              <div :if={!@post.image_id} class="text-sm text-red-600">
+                No featured image set.
+              </div>
 
               <div class="mt-4">
                 <p class="text-xs text-zinc-500 mb-2">Choose from recent images</p>
@@ -157,7 +165,8 @@ defmodule YscWeb.AdminPostEditorLive do
                       <img
                         class="w-full h-full rounded object-cover group-hover:opacity-80 transition-opacity duration-75 ease-in-out"
                         src={
-                          image.thumbnail_path || image.optimized_image_path || image.raw_image_path
+                          image.thumbnail_path || image.optimized_image_path ||
+                            image.raw_image_path
                         }
                         alt={image.alt_text}
                         loading="lazy"
@@ -196,7 +205,10 @@ defmodule YscWeb.AdminPostEditorLive do
                     class="flex p-4 flex-col items-center justify-center w-full min-h-40 border-2 border-zinc-300 border-dashed rounded-lg cursor-pointer bg-zinc-50 hover:bg-zinc-100"
                     phx-drop-target={@uploads.featured_image_upload.ref}
                   >
-                    <.live_file_input upload={@uploads.featured_image_upload} class="hidden" />
+                    <.live_file_input
+                      upload={@uploads.featured_image_upload}
+                      class="hidden"
+                    />
 
                     <div class="flex flex-row flex-wrap gap-2">
                       <%= for entry <- @uploads.featured_image_upload.entries do %>
@@ -225,9 +237,10 @@ defmodule YscWeb.AdminPostEditorLive do
 
                           <%= for err <- upload_errors(@uploads.featured_image_upload, entry) do %>
                             <p class="text-xs text-red-600 font-semibold mt-1">
-                              <.icon name="hero-exclamation-circle" class="-mt-0.5 h-4 w-4" /> <%= error_to_string(
-                                err
-                              ) %>
+                              <.icon
+                                name="hero-exclamation-circle"
+                                class="-mt-0.5 h-4 w-4"
+                              /> <%= error_to_string(err) %>
                             </p>
                           <% end %>
                         </article>
@@ -236,9 +249,10 @@ defmodule YscWeb.AdminPostEditorLive do
 
                     <%= for err <- upload_errors(@uploads.featured_image_upload) do %>
                       <p class="text-xs text-red-600 font-semibold mt-1">
-                        <.icon name="hero-exclamation-circle" class="-mt-0.5 h-4 w-4" /> <%= error_to_string(
-                          err
-                        ) %>
+                        <.icon
+                          name="hero-exclamation-circle"
+                          class="-mt-0.5 h-4 w-4"
+                        /> <%= error_to_string(err) %>
                       </p>
                     <% end %>
 
@@ -246,11 +260,17 @@ defmodule YscWeb.AdminPostEditorLive do
                       :if={length(@uploads.featured_image_upload.entries) == 0}
                       class="flex flex-col items-center justify-center pt-2 pb-3"
                     >
-                      <.icon name="hero-cloud-arrow-up" class="w-8 h-10 mb-2 text-zinc-500" />
+                      <.icon
+                        name="hero-cloud-arrow-up"
+                        class="w-8 h-10 mb-2 text-zinc-500"
+                      />
                       <p class="mb-1 text-sm text-zinc-500">
-                        <span class="font-semibold">Click to upload</span> or drag and drop
+                        <span class="font-semibold">Click to upload</span>
+                        or drag and drop
                       </p>
-                      <p class="text-xs text-zinc-500">SVG, PNG, JPG, JPEG or GIF</p>
+                      <p class="text-xs text-zinc-500">
+                        SVG, PNG, JPG, JPEG or GIF
+                      </p>
                     </div>
                   </label>
 
@@ -258,7 +278,9 @@ defmodule YscWeb.AdminPostEditorLive do
                     <.button
                       type="submit"
                       phx-disable-with="Uploading..."
-                      aria-disabled={length(@uploads.featured_image_upload.entries) == 0}
+                      aria-disabled={
+                        length(@uploads.featured_image_upload.entries) == 0
+                      }
                       disabled={length(@uploads.featured_image_upload.entries) == 0}
                     >
                       Upload and set as featured
@@ -271,7 +293,13 @@ defmodule YscWeb.AdminPostEditorLive do
         </div>
       </.modal>
 
-      <.form :let={_f} for={@form} id="edit_post_form" phx-submit="save" phx-change="post-update">
+      <.form
+        :let={_f}
+        for={@form}
+        id="edit_post_form"
+        phx-submit="save"
+        phx-change="post-update"
+      >
         <div class="w-full flex flex-row justify-between">
           <div class="w-full flex flex-row items-center align-middle mt-4">
             <.input
@@ -288,7 +316,10 @@ defmodule YscWeb.AdminPostEditorLive do
 
             <p class={"text-sm text-zinc-600 transition duration-200 ease-in-out align-middle inline-block items-center px-1 mt-4 #{if @saving? == true, do: "opacity-100", else: "opacity-0"}"}>
               <span>
-                <.icon name="hero-arrow-path" class="w-4 h-4 -mt-0.5 animate-spin mr-1" />
+                <.icon
+                  name="hero-arrow-path"
+                  class="w-4 h-4 -mt-0.5 animate-spin mr-1"
+                />
               </span>
               Saving...
             </p>
@@ -341,7 +372,10 @@ defmodule YscWeb.AdminPostEditorLive do
                       navigate={~p"/admin/posts/#{@post_id}/preview"}
                       class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                     >
-                      <.icon name="hero-document-arrow-up" class="w-5 h-5 -mt-1 mr-1" />
+                      <.icon
+                        name="hero-document-arrow-up"
+                        class="w-5 h-5 -mt-1 mr-1"
+                      />
                       <span>Publish</span>
                     </.link>
                   </li>
@@ -350,7 +384,10 @@ defmodule YscWeb.AdminPostEditorLive do
                       navigate={~p"/admin/posts/#{@post_id}/preview"}
                       class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                     >
-                      <.icon name="hero-computer-desktop" class="w-5 h-5 -mt-1 mr-1" />
+                      <.icon
+                        name="hero-computer-desktop"
+                        class="w-5 h-5 -mt-1 mr-1"
+                      />
                       <span>Preview</span>
                     </.link>
                   </li>
@@ -363,14 +400,21 @@ defmodule YscWeb.AdminPostEditorLive do
                         navigate={~p"/admin/posts/#{@post_id}/settings"}
                         class="block px-4 py-2 transition ease-in-out hover:bg-zinc-100 duration-400"
                       >
-                        <.icon name="hero-adjustments-horizontal" class="w-5 h-5 -mt-1 mr-1" />
+                        <.icon
+                          name="hero-adjustments-horizontal"
+                          class="w-5 h-5 -mt-1 mr-1"
+                        />
                         <span>Post Settings</span>
                       </.link>
                     </li>
                   </li>
 
                   <li class="block py-2 px-3 transition text-red-600 ease-in-out duration-200 hover:bg-zinc-100">
-                    <button type="button" class="w-full text-left px-1" phx-click="delete-post">
+                    <button
+                      type="button"
+                      class="w-full text-left px-1"
+                      phx-click="delete-post"
+                    >
                       <.icon name="hero-trash" class="w-5 h-5 -mt-1" />
                       <span>Delete Post</span>
                     </button>
@@ -384,10 +428,15 @@ defmodule YscWeb.AdminPostEditorLive do
         <div class="text-sm text-zinc-500 leading-6 py-1 flex flex-row align-baseline items-end">
           <span>
             <.link navigate={~p"/posts/#{@post.url_name}"} target="_blank">
-              <.icon name="hero-arrow-top-right-on-square" class=" text-zinc-800 w-4 h-4 -mt-1 mr-2" />
+              <.icon
+                name="hero-arrow-top-right-on-square"
+                class=" text-zinc-800 w-4 h-4 -mt-1 mr-2"
+              />
             </.link>
           </span>
-          <span class="pt-2 mr-1 hidden lg:block"><%= "#{YscWeb.Endpoint.url()}/posts/" %></span>
+          <span class="pt-2 mr-1 hidden lg:block">
+            <%= "#{YscWeb.Endpoint.url()}/posts/" %>
+          </span>
           <span>
             <.input
               type="text-growing"
@@ -458,13 +507,15 @@ defmodule YscWeb.AdminPostEditorLive do
     {:noreply, socket}
   end
 
-  @spec handle_event(<<_::32, _::_*8>>, any(), atom() | map()) :: {:noreply, map()}
+  @spec handle_event(<<_::32, _::_*8>>, any(), atom() | map()) ::
+          {:noreply, map()}
   def handle_event("post-update", %{"post" => values}, socket) do
     post = socket.assigns[:post]
 
     # Ensure UI is not cleared out
     updated_values =
-      Map.put_new(values, "title", post.title) |> Map.put_new("url_name", post.url_name)
+      Map.put_new(values, "title", post.title)
+      |> Map.put_new("url_name", post.url_name)
 
     changeset = Post.update_post_changeset(%Post{}, updated_values)
     form_socket = assign_form(socket, Map.put(changeset, :action, :validate))
@@ -561,7 +612,12 @@ defmodule YscWeb.AdminPostEditorLive do
     res =
       Posts.update_post(
         post,
-        %{state: :draft, published_on: nil, deleted_on: nil, featured_post: false},
+        %{
+          state: :draft,
+          published_on: nil,
+          deleted_on: nil,
+          featured_post: false
+        },
         socket.assigns[:current_user]
       )
 
@@ -587,7 +643,12 @@ defmodule YscWeb.AdminPostEditorLive do
     res =
       Posts.update_post(
         post,
-        %{state: :deleted, deleted_on: Timex.now(), published_on: nil, featured_post: false},
+        %{
+          state: :deleted,
+          deleted_on: Timex.now(),
+          published_on: nil,
+          featured_post: false
+        },
         socket.assigns[:current_user]
       )
 
@@ -623,11 +684,18 @@ defmodule YscWeb.AdminPostEditorLive do
     post_id = socket.assigns[:post_id]
     current_user = socket.assigns[:current_user]
 
-    case Posts.update_post(%Post{id: post_id}, %{"image_id" => image_id}, current_user) do
+    case Posts.update_post(
+           %Post{id: post_id},
+           %{"image_id" => image_id},
+           current_user
+         ) do
       {:ok, _} ->
         {:noreply,
          socket
-         |> assign(:post, Posts.get_post!(post_id) |> Ysc.Repo.preload(:featured_image))}
+         |> assign(
+           :post,
+           Posts.get_post!(post_id) |> Ysc.Repo.preload(:featured_image)
+         )}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not set featured image")}
@@ -638,10 +706,18 @@ defmodule YscWeb.AdminPostEditorLive do
     post_id = socket.assigns[:post_id]
     current_user = socket.assigns[:current_user]
 
-    case Posts.update_post(%Post{id: post_id}, %{"image_id" => nil}, current_user) do
+    case Posts.update_post(
+           %Post{id: post_id},
+           %{"image_id" => nil},
+           current_user
+         ) do
       {:ok, _} ->
         {:noreply,
-         assign(socket, :post, Posts.get_post!(post_id) |> Ysc.Repo.preload(:featured_image))}
+         assign(
+           socket,
+           :post,
+           Posts.get_post!(post_id) |> Ysc.Repo.preload(:featured_image)
+         )}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Could not remove featured image")}
@@ -649,7 +725,11 @@ defmodule YscWeb.AdminPostEditorLive do
   end
 
   def handle_event("next-featured-images", _params, socket) do
-    {:noreply, load_featured_image_choices(socket, socket.assigns[:featured_images_page] + 1)}
+    {:noreply,
+     load_featured_image_choices(
+       socket,
+       socket.assigns[:featured_images_page] + 1
+     )}
   end
 
   def handle_event("prev-featured-images", _params, socket) do
@@ -670,7 +750,8 @@ defmodule YscWeb.AdminPostEditorLive do
     post_id = socket.assigns[:post_id]
 
     uploaded_files =
-      consume_uploaded_entries(socket, :featured_image_upload, fn details, _entry ->
+      consume_uploaded_entries(socket, :featured_image_upload, fn details,
+                                                                  _entry ->
         raw_path = S3Config.object_url(details[:key])
 
         {:ok, new_image} =
@@ -683,16 +764,27 @@ defmodule YscWeb.AdminPostEditorLive do
             uploader
           )
 
-        %{id: new_image.id} |> YscWeb.Workers.ImageProcessor.new() |> Oban.insert()
+        %{id: new_image.id}
+        |> YscWeb.Workers.ImageProcessor.new()
+        |> Oban.insert()
+
         {:ok, new_image}
       end)
 
     updated_socket =
       case uploaded_files do
         [new_image | _] ->
-          case Posts.update_post(%Post{id: post_id}, %{"image_id" => new_image.id}, uploader) do
+          case Posts.update_post(
+                 %Post{id: post_id},
+                 %{"image_id" => new_image.id},
+                 uploader
+               ) do
             {:ok, _} ->
-              assign(socket, :post, Posts.get_post!(post_id) |> Ysc.Repo.preload(:featured_image))
+              assign(
+                socket,
+                :post,
+                Posts.get_post!(post_id) |> Ysc.Repo.preload(:featured_image)
+              )
 
             {:error, _} ->
               put_flash(socket, :error, "Could not set featured image")
@@ -710,7 +802,8 @@ defmodule YscWeb.AdminPostEditorLive do
      assign(socket, :saving?, false)
      |> assign(
        :post,
-       Posts.get_post!(socket.assigns[:post_id]) |> Ysc.Repo.preload(:featured_image)
+       Posts.get_post!(socket.assigns[:post_id])
+       |> Ysc.Repo.preload(:featured_image)
      )}
   end
 
@@ -764,7 +857,10 @@ defmodule YscWeb.AdminPostEditorLive do
   end
 
   defp error_to_string(:too_large), do: "Too large"
-  defp error_to_string(:not_accepted), do: "You have selected an unacceptable file type"
+
+  defp error_to_string(:not_accepted),
+    do: "You have selected an unacceptable file type"
+
   defp error_to_string(:too_many_files), do: "You have selected too many files"
 
   defp post_state_to_badge_style(:draft), do: "yellow"

@@ -47,7 +47,8 @@ defmodule YscWeb.Emails.BookingConfirmation do
       if Ecto.assoc_loaded?(booking.user) && Ecto.assoc_loaded?(booking.rooms) do
         booking
       else
-        case Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload([:user, :rooms]) do
+        case Repo.get(Ysc.Bookings.Booking, booking.id)
+             |> Repo.preload([:user, :rooms]) do
           nil ->
             raise ArgumentError, "Booking not found: #{booking.id}"
 
@@ -73,7 +74,8 @@ defmodule YscWeb.Emails.BookingConfirmation do
     property_name = get_property_name(booking.property)
 
     # Get booking mode description
-    booking_mode_description = get_booking_mode_description(booking.booking_mode)
+    booking_mode_description =
+      get_booking_mode_description(booking.booking_mode)
 
     # Get room names if applicable
     room_names =
@@ -88,7 +90,9 @@ defmodule YscWeb.Emails.BookingConfirmation do
 
     # Check if this is a buyout booking
     # Use both boolean and string check for robustness across JSON serialization
-    is_buyout = booking.booking_mode == :buyout || booking_mode_description == "Property Buyout"
+    is_buyout =
+      booking.booking_mode == :buyout ||
+        booking_mode_description == "Property Buyout"
 
     %{
       first_name: booking.user.first_name || "Valued Member",
@@ -141,7 +145,11 @@ defmodule YscWeb.Emails.BookingConfirmation do
   end
 
   defp format_money(%Money{} = money) do
-    Money.to_string!(money, separator: ".", delimiter: ",", fractional_digits: 2)
+    Money.to_string!(money,
+      separator: ".",
+      delimiter: ",",
+      fractional_digits: 2
+    )
   end
 
   defp format_money(_), do: "$0.00"

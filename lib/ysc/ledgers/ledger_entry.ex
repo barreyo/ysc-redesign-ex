@@ -19,7 +19,9 @@ defmodule Ysc.Ledgers.LedgerEntry do
     field :related_entity_type, LedgerEntryEntityType
     field :related_entity_id, Ecto.ULID
 
-    belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
+    belongs_to :payment, Ysc.Ledgers.Payment,
+      foreign_key: :payment_id,
+      references: :id
 
     field :description, :string
     field :amount, Money.Ecto.Composite.Type, default_currency: :USD

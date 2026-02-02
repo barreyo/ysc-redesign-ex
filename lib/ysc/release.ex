@@ -9,13 +9,16 @@ defmodule Ysc.Release do
     load_app()
 
     for repo <- repos() do
-      {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true))
+      {:ok, _, _} =
+        Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :up, all: true))
     end
   end
 
   def rollback(repo, version) do
     load_app()
-    {:ok, _, _} = Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
+
+    {:ok, _, _} =
+      Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
   end
 
   def seed do
@@ -63,7 +66,9 @@ defmodule Ysc.Release do
             Logger.info("Failed to Re-queue: #{result.failed}")
 
             if result.failed > 0 do
-              Logger.warning("Some jobs failed to re-queue. Check logs for details.")
+              Logger.warning(
+                "Some jobs failed to re-queue. Check logs for details."
+              )
             end
 
             result
@@ -94,15 +99,34 @@ defmodule Ysc.Release do
             stats = Ysc.Messages.Requeue.get_stats()
 
             Logger.info("")
-            Logger.info("═══════════════════════════════════════════════════════════")
+
+            Logger.info(
+              "═══════════════════════════════════════════════════════════"
+            )
+
             Logger.info("  Failed Email Job Statistics")
-            Logger.info("═══════════════════════════════════════════════════════════")
+
+            Logger.info(
+              "═══════════════════════════════════════════════════════════"
+            )
+
             Logger.info("")
             Logger.info("  Total Failed:        #{stats.total_failed}")
-            Logger.info("  ├─ Discarded:        #{stats.discarded} (exhausted retries)")
-            Logger.info("  └─ Retryable:        #{stats.retryable} (can still retry)")
+
+            Logger.info(
+              "  ├─ Discarded:        #{stats.discarded} (exhausted retries)"
+            )
+
+            Logger.info(
+              "  └─ Retryable:        #{stats.retryable} (can still retry)"
+            )
+
             Logger.info("")
-            Logger.info("  Recent Failures:     #{stats.recent_failures_24h} (last 24 hours)")
+
+            Logger.info(
+              "  Recent Failures:     #{stats.recent_failures_24h} (last 24 hours)"
+            )
+
             Logger.info("")
 
             if not Enum.empty?(stats.by_template) do
@@ -110,13 +134,18 @@ defmodule Ysc.Release do
               Logger.info("")
 
               Enum.each(stats.by_template, fn {template, count} ->
-                Logger.info("    • #{String.pad_trailing(template, 40)} #{count}")
+                Logger.info(
+                  "    • #{String.pad_trailing(template, 40)} #{count}"
+                )
               end)
 
               Logger.info("")
             end
 
-            Logger.info("═══════════════════════════════════════════════════════════")
+            Logger.info(
+              "═══════════════════════════════════════════════════════════"
+            )
+
             Logger.info("")
 
             stats
@@ -127,7 +156,13 @@ defmodule Ysc.Release do
       |> List.first()
 
     stats ||
-      %{total_failed: 0, discarded: 0, retryable: 0, by_template: %{}, recent_failures_24h: 0}
+      %{
+        total_failed: 0,
+        discarded: 0,
+        retryable: 0,
+        by_template: %{},
+        recent_failures_24h: 0
+      }
   end
 
   @doc """
@@ -161,7 +196,10 @@ defmodule Ysc.Release do
               {:error, :not_an_email_job}
 
             {:error, reason} ->
-              Logger.error("❌ Failed to re-queue job #{job_id}: #{inspect(reason)}")
+              Logger.error(
+                "❌ Failed to re-queue job #{job_id}: #{inspect(reason)}"
+              )
+
               {:error, reason}
           end
         end)

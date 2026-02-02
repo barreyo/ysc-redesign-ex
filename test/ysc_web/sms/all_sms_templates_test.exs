@@ -40,7 +40,9 @@ defmodule YscWeb.Sms.AllSmsTemplatesTest do
       assert String.contains?(message, user.first_name)
       assert String.contains?(message, "Tahoe")
       assert String.contains?(message, "1234")
-      assert BookingCheckinReminder.get_template_name() == "booking_checkin_reminder"
+
+      assert BookingCheckinReminder.get_template_name() ==
+               "booking_checkin_reminder"
     end
 
     test "TwoFactorVerification renders with first_name", %{user: user} do
@@ -55,7 +57,9 @@ defmodule YscWeb.Sms.AllSmsTemplatesTest do
       assert String.contains?(message, "123456")
       assert String.contains?(message, user.first_name)
       assert String.contains?(message, "[YSC]")
-      assert TwoFactorVerification.get_template_name() == "two_factor_verification"
+
+      assert TwoFactorVerification.get_template_name() ==
+               "two_factor_verification"
     end
 
     test "TwoFactorVerification renders without first_name" do
@@ -68,7 +72,9 @@ defmodule YscWeb.Sms.AllSmsTemplatesTest do
       assert String.length(message) > 0
       assert String.contains?(message, "123456")
       assert String.contains?(message, "[YSC]")
-      assert TwoFactorVerification.get_template_name() == "two_factor_verification"
+
+      assert TwoFactorVerification.get_template_name() ==
+               "two_factor_verification"
     end
 
     test "EmailChanged renders", %{user: user} do
@@ -121,21 +127,27 @@ defmodule YscWeb.Sms.AllSmsTemplatesTest do
   end
 
   describe "SMS template prepare functions" do
-    test "TwoFactorVerification.prepare_sms_data works with string code", %{user: user} do
+    test "TwoFactorVerification.prepare_sms_data works with string code", %{
+      user: user
+    } do
       result = TwoFactorVerification.prepare_sms_data(user, "123456")
       assert is_map(result)
       assert result.code == "123456"
       assert result.first_name == user.first_name
     end
 
-    test "TwoFactorVerification.prepare_sms_data works with integer code", %{user: user} do
+    test "TwoFactorVerification.prepare_sms_data works with integer code", %{
+      user: user
+    } do
       result = TwoFactorVerification.prepare_sms_data(user, 123_456)
       assert is_map(result)
       assert result.code == "123456"
       assert result.first_name == user.first_name
     end
 
-    test "TwoFactorVerification.prepare_sms_data pads integer code", %{user: user} do
+    test "TwoFactorVerification.prepare_sms_data pads integer code", %{
+      user: user
+    } do
       result = TwoFactorVerification.prepare_sms_data(user, 123)
       assert is_map(result)
       assert result.code == "000123"
@@ -222,7 +234,9 @@ defmodule YscWeb.Sms.AllSmsTemplatesTest do
       for {template, variables} <- templates_with_variables do
         message = template.render(variables)
         assert is_binary(message), "Template #{template} should return a binary"
-        assert String.length(message) > 0, "Template #{template} should return non-empty message"
+
+        assert String.length(message) > 0,
+               "Template #{template} should return non-empty message"
 
         assert String.length(message) <= 1600,
                "Template #{template} message too long (#{String.length(message)} chars)"

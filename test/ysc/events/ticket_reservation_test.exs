@@ -117,6 +117,7 @@ defmodule Ysc.Events.TicketReservationTest do
 
       changeset = TicketReservation.changeset(%TicketReservation{}, attrs)
       refute changeset.valid?
+
       assert "must be greater than or equal to 0" in errors_on(changeset).discount_percentage
     end
 
@@ -131,6 +132,7 @@ defmodule Ysc.Events.TicketReservationTest do
 
       changeset = TicketReservation.changeset(%TicketReservation{}, attrs)
       refute changeset.valid?
+
       assert "must be less than or equal to 100" in errors_on(changeset).discount_percentage
     end
 
@@ -171,7 +173,10 @@ defmodule Ysc.Events.TicketReservationTest do
 
       changeset = TicketReservation.changeset(%TicketReservation{}, attrs)
       refute changeset.valid?
-      assert "must be one of: active, fulfilled, cancelled" in errors_on(changeset).status
+
+      assert "must be one of: active, fulfilled, cancelled" in errors_on(
+               changeset
+             ).status
     end
 
     test "valid changeset with status 'active'" do

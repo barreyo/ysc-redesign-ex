@@ -112,7 +112,13 @@ create_address_for_user = fn user ->
   user = Repo.preload(user, :registration_form)
 
   case user.registration_form do
-    %{address: address, city: city, country: country, postal_code: postal_code, region: region}
+    %{
+      address: address,
+      city: city,
+      country: country,
+      postal_code: postal_code,
+      region: region
+    }
     when not is_nil(address) and not is_nil(city) and not is_nil(country) and
            not is_nil(postal_code) ->
       # Check if address already exists
@@ -122,7 +128,9 @@ create_address_for_user = fn user ->
         :ok
       else
         case %Address{}
-             |> Address.from_signup_application_changeset(user.registration_form)
+             |> Address.from_signup_application_changeset(
+               user.registration_form
+             )
              |> Ecto.Changeset.put_change(:user_id, user.id)
              |> Repo.insert() do
           {:ok, _address} ->
@@ -158,7 +166,10 @@ mark_user_verified = fn user ->
       updated_user
 
     {:error, changeset} ->
-      IO.puts("Failed to mark user #{user.email} as verified: #{inspect(changeset.errors)}")
+      IO.puts(
+        "Failed to mark user #{user.email} as verified: #{inspect(changeset.errors)}"
+      )
+
       user
   end
 end
@@ -181,7 +192,10 @@ admin_user =
           date_of_birth: ~D[1980-01-15],
           registration_form: %{
             membership_type: "family",
-            membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
+            membership_eligibility: [
+              "citizen_of_scandinavia",
+              "born_in_scandinavia"
+            ],
             occupation: "Plumber",
             birth_date: "1980-01-15",
             address: "Dance St 2",
@@ -197,7 +211,8 @@ admin_user =
             spoken_languages: "English and German",
             hear_about_the_club: "On internet",
             agreed_to_bylaws: "true",
-            agreed_to_bylaws_at: DateTime.utc_now() |> DateTime.truncate(:second),
+            agreed_to_bylaws_at:
+              DateTime.utc_now() |> DateTime.truncate(:second),
             started: DateTime.utc_now() |> DateTime.truncate(:second),
             completed: DateTime.utc_now() |> DateTime.truncate(:second),
             browser_timezone: "America/Los_Angeles"
@@ -298,7 +313,10 @@ Enum.each(0..n_approved_users, fn n ->
         family_members: fam_members,
         registration_form: %{
           membership_type: membership_type,
-          membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
+          membership_eligibility: [
+            "citizen_of_scandinavia",
+            "born_in_scandinavia"
+          ],
           occupation: "Plumber",
           birth_date: Date.to_iso8601(birth_date),
           address: "Dance St 2",
@@ -398,7 +416,10 @@ Enum.each(0..n_pending_users, fn n ->
         family_members: fam_members,
         registration_form: %{
           membership_type: membership_type,
-          membership_eligibility: ["citizen_of_scandinavia", "born_in_scandinavia"],
+          membership_eligibility: [
+            "citizen_of_scandinavia",
+            "born_in_scandinavia"
+          ],
           occupation: "Plumber",
           birth_date: Date.to_iso8601(birth_date),
           address: "Dance St 2",
@@ -684,7 +705,8 @@ if length(active_users) > 0 do
         image_path = Path.join(seed_assets_dir, filename)
 
         image_title =
-          String.replace(filename, ~r/[_-]/, " ") |> String.replace(~r/\.[^.]*$/, "")
+          String.replace(filename, ~r/[_-]/, " ")
+          |> String.replace(~r/\.[^.]*$/, "")
 
         # Check if image already exists by title
         existing_image =
@@ -738,6 +760,7 @@ if length(active_users) > 0 do
                   temp_dir = "/tmp/image_processor"
                   File.mkdir_p!(temp_dir)
                   tmp_output_file = "#{temp_dir}/#{new_image.id}"
+
                   # Format will be determined dynamically in process_image_upload
                   optimized_output_path = "#{tmp_output_file}_optimized"
                   thumbnail_output_path = "#{tmp_output_file}_thumb"
@@ -753,7 +776,10 @@ if length(active_users) > 0 do
                     rescue
                       e ->
                         # If image processing fails, at least we have the raw image
-                        IO.puts("Failed to process image #{filename}: #{inspect(e)}")
+                        IO.puts(
+                          "Failed to process image #{filename}: #{inspect(e)}"
+                        )
+
                         new_image
                     end
 
@@ -778,12 +804,16 @@ if length(active_users) > 0 do
 
                   # Clean up any PNG files that might have been created in the seed directory
                   # (Blurhash might create temporary PNG files)
-                  seed_png_path = String.replace(image_path, ~r/\.[^.]+$/, ".png")
+                  seed_png_path =
+                    String.replace(image_path, ~r/\.[^.]+$/, ".png")
 
                   if File.exists?(seed_png_path) and seed_png_path != image_path do
                     try do
                       File.rm(seed_png_path)
-                      IO.puts("Cleaned up temporary PNG file: #{Path.basename(seed_png_path)}")
+
+                      IO.puts(
+                        "Cleaned up temporary PNG file: #{Path.basename(seed_png_path)}"
+                      )
                     rescue
                       _ -> :ok
                     end
@@ -792,7 +822,10 @@ if length(active_users) > 0 do
                   processed_image
 
                 {:error, reason} ->
-                  IO.puts("Failed to create image record for #{filename}: #{inspect(reason)}")
+                  IO.puts(
+                    "Failed to create image record for #{filename}: #{inspect(reason)}"
+                  )
+
                   nil
               end
             end
@@ -869,7 +902,8 @@ if length(active_users) > 0 do
 
       try do
         # Check if post already exists by title
-        existing_post = Repo.one(from p in Post, where: p.title == ^title, limit: 1)
+        existing_post =
+          Repo.one(from p in Post, where: p.title == ^title, limit: 1)
 
         if existing_post do
           IO.puts("Post already exists, skipping: #{title}")
@@ -884,7 +918,9 @@ if length(active_users) > 0 do
             |> String.downcase()
             |> String.replace(~r/[^a-z0-9]+/, "-")
             |> String.trim("-")
-            |> then(fn name -> "#{name}-#{System.system_time(:second) - index}" end)
+            |> then(fn name ->
+              "#{name}-#{System.system_time(:second) - index}"
+            end)
 
           published_on = DateTime.add(DateTime.utc_now(), -index * 2, :day)
 
@@ -906,7 +942,9 @@ if length(active_users) > 0 do
               IO.puts("Created post: #{post.title}")
 
             {:error, changeset} ->
-              IO.puts("Failed to create post: #{title} - #{inspect(changeset.errors)}")
+              IO.puts(
+                "Failed to create post: #{title} - #{inspect(changeset.errors)}"
+              )
           end
         end
       rescue
@@ -924,7 +962,8 @@ if length(active_users) > 0 do
       end_minute = end_time.minute
 
       # Calculate total duration in minutes
-      total_minutes = end_hour * 60 + end_minute - (start_hour * 60 + start_minute)
+      total_minutes =
+        end_hour * 60 + end_minute - (start_hour * 60 + start_minute)
 
       # Generate agenda items based on event type
       items =
@@ -932,15 +971,31 @@ if length(active_users) > 0 do
           String.contains?(String.downcase(event_title), "gala") or
               String.contains?(String.downcase(event_title), "dinner") ->
             [
-              %{title: "Welcome Reception", description: "Cocktails and mingling", duration: 30},
+              %{
+                title: "Welcome Reception",
+                description: "Cocktails and mingling",
+                duration: 30
+              },
               %{
                 title: "Opening Remarks",
                 description: "Welcome address from club leadership",
                 duration: 15
               },
-              %{title: "First Course", description: "Traditional appetizers", duration: 25},
-              %{title: "Main Course", description: "Scandinavian specialties", duration: 45},
-              %{title: "Entertainment", description: "Live music and performances", duration: 40},
+              %{
+                title: "First Course",
+                description: "Traditional appetizers",
+                duration: 25
+              },
+              %{
+                title: "Main Course",
+                description: "Scandinavian specialties",
+                duration: 45
+              },
+              %{
+                title: "Entertainment",
+                description: "Live music and performances",
+                duration: 40
+              },
               %{
                 title: "Dessert & Coffee",
                 description: "Traditional desserts and coffee service",
@@ -965,7 +1020,11 @@ if length(active_users) > 0 do
                 description: "Deep dive into this month's selection",
                 duration: 60
               },
-              %{title: "Q&A Session", description: "Questions and sharing", duration: 20},
+              %{
+                title: "Q&A Session",
+                description: "Questions and sharing",
+                duration: 20
+              },
               %{
                 title: "Next Month Preview",
                 description: "Introduction to next month's book",
@@ -1019,13 +1078,21 @@ if length(active_users) > 0 do
                 description: "Games, crafts, and activities for all ages",
                 duration: 120
               },
-              %{title: "Lunch Break", description: "Food vendors and picnic areas", duration: 60},
+              %{
+                title: "Lunch Break",
+                description: "Food vendors and picnic areas",
+                duration: 60
+              },
               %{
                 title: "Afternoon Entertainment",
                 description: "Live music and performances",
                 duration: 150
               },
-              %{title: "Evening Program", description: "Main stage performances", duration: 120},
+              %{
+                title: "Evening Program",
+                description: "Main stage performances",
+                duration: 120
+              },
               %{
                 title: "Closing Celebration",
                 description: "Final remarks and fireworks",
@@ -1094,8 +1161,16 @@ if length(active_users) > 0 do
                 description: "Continue to main viewpoint",
                 duration: 60
               },
-              %{title: "Lunch Break", description: "Lunch at scenic location", duration: 45},
-              %{title: "Return Hike", description: "Return to trailhead", duration: 90},
+              %{
+                title: "Lunch Break",
+                description: "Lunch at scenic location",
+                duration: 45
+              },
+              %{
+                title: "Return Hike",
+                description: "Return to trailhead",
+                duration: 90
+              },
               %{
                 title: "Closing & Departure",
                 description: "Final remarks and departure",
@@ -1145,19 +1220,31 @@ if length(active_users) > 0 do
                 description: "Check-in and welcome",
                 duration: 15
               },
-              %{title: "Opening Remarks", description: "Introduction and overview", duration: 10},
+              %{
+                title: "Opening Remarks",
+                description: "Introduction and overview",
+                duration: 10
+              },
               %{
                 title: "Main Program",
                 description: "Featured activities and presentations",
                 duration: max(30, div(total_minutes - 50, 2))
               },
-              %{title: "Break", description: "Networking and refreshments", duration: 15},
+              %{
+                title: "Break",
+                description: "Networking and refreshments",
+                duration: 15
+              },
               %{
                 title: "Continued Program",
                 description: "Additional activities",
                 duration: max(30, div(total_minutes - 50, 2))
               },
-              %{title: "Closing", description: "Final remarks and announcements", duration: 10}
+              %{
+                title: "Closing",
+                description: "Final remarks and announcements",
+                duration: 10
+              }
             ]
         end
 
@@ -1196,12 +1283,21 @@ if length(active_users) > 0 do
       # PAST EVENTS (for testing past events feature)
       %{
         title: "Past Midsummer Celebration 2023",
-        description: "Our annual midsummer celebration with traditional food and music",
+        description:
+          "Our annual midsummer celebration with traditional food and music",
         start_date:
-          DateTime.new!(Date.new!(2023, 6, 21), Time.new!(18, 0, 0), "America/Los_Angeles"),
+          DateTime.new!(
+            Date.new!(2023, 6, 21),
+            Time.new!(18, 0, 0),
+            "America/Los_Angeles"
+          ),
         start_time: ~T[18:00:00],
         end_date:
-          DateTime.new!(Date.new!(2023, 6, 21), Time.new!(22, 0, 0), "America/Los_Angeles"),
+          DateTime.new!(
+            Date.new!(2023, 6, 21),
+            Time.new!(22, 0, 0),
+            "America/Los_Angeles"
+          ),
         end_time: ~T[22:00:00],
         location_name: "Scandinavian Heritage Park",
         address: "456 Heritage St, San Francisco, CA 94103",
@@ -1214,12 +1310,21 @@ if length(active_users) > 0 do
       },
       %{
         title: "Past Nordic Christmas Dinner",
-        description: "A festive Christmas dinner featuring traditional Scandinavian cuisine",
+        description:
+          "A festive Christmas dinner featuring traditional Scandinavian cuisine",
         start_date:
-          DateTime.new!(Date.new!(2023, 12, 15), Time.new!(19, 0, 0), "America/Los_Angeles"),
+          DateTime.new!(
+            Date.new!(2023, 12, 15),
+            Time.new!(19, 0, 0),
+            "America/Los_Angeles"
+          ),
         start_time: ~T[19:00:00],
         end_date:
-          DateTime.new!(Date.new!(2023, 12, 15), Time.new!(23, 0, 0), "America/Los_Angeles"),
+          DateTime.new!(
+            Date.new!(2023, 12, 15),
+            Time.new!(23, 0, 0),
+            "America/Los_Angeles"
+          ),
         end_time: ~T[23:00:00],
         location_name: "Grand Scandinavian Hall",
         address: "789 Nordic Blvd, San Francisco, CA 94104",
@@ -1234,17 +1339,30 @@ if length(active_users) > 0 do
             quantity: 80,
             description: "Discounted for club members"
           },
-          %{name: "Regular Price", type: :paid, price: Money.new(85, :USD), quantity: 40}
+          %{
+            name: "Regular Price",
+            type: :paid,
+            price: Money.new(85, :USD),
+            quantity: 40
+          }
         ]
       },
       %{
         title: "Past Fika Social Hour",
         description: "Monthly casual meetup with coffee and pastries",
         start_date:
-          DateTime.new!(Date.new!(2023, 11, 10), Time.new!(14, 0, 0), "America/Los_Angeles"),
+          DateTime.new!(
+            Date.new!(2023, 11, 10),
+            Time.new!(14, 0, 0),
+            "America/Los_Angeles"
+          ),
         start_time: ~T[14:00:00],
         end_date:
-          DateTime.new!(Date.new!(2023, 11, 10), Time.new!(16, 0, 0), "America/Los_Angeles"),
+          DateTime.new!(
+            Date.new!(2023, 11, 10),
+            Time.new!(16, 0, 0),
+            "America/Los_Angeles"
+          ),
         end_time: ~T[16:00:00],
         location_name: "Scandinavian Bakery",
         address: "321 Bakery St, Berkeley, CA 94704",
@@ -1259,10 +1377,18 @@ if length(active_users) > 0 do
         title: "Past Viking History Lecture",
         description: "Educational talk on Viking history and culture",
         start_date:
-          DateTime.new!(Date.new!(2023, 10, 5), Time.new!(18, 30, 0), "America/Los_Angeles"),
+          DateTime.new!(
+            Date.new!(2023, 10, 5),
+            Time.new!(18, 30, 0),
+            "America/Los_Angeles"
+          ),
         start_time: ~T[18:30:00],
         end_date:
-          DateTime.new!(Date.new!(2023, 10, 5), Time.new!(20, 30, 0), "America/Los_Angeles"),
+          DateTime.new!(
+            Date.new!(2023, 10, 5),
+            Time.new!(20, 30, 0),
+            "America/Los_Angeles"
+          ),
         end_time: ~T[20:30:00],
         location_name: "Community Library",
         address: "555 Library Ave, San Francisco, CA 94105",
@@ -1278,7 +1404,8 @@ if length(active_users) > 0 do
       # Free events
       %{
         title: "Scandinavian Cultural Evening",
-        description: "Join us for an evening of Scandinavian culture, food, and music",
+        description:
+          "Join us for an evening of Scandinavian culture, food, and music",
         start_date: DateTime.add(DateTime.utc_now(), 30, :day),
         start_time: ~T[18:00:00],
         end_date: DateTime.add(DateTime.utc_now(), 30, :day),
@@ -1311,7 +1438,8 @@ if length(active_users) > 0 do
       # Paid events
       %{
         title: "Scandinavian Gala Dinner",
-        description: "Elegant dinner featuring traditional Scandinavian cuisine",
+        description:
+          "Elegant dinner featuring traditional Scandinavian cuisine",
         start_date: DateTime.add(DateTime.utc_now(), 60, :day),
         start_time: ~T[19:00:00],
         end_date: DateTime.add(DateTime.utc_now(), 60, :day),
@@ -1329,12 +1457,18 @@ if length(active_users) > 0 do
             quantity: 50,
             description: "Save $25!"
           },
-          %{name: "Regular Ticket", type: :paid, price: Money.new(100, :USD), quantity: 100}
+          %{
+            name: "Regular Ticket",
+            type: :paid,
+            price: Money.new(100, :USD),
+            quantity: 100
+          }
         ]
       },
       %{
         title: "Wine Tasting: Scandinavian Varietals",
-        description: "Sample wines from Scandinavian producers with expert sommeliers",
+        description:
+          "Sample wines from Scandinavian producers with expert sommeliers",
         start_date: DateTime.add(DateTime.utc_now(), 75, :day),
         start_time: ~T[17:00:00],
         end_date: DateTime.add(DateTime.utc_now(), 75, :day),
@@ -1345,14 +1479,25 @@ if length(active_users) > 0 do
         longitude: -122.2869,
         max_attendees: 40,
         ticket_tiers: [
-          %{name: "Member Price", type: :paid, price: Money.new(45, :USD), quantity: 20},
-          %{name: "Non-Member Price", type: :paid, price: Money.new(60, :USD), quantity: 20}
+          %{
+            name: "Member Price",
+            type: :paid,
+            price: Money.new(45, :USD),
+            quantity: 20
+          },
+          %{
+            name: "Non-Member Price",
+            type: :paid,
+            price: Money.new(60, :USD),
+            quantity: 20
+          }
         ]
       },
       # Events with both free and paid tiers
       %{
         title: "Summer Festival 2024",
-        description: "Our biggest event of the year! Music, food, games, and more",
+        description:
+          "Our biggest event of the year! Music, food, games, and more",
         start_date: DateTime.add(DateTime.utc_now(), 90, :day),
         start_time: ~T[10:00:00],
         end_date: DateTime.add(DateTime.utc_now(), 90, :day),
@@ -1411,7 +1556,8 @@ if length(active_users) > 0 do
       # Another free event
       %{
         title: "Language Exchange Meetup",
-        description: "Practice your Scandinavian languages with native speakers",
+        description:
+          "Practice your Scandinavian languages with native speakers",
         start_date: DateTime.add(DateTime.utc_now(), 20, :day),
         start_time: ~T[18:30:00],
         end_date: DateTime.add(DateTime.utc_now(), 20, :day),
@@ -1430,7 +1576,10 @@ if length(active_users) > 0 do
     Enum.each(event_data, fn event_attrs ->
       try do
         # Check if event already exists by title
-        existing_event = Repo.one(from e in Event, where: e.title == ^event_attrs.title, limit: 1)
+        existing_event =
+          Repo.one(
+            from e in Event, where: e.title == ^event_attrs.title, limit: 1
+          )
 
         if existing_event do
           IO.puts("Event already exists, skipping: #{event_attrs.title}")
@@ -1443,14 +1592,26 @@ if length(active_users) > 0 do
               # Use existing event's times if available, fallback to event_attrs
               start_time = existing_event.start_time || event_attrs.start_time
               end_time = existing_event.end_time || event_attrs.end_time
-              agenda_items = generate_agenda_items.(existing_event.title, start_time, end_time)
+
+              agenda_items =
+                generate_agenda_items.(
+                  existing_event.title,
+                  start_time,
+                  end_time
+                )
 
               if length(agenda_items) > 0 do
-                case Agendas.create_agenda(existing_event, %{title: "Event Agenda"}) do
+                case Agendas.create_agenda(existing_event, %{
+                       title: "Event Agenda"
+                     }) do
                   {:ok, agenda} ->
                     items_created =
                       Enum.reduce(agenda_items, 0, fn item_attrs, count ->
-                        case Agendas.create_agenda_item(existing_event.id, agenda, item_attrs) do
+                        case Agendas.create_agenda_item(
+                               existing_event.id,
+                               agenda,
+                               item_attrs
+                             ) do
                           {:ok, _agenda_item} ->
                             count + 1
 
@@ -1537,7 +1698,9 @@ if length(active_users) > 0 do
                     "Ticket tier '#{tier_name}' already exists for event '#{event.title}', skipping"
                   )
                 else
-                  case Events.create_ticket_tier(Map.merge(tier_attrs, %{event_id: event.id})) do
+                  case Events.create_ticket_tier(
+                         Map.merge(tier_attrs, %{event_id: event.id})
+                       ) do
                     {:ok, _tier} ->
                       :ok
 
@@ -1555,7 +1718,9 @@ if length(active_users) > 0 do
                 existing_agendas = Agendas.list_agendas_for_event(event.id)
 
                 if length(existing_agendas) > 0 do
-                  IO.puts("  Agenda already exists for '#{event.title}', skipping")
+                  IO.puts(
+                    "  Agenda already exists for '#{event.title}', skipping"
+                  )
                 else
                   # Generate agenda items based on event type
                   agenda_items =
@@ -1572,7 +1737,11 @@ if length(active_users) > 0 do
                         # Create agenda items
                         items_created =
                           Enum.reduce(agenda_items, 0, fn item_attrs, count ->
-                            case Agendas.create_agenda_item(event.id, agenda, item_attrs) do
+                            case Agendas.create_agenda_item(
+                                   event.id,
+                                   agenda,
+                                   item_attrs
+                                 ) do
                               {:ok, _agenda_item} ->
                                 count + 1
 
@@ -1595,12 +1764,16 @@ if length(active_users) > 0 do
                         )
                     end
                   else
-                    IO.puts("  No agenda items generated for '#{event.title}' (event too short)")
+                    IO.puts(
+                      "  No agenda items generated for '#{event.title}' (event too short)"
+                    )
                   end
                 end
               rescue
                 e ->
-                  IO.puts("  Error creating agenda for '#{event.title}': #{inspect(e)}")
+                  IO.puts(
+                    "  Error creating agenda for '#{event.title}': #{inspect(e)}"
+                  )
               end
 
               IO.puts(
@@ -1623,10 +1796,14 @@ if length(active_users) > 0 do
     IO.puts("   - #{length(uploaded_images)} images uploaded to S3")
     IO.puts("   - Posts and events checked/created")
   else
-    IO.puts("⚠️  No images found in #{seed_assets_dir}. Skipping posts and events creation.")
+    IO.puts(
+      "⚠️  No images found in #{seed_assets_dir}. Skipping posts and events creation."
+    )
   end
 else
-  IO.puts("⚠️  No active users found. Please create users first before seeding posts and events.")
+  IO.puts(
+    "⚠️  No active users found. Please create users first before seeding posts and events."
+  )
 end
 
 # Seed room images for Tahoe rooms
@@ -1636,7 +1813,8 @@ alias Ysc.Bookings.{Room, RoomCategory, Season}
 import Ecto.Query
 
 # Get all Tahoe rooms
-tahoe_rooms = Repo.all(from r in Room, where: r.property == :tahoe and r.is_active == true)
+tahoe_rooms =
+  Repo.all(from r in Room, where: r.property == :tahoe and r.is_active == true)
 
 IO.puts("  Found #{length(tahoe_rooms)} Tahoe rooms to process")
 
@@ -1657,7 +1835,10 @@ if length(tahoe_rooms) == 0 do
   standard_category =
     Repo.get_by(RoomCategory, name: "standard") ||
       Repo.insert!(
-        RoomCategory.changeset(%RoomCategory{}, %{name: "standard", notes: "Standard rooms"})
+        RoomCategory.changeset(%RoomCategory{}, %{
+          name: "standard",
+          notes: "Standard rooms"
+        })
       )
 
   family_category =
@@ -1679,7 +1860,8 @@ if length(tahoe_rooms) == 0 do
       Repo.insert!(
         Season.changeset(%Season{}, %{
           name: "Summer",
-          description: "Summer season for Tahoe cabin (May 1 - Oct 31, recurring annually)",
+          description:
+            "Summer season for Tahoe cabin (May 1 - Oct 31, recurring annually)",
           property: :tahoe,
           start_date: summer_start,
           end_date: summer_end,
@@ -1689,7 +1871,16 @@ if length(tahoe_rooms) == 0 do
       )
 
   # Create rooms
-  room_names = ["Room 1", "Room 2", "Room 3", "Room 4", "Room 5a", "Room 5b", "Room 6", "Room 7"]
+  room_names = [
+    "Room 1",
+    "Room 2",
+    "Room 3",
+    "Room 4",
+    "Room 5a",
+    "Room 5b",
+    "Room 6",
+    "Room 7"
+  ]
 
   tahoe_rooms =
     Enum.map(room_names, fn name ->
@@ -1698,7 +1889,8 @@ if length(tahoe_rooms) == 0 do
           name == "Room 5a" ->
             %{
               name: name,
-              description: "Cozy single bed room with 1 single bed. Perfect for solo travelers.",
+              description:
+                "Cozy single bed room with 1 single bed. Perfect for solo travelers.",
               property: :tahoe,
               capacity_max: 1,
               min_billable_occupancy: 1,
@@ -1714,7 +1906,8 @@ if length(tahoe_rooms) == 0 do
           name == "Room 5b" ->
             %{
               name: name,
-              description: "Cozy single bed room with 1 single bed. Perfect for solo travelers.",
+              description:
+                "Cozy single bed room with 1 single bed. Perfect for solo travelers.",
               property: :tahoe,
               capacity_max: 1,
               min_billable_occupancy: 1,
@@ -1747,7 +1940,8 @@ if length(tahoe_rooms) == 0 do
           name == "Room 1" ->
             %{
               name: name,
-              description: "Comfortable room with 2 single beds. Perfect for two guests.",
+              description:
+                "Comfortable room with 2 single beds. Perfect for two guests.",
               property: :tahoe,
               capacity_max: 2,
               min_billable_occupancy: 1,
@@ -1763,7 +1957,8 @@ if length(tahoe_rooms) == 0 do
           name == "Room 2" ->
             %{
               name: name,
-              description: "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
+              description:
+                "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
               property: :tahoe,
               capacity_max: 2,
               min_billable_occupancy: 1,
@@ -1779,7 +1974,8 @@ if length(tahoe_rooms) == 0 do
           name == "Room 3" ->
             %{
               name: name,
-              description: "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
+              description:
+                "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
               property: :tahoe,
               capacity_max: 2,
               min_billable_occupancy: 1,
@@ -1812,7 +2008,8 @@ if length(tahoe_rooms) == 0 do
           name == "Room 7" ->
             %{
               name: name,
-              description: "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
+              description:
+                "Comfortable room with 1 queen bed. Ideal for couples or two guests.",
               property: :tahoe,
               capacity_max: 2,
               min_billable_occupancy: 1,
@@ -1856,11 +2053,13 @@ if length(tahoe_rooms) == 0 do
 end
 
 # Re-fetch rooms after potential creation
-tahoe_rooms = Repo.all(from r in Room, where: r.property == :tahoe and r.is_active == true)
+tahoe_rooms =
+  Repo.all(from r in Room, where: r.property == :tahoe and r.is_active == true)
 
 if length(tahoe_rooms) > 0 do
   # Directory containing room images
-  tahoe_images_dir = Path.join([File.cwd!(), "priv", "static", "images", "tahoe"])
+  tahoe_images_dir =
+    Path.join([File.cwd!(), "priv", "static", "images", "tahoe"])
 
   if File.exists?(tahoe_images_dir) do
     # Map room names to image filenames
@@ -1900,7 +2099,10 @@ if length(tahoe_rooms) > 0 do
 
             {room_image, was_new_image} =
               if existing_image do
-                IO.puts("  Image already exists for #{room.name}, associating with room...")
+                IO.puts(
+                  "  Image already exists for #{room.name}, associating with room..."
+                )
+
                 {existing_image, false}
               else
                 # Upload raw file to S3
@@ -1909,7 +2111,10 @@ if length(tahoe_rooms) > 0 do
                     Media.upload_file_to_s3(image_path)
                   rescue
                     e ->
-                      IO.puts("  Failed to upload #{image_filename} to S3: #{inspect(e)}")
+                      IO.puts(
+                        "  Failed to upload #{image_filename} to S3: #{inspect(e)}"
+                      )
+
                       nil
                   end
 
@@ -1942,7 +2147,10 @@ if length(tahoe_rooms) > 0 do
                            admin_user
                          ) do
                       {:ok, new_image} ->
-                        IO.puts("  ✅ Created image record for #{room.name} (id: #{new_image.id})")
+                        IO.puts(
+                          "  ✅ Created image record for #{room.name} (id: #{new_image.id})"
+                        )
+
                         # Process the image (create thumbnails, optimized versions, blur hash)
                         temp_dir = "/tmp/image_processor"
                         File.mkdir_p!(temp_dir)
@@ -2016,14 +2224,16 @@ if length(tahoe_rooms) > 0 do
                     "  ✅ Associated image with #{room.name} (image_id: #{updated_room.image_id})"
                   )
 
-                  {created_acc + if(was_new_image, do: 1, else: 0), associated_acc + 1}
+                  {created_acc + if(was_new_image, do: 1, else: 0),
+                   associated_acc + 1}
 
                 {:error, changeset} ->
                   IO.puts(
                     "  ❌ Failed to update #{room.name} with image: #{inspect(changeset.errors)}"
                   )
 
-                  {created_acc + if(was_new_image, do: 1, else: 0), associated_acc}
+                  {created_acc + if(was_new_image, do: 1, else: 0),
+                   associated_acc}
               end
             else
               IO.puts("  ⚠️  Could not create/retrieve image for #{room.name}")
@@ -2047,7 +2257,9 @@ if length(tahoe_rooms) > 0 do
     IO.puts("⚠️  Tahoe images directory not found: #{tahoe_images_dir}")
   end
 else
-  IO.puts("⚠️  No Tahoe rooms found. Please run seeds_bookings.exs first to create rooms.")
+  IO.puts(
+    "⚠️  No Tahoe rooms found. Please run seeds_bookings.exs first to create rooms."
+  )
 end
 
 # Seed refund policies for Tahoe property
@@ -2060,7 +2272,8 @@ tahoe_buyout_policy =
       policy =
         Bookings.create_refund_policy!(%{
           name: "Tahoe Full Cabin Cancellation Policy",
-          description: "Cancellation policy for full cabin (buyout) bookings at Tahoe property",
+          description:
+            "Cancellation policy for full cabin (buyout) bookings at Tahoe property",
           property: :tahoe,
           booking_mode: :buyout,
           is_active: true
@@ -2119,7 +2332,8 @@ tahoe_room_policy =
       policy =
         Bookings.create_refund_policy!(%{
           name: "Tahoe Rooms Cancellation Policy",
-          description: "Cancellation policy for room bookings at Tahoe property",
+          description:
+            "Cancellation policy for room bookings at Tahoe property",
           property: :tahoe,
           booking_mode: :room,
           is_active: true

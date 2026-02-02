@@ -47,7 +47,9 @@ defmodule YscWeb.FamilyManagementLive do
         end
 
       invites = FamilyInvites.list_invites(user)
-      invite_form = to_form(%{"email" => "", "family_member_id" => ""}, as: "invite")
+
+      invite_form =
+        to_form(%{"email" => "", "family_member_id" => ""}, as: "invite")
 
       {:ok,
        socket
@@ -95,7 +97,12 @@ defmodule YscWeb.FamilyManagementLive do
          |> put_flash(:info, "Invitation sent to #{email}")}
 
       {:error, :user_not_active} ->
-        {:noreply, put_flash(socket, :error, "Your account must be active to send invites.")}
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Your account must be active to send invites."
+         )}
 
       {:error, :invalid_membership_type} ->
         {:noreply,
@@ -107,20 +114,32 @@ defmodule YscWeb.FamilyManagementLive do
 
       {:error, :max_sub_accounts_reached} ->
         {:noreply,
-         put_flash(socket, :error, "You have reached the maximum number of sub-accounts (10).")}
+         put_flash(
+           socket,
+           :error,
+           "You have reached the maximum number of sub-accounts (10)."
+         )}
 
       {:error, :email_already_registered} ->
-        {:noreply, put_flash(socket, :error, "This email is already registered.")}
+        {:noreply,
+         put_flash(socket, :error, "This email is already registered.")}
 
       {:error, :pending_invite_exists} ->
         {:noreply,
-         put_flash(socket, :error, "A pending invitation already exists for this email.")}
+         put_flash(
+           socket,
+           :error,
+           "A pending invitation already exists for this email."
+         )}
 
       {:error, changeset} ->
         {:noreply,
          socket
          |> assign(:invite_form, to_form(changeset))
-         |> put_flash(:error, "Failed to send invitation. Please check the email address.")}
+         |> put_flash(
+           :error,
+           "Failed to send invitation. Please check the email address."
+         )}
     end
   end
 
@@ -140,10 +159,16 @@ defmodule YscWeb.FamilyManagementLive do
         {:noreply, put_flash(socket, :error, "Invitation not found.")}
 
       {:error, :unauthorized} ->
-        {:noreply, put_flash(socket, :error, "You are not authorized to revoke this invitation.")}
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "You are not authorized to revoke this invitation."
+         )}
 
       {:error, :already_accepted} ->
-        {:noreply, put_flash(socket, :error, "This invitation has already been accepted.")}
+        {:noreply,
+         put_flash(socket, :error, "This invitation has already been accepted.")}
     end
   end
 
@@ -165,7 +190,8 @@ defmodule YscWeb.FamilyManagementLive do
           {:noreply, put_flash(socket, :error, "Failed to remove sub-account.")}
       end
     else
-      {:noreply, put_flash(socket, :error, "Sub-account not found or unauthorized.")}
+      {:noreply,
+       put_flash(socket, :error, "Sub-account not found or unauthorized.")}
     end
   end
 
@@ -176,7 +202,9 @@ defmodule YscWeb.FamilyManagementLive do
       <div class="md:flex md:flex-row md:flex-auto md:grow container mx-auto">
         <ul class="flex-column space-y space-y-4 md:pr-10 text-sm font-medium text-zinc-600 md:me-4 mb-4 md:mb-0">
           <li>
-            <h2 class="text-zinc-800 text-2xl font-semibold leading-8 mb-10">Account</h2>
+            <h2 class="text-zinc-800 text-2xl font-semibold leading-8 mb-10">
+              Account
+            </h2>
           </li>
           <li>
             <.link
@@ -247,7 +275,8 @@ defmodule YscWeb.FamilyManagementLive do
               class={[
                 "inline-flex items-center px-4 py-3 rounded w-full",
                 @live_action == :notifications && "bg-blue-600 active text-zinc-100",
-                @live_action != :notifications && "hover:bg-zinc-100 hover:text-zinc-900"
+                @live_action != :notifications &&
+                  "hover:bg-zinc-100 hover:text-zinc-900"
               ]}
             >
               <.icon name="hero-bell-alert" class="w-5 h-5 me-2" /> Notifications
@@ -267,7 +296,9 @@ defmodule YscWeb.FamilyManagementLive do
               </div>
               <!-- Primary User Section -->
               <div class="rounded border border-zinc-100 py-4 px-4 space-y-4">
-                <h2 class="text-zinc-900 font-bold text-xl">Primary Account Holder</h2>
+                <h2 class="text-zinc-900 font-bold text-xl">
+                  Primary Account Holder
+                </h2>
                 <%= if @primary_user do %>
                   <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
                     <div class="flex items-center justify-between">
@@ -279,8 +310,10 @@ defmodule YscWeb.FamilyManagementLive do
                           <%= @primary_user.email %>
                         </p>
                         <p class="text-xs text-blue-600 mt-2">
-                          <.icon name="hero-star" class="w-4 h-4 inline-block -mt-0.5 me-1" />
-                          Primary account holder - manages family membership
+                          <.icon
+                            name="hero-star"
+                            class="w-4 h-4 inline-block -mt-0.5 me-1"
+                          /> Primary account holder - manages family membership
                         </p>
                       </div>
                     </div>
@@ -297,7 +330,9 @@ defmodule YscWeb.FamilyManagementLive do
                   Other Family Members (<%= length(@other_family_members) %>)
                 </h2>
                 <%= if @other_family_members == [] do %>
-                  <p class="text-zinc-600 text-sm">No other family members in your group.</p>
+                  <p class="text-zinc-600 text-sm">
+                    No other family members in your group.
+                  </p>
                 <% else %>
                   <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-zinc-200">
@@ -489,7 +524,10 @@ defmodule YscWeb.FamilyManagementLive do
                           </td>
                           <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-500">
                             <%= if invite.accepted_at do %>
-                              Accepted <%= Calendar.strftime(invite.accepted_at, "%B %d, %Y") %>
+                              Accepted <%= Calendar.strftime(
+                                invite.accepted_at,
+                                "%B %d, %Y"
+                              ) %>
                             <% else %>
                               <%= Calendar.strftime(invite.expires_at, "%B %d, %Y") %>
                             <% end %>

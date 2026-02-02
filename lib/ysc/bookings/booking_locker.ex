@@ -113,11 +113,14 @@ defmodule Ysc.Bookings.BookingLocker do
          guests_count,
          opts
        ) do
-    hold_duration = Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
+    hold_duration =
+      Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
+
     hold_expires_at = DateTime.add(DateTime.utc_now(), hold_duration, :minute)
 
     Repo.transaction(fn ->
-      days = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+      days =
+        Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
       # Ensure property_inventory rows exist
       ensure_property_inventory_for_days(property, days)
@@ -126,14 +129,24 @@ defmodule Ysc.Bookings.BookingLocker do
       prop_inv = fetch_property_inventory(property, checkin_date, checkout_date)
 
       # Validate buyout availability
-      validate_buyout_availability(property, checkin_date, checkout_date, prop_inv)
+      validate_buyout_availability(
+        property,
+        checkin_date,
+        checkout_date,
+        prop_inv
+      )
 
       # Update all property_inventory rows using optimistic locking
       update_property_inventory_for_buyout(prop_inv, property)
 
       # Calculate pricing
       {total_price, pricing_items} =
-        calculate_buyout_pricing(property, checkin_date, checkout_date, guests_count)
+        calculate_buyout_pricing(
+          property,
+          checkin_date,
+          checkout_date,
+          guests_count
+        )
 
       # Create booking in :hold
       booking =
@@ -181,11 +194,18 @@ defmodule Ysc.Bookings.BookingLocker do
   defp fetch_property_inventory(property, checkin_date, checkout_date) do
     Repo.all(
       from pi in PropertyInventory,
-        where: pi.property == ^property and pi.day >= ^checkin_date and pi.day < ^checkout_date
+        where:
+          pi.property == ^property and pi.day >= ^checkin_date and
+            pi.day < ^checkout_date
     )
   end
 
-  defp validate_buyout_availability(property, checkin_date, checkout_date, prop_inv) do
+  defp validate_buyout_availability(
+         property,
+         checkin_date,
+         checkout_date,
+         prop_inv
+       ) do
     # If Tahoe has rooms, check room activity
     if property == :tahoe do
       validate_tahoe_rooms_available(property, checkin_date, checkout_date)
@@ -201,7 +221,8 @@ defmodule Ysc.Bookings.BookingLocker do
       Enum.filter(prop_inv, fn pi ->
         pi.buyout_held == true or
           pi.buyout_booked == true or
-          (property == :clear_lake and (pi.capacity_held > 0 or pi.capacity_booked > 0))
+          (property == :clear_lake and
+             (pi.capacity_held > 0 or pi.capacity_booked > 0))
       end)
 
     if invalid_days != [] do
@@ -215,7 +236,9 @@ defmodule Ysc.Bookings.BookingLocker do
         from ri in RoomInventory,
           join: r in Room,
           on: ri.room_id == r.id,
-          where: r.property == ^property and ri.day >= ^checkin_date and ri.day < ^checkout_date
+          where:
+            r.property == ^property and ri.day >= ^checkin_date and
+              ri.day < ^checkout_date
       )
 
     # Validate no held/booked rooms for any day
@@ -271,7 +294,12 @@ defmodule Ysc.Bookings.BookingLocker do
     end
   end
 
-  defp calculate_buyout_pricing(property, checkin_date, checkout_date, guests_count) do
+  defp calculate_buyout_pricing(
+         property,
+         checkin_date,
+         checkout_date,
+         guests_count
+       ) do
     case Bookings.calculate_booking_price(
            property,
            checkin_date,
@@ -282,7 +310,9 @@ defmodule Ysc.Bookings.BookingLocker do
          ) do
       {:ok, total, _breakdown} ->
         nights = Date.diff(checkout_date, checkin_date)
-        price_per_night = if nights > 0, do: Money.div(total, nights) |> elem(1), else: total
+
+        price_per_night =
+          if nights > 0, do: Money.div(total, nights) |> elem(1), else: total
 
         items = %{
           "type" => "buyout",
@@ -388,7 +418,14 @@ defmodule Ysc.Bookings.BookingLocker do
           )
         end
 
-        do_create_room_booking(user_id, room_ids, checkin_date, checkout_date, guests_count, opts)
+        do_create_room_booking(
+          user_id,
+          room_ids,
+          checkin_date,
+          checkout_date,
+          guests_count,
+          opts
+        )
       end,
       max_attempts: 3,
       delay_ms: 100
@@ -396,9 +433,23 @@ defmodule Ysc.Bookings.BookingLocker do
   end
 
   # Backward compatibility: single room_id as string/binary
-  def create_room_booking(user_id, room_id, checkin_date, checkout_date, guests_count, opts)
+  def create_room_booking(
+        user_id,
+        room_id,
+        checkin_date,
+        checkout_date,
+        guests_count,
+        opts
+      )
       when is_binary(room_id) do
-    create_room_booking(user_id, [room_id], checkin_date, checkout_date, guests_count, opts)
+    create_room_booking(
+      user_id,
+      [room_id],
+      checkin_date,
+      checkout_date,
+      guests_count,
+      opts
+    )
   end
 
   defp do_create_room_booking(
@@ -411,14 +462,19 @@ defmodule Ysc.Bookings.BookingLocker do
        )
        when is_list(room_ids) do
     children_count = Keyword.get(opts, :children_count, 0)
-    hold_duration = Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
+
+    hold_duration =
+      Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
+
     hold_expires_at = DateTime.add(DateTime.utc_now(), hold_duration, :minute)
 
     if room_ids == [] do
       {:error, :no_rooms_provided}
     else
       Repo.transaction(fn ->
-        days = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+        days =
+          Date.range(checkin_date, Date.add(checkout_date, -1))
+          |> Enum.to_list()
 
         # Get all rooms to determine property (must all be same property)
         rooms = fetch_and_validate_rooms(room_ids)
@@ -429,7 +485,9 @@ defmodule Ysc.Bookings.BookingLocker do
 
         # Fetch inventory rows (optimistic locking - no FOR UPDATE)
         room_inv = fetch_room_inventory(room_ids, checkin_date, checkout_date)
-        prop_inv = fetch_property_inventory(property, checkin_date, checkout_date)
+
+        prop_inv =
+          fetch_property_inventory(property, checkin_date, checkout_date)
 
         # Validate availability
         validate_room_booking_availability(prop_inv, room_inv)
@@ -534,7 +592,9 @@ defmodule Ysc.Bookings.BookingLocker do
   defp fetch_room_inventory(room_ids, checkin_date, checkout_date) do
     Repo.all(
       from ri in RoomInventory,
-        where: ri.room_id in ^room_ids and ri.day >= ^checkin_date and ri.day < ^checkout_date
+        where:
+          ri.room_id in ^room_ids and ri.day >= ^checkin_date and
+            ri.day < ^checkout_date
     )
   end
 
@@ -680,7 +740,12 @@ defmodule Ysc.Bookings.BookingLocker do
 
     case results do
       {:ok, _total, _items} ->
-        build_combined_pricing_items(results, nights, guests_count, children_count)
+        build_combined_pricing_items(
+          results,
+          nights,
+          guests_count,
+          children_count
+        )
 
       error ->
         error
@@ -768,7 +833,12 @@ defmodule Ysc.Bookings.BookingLocker do
     end
   end
 
-  defp build_combined_pricing_items(results, nights, guests_count, children_count) do
+  defp build_combined_pricing_items(
+         results,
+         nights,
+         guests_count,
+         children_count
+       ) do
     case results do
       {:ok, total, items} ->
         combined_items = %{
@@ -847,11 +917,14 @@ defmodule Ysc.Bookings.BookingLocker do
          guests_count,
          opts
        ) do
-    hold_duration = Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
+    hold_duration =
+      Keyword.get(opts, :hold_duration_minutes, @hold_duration_minutes)
+
     hold_expires_at = DateTime.add(DateTime.utc_now(), hold_duration, :minute)
 
     Repo.transaction(fn ->
-      days = Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
+      days =
+        Date.range(checkin_date, Date.add(checkout_date, -1)) |> Enum.to_list()
 
       # Ensure property_inventory rows exist with capacity_total = season cap (e.g., 12)
       ensure_property_inventory_for_days(property, days)
@@ -873,7 +946,12 @@ defmodule Ysc.Bookings.BookingLocker do
 
       # Calculate pricing
       {total_price, pricing_items} =
-        calculate_per_guest_pricing(property, checkin_date, checkout_date, guests_count)
+        calculate_per_guest_pricing(
+          property,
+          checkin_date,
+          checkout_date,
+          guests_count
+        )
 
       # Create booking :hold
       booking =
@@ -928,7 +1006,8 @@ defmodule Ysc.Bookings.BookingLocker do
       Enum.filter(prop_inv, fn pi ->
         pi.buyout_held == true or
           pi.buyout_booked == true or
-          pi.capacity_booked + pi.capacity_held + guests_count > pi.capacity_total
+          pi.capacity_booked + pi.capacity_held + guests_count >
+            pi.capacity_total
       end)
 
     if invalid_days != [] do
@@ -952,7 +1031,8 @@ defmodule Ysc.Bookings.BookingLocker do
                 pi2.property == ^property and pi2.day == ^pi.day and
                   pi2.lock_version == ^pi.lock_version and
                   pi2.buyout_held == false and pi2.buyout_booked == false and
-                  pi2.capacity_booked + pi2.capacity_held + ^guests_count <= pi2.capacity_total
+                  pi2.capacity_booked + pi2.capacity_held + ^guests_count <=
+                    pi2.capacity_total
             ),
             set: [
               capacity_held: pi.capacity_held + guests_count,
@@ -978,7 +1058,12 @@ defmodule Ysc.Bookings.BookingLocker do
     end
   end
 
-  defp calculate_per_guest_pricing(property, checkin_date, checkout_date, guests_count) do
+  defp calculate_per_guest_pricing(
+         property,
+         checkin_date,
+         checkout_date,
+         guests_count
+       ) do
     case Bookings.calculate_booking_price(
            property,
            checkin_date,
@@ -1078,7 +1163,8 @@ defmodule Ysc.Bookings.BookingLocker do
               from(pi in PropertyInventory,
                 where:
                   pi.property == ^booking.property and
-                    pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                    pi.day >= ^booking.checkin_date and
+                    pi.day < ^booking.checkout_date
               ),
               set: [
                 buyout_held: false,
@@ -1101,7 +1187,8 @@ defmodule Ysc.Bookings.BookingLocker do
                 from(ri in RoomInventory,
                   where:
                     ri.room_id in ^room_ids and
-                      ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
+                      ri.day >= ^booking.checkin_date and
+                      ri.day < ^booking.checkout_date
                 ),
                 set: [
                   held: false,
@@ -1122,7 +1209,8 @@ defmodule Ysc.Bookings.BookingLocker do
               from(pi in PropertyInventory,
                 where:
                   pi.property == ^booking.property and
-                    pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                    pi.day >= ^booking.checkin_date and
+                    pi.day < ^booking.checkout_date
               ),
               inc: [
                 capacity_booked: booking.guests_count,
@@ -1269,7 +1357,8 @@ defmodule Ysc.Bookings.BookingLocker do
             from(pi in PropertyInventory,
               where:
                 pi.property == ^booking.property and
-                  pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                  pi.day >= ^booking.checkin_date and
+                  pi.day < ^booking.checkout_date
             ),
             set: [
               buyout_booked: true,
@@ -1293,7 +1382,8 @@ defmodule Ysc.Bookings.BookingLocker do
               from(ri in RoomInventory,
                 where:
                   ri.room_id in ^room_ids and
-                    ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
+                    ri.day >= ^booking.checkin_date and
+                    ri.day < ^booking.checkout_date
               ),
               set: [
                 booked: true,
@@ -1319,7 +1409,8 @@ defmodule Ysc.Bookings.BookingLocker do
 
   # Ensures property inventory rows exist for the date range and marks as booked
   defp ensure_inventory_exists_and_book(booking) do
-    dates = Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
+    dates =
+      Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
 
     Enum.each(dates, fn date ->
       Repo.insert(
@@ -1346,7 +1437,8 @@ defmodule Ysc.Bookings.BookingLocker do
 
   # Ensures room inventory rows exist for the date range and marks as booked
   defp ensure_room_inventory_exists_and_book(booking, room_ids) do
-    dates = Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
+    dates =
+      Date.range(booking.checkin_date, Date.add(booking.checkout_date, -1))
 
     for room_id <- room_ids, date <- dates do
       Repo.insert(
@@ -1413,11 +1505,14 @@ defmodule Ysc.Bookings.BookingLocker do
 
     try do
       # Reload booking with associations
-      booking = Repo.get(Ysc.Bookings.Booking, booking.id) |> Repo.preload([:user, :rooms])
+      booking =
+        Repo.get(Ysc.Bookings.Booking, booking.id)
+        |> Repo.preload([:user, :rooms])
 
       if booking && booking.user do
         # Prepare email data
-        email_data = YscWeb.Emails.BookingConfirmation.prepare_email_data(booking)
+        email_data =
+          YscWeb.Emails.BookingConfirmation.prepare_email_data(booking)
 
         # Generate idempotency key
         idempotency_key = "booking_confirmation_#{booking.id}"
@@ -1451,7 +1546,8 @@ defmodule Ysc.Bookings.BookingLocker do
             )
         end
       else
-        Logger.warning("Skipping booking confirmation email - missing booking or user",
+        Logger.warning(
+          "Skipping booking confirmation email - missing booking or user",
           booking_id: booking && booking.id
         )
       end
@@ -1526,7 +1622,8 @@ defmodule Ysc.Bookings.BookingLocker do
               from(pi in PropertyInventory,
                 where:
                   pi.property == ^booking.property and
-                    pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                    pi.day >= ^booking.checkin_date and
+                    pi.day < ^booking.checkout_date
               ),
               set: [
                 buyout_held: false,
@@ -1548,9 +1645,13 @@ defmodule Ysc.Bookings.BookingLocker do
                 from(ri in RoomInventory,
                   where:
                     ri.room_id in ^room_ids and
-                      ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
+                      ri.day >= ^booking.checkin_date and
+                      ri.day < ^booking.checkout_date
                 ),
-                set: [held: false, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+                set: [
+                  held: false,
+                  updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                ]
               )
 
             if count == 0 do
@@ -1565,7 +1666,8 @@ defmodule Ysc.Bookings.BookingLocker do
               from(pi in PropertyInventory,
                 where:
                   pi.property == ^booking.property and
-                    pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                    pi.day >= ^booking.checkin_date and
+                    pi.day < ^booking.checkout_date
               ),
               inc: [capacity_held: -booking.guests_count],
               set: [updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
@@ -1627,7 +1729,9 @@ defmodule Ysc.Bookings.BookingLocker do
           ]
 
           if matching_intent.status in cancelable_statuses do
-            case Ysc.Tickets.StripeService.cancel_payment_intent(matching_intent.id) do
+            case Ysc.Tickets.StripeService.cancel_payment_intent(
+                   matching_intent.id
+                 ) do
               :ok ->
                 Logger.info("Canceled PaymentIntent for expired booking",
                   booking_id: booking.id,
@@ -1694,7 +1798,8 @@ defmodule Ysc.Bookings.BookingLocker do
               from(pi in PropertyInventory,
                 where:
                   pi.property == ^booking.property and
-                    pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                    pi.day >= ^booking.checkin_date and
+                    pi.day < ^booking.checkout_date
               ),
               set: [
                 buyout_booked: false,
@@ -1716,9 +1821,13 @@ defmodule Ysc.Bookings.BookingLocker do
                 from(ri in RoomInventory,
                   where:
                     ri.room_id in ^room_ids and
-                      ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
+                      ri.day >= ^booking.checkin_date and
+                      ri.day < ^booking.checkout_date
                 ),
-                set: [booked: false, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+                set: [
+                  booked: false,
+                  updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                ]
               )
 
             if count == 0 do
@@ -1733,7 +1842,8 @@ defmodule Ysc.Bookings.BookingLocker do
               from(pi in PropertyInventory,
                 where:
                   pi.property == ^booking.property and
-                    pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                    pi.day >= ^booking.checkin_date and
+                    pi.day < ^booking.checkout_date
               ),
               inc: [capacity_booked: -booking.guests_count],
               set: [updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
@@ -1793,7 +1903,8 @@ defmodule Ysc.Bookings.BookingLocker do
                 from(pi in PropertyInventory,
                   where:
                     pi.property == ^booking.property and
-                      pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                      pi.day >= ^booking.checkin_date and
+                      pi.day < ^booking.checkout_date
                 ),
                 set: [
                   buyout_booked: false,
@@ -1815,9 +1926,13 @@ defmodule Ysc.Bookings.BookingLocker do
                   from(ri in RoomInventory,
                     where:
                       ri.room_id in ^room_ids and
-                        ri.day >= ^booking.checkin_date and ri.day < ^booking.checkout_date
+                        ri.day >= ^booking.checkin_date and
+                        ri.day < ^booking.checkout_date
                   ),
-                  set: [booked: false, updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+                  set: [
+                    booked: false,
+                    updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                  ]
                 )
 
               if count == 0 do
@@ -1832,10 +1947,13 @@ defmodule Ysc.Bookings.BookingLocker do
                 from(pi in PropertyInventory,
                   where:
                     pi.property == ^booking.property and
-                      pi.day >= ^booking.checkin_date and pi.day < ^booking.checkout_date
+                      pi.day >= ^booking.checkin_date and
+                      pi.day < ^booking.checkout_date
                 ),
                 inc: [capacity_booked: -booking.guests_count],
-                set: [updated_at: DateTime.truncate(DateTime.utc_now(), :second)]
+                set: [
+                  updated_at: DateTime.truncate(DateTime.utc_now(), :second)
+                ]
               )
 
             if count == 0 do
@@ -1956,7 +2074,8 @@ defmodule Ysc.Bookings.BookingLocker do
   end
 
   defp convert_money_to_map(value) when is_map(value) do
-    Enum.map(value, fn {k, v} -> {k, convert_money_to_map(v)} end) |> Enum.into(%{})
+    Enum.map(value, fn {k, v} -> {k, convert_money_to_map(v)} end)
+    |> Enum.into(%{})
   end
 
   defp convert_money_to_map(value), do: value

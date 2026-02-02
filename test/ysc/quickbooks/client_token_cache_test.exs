@@ -40,13 +40,15 @@ defmodule Ysc.Quickbooks.ClientTokenCacheTest do
       Cachex.put(:ysc_cache, "quickbooks:access_token", cached_token)
 
       # Verify cache contains the token
-      assert {:ok, cached_token} = Cachex.get(:ysc_cache, "quickbooks:access_token")
+      assert {:ok, cached_token} =
+               Cachex.get(:ysc_cache, "quickbooks:access_token")
 
       # When get_access_token is called internally, it should use the cached token
       # We can verify this by checking that the cache is checked first
       # Since get_access_token is private, we test the behavior indirectly
       # by ensuring the cache is properly read
-      assert {:ok, ^cached_token} = Cachex.get(:ysc_cache, "quickbooks:access_token")
+      assert {:ok, ^cached_token} =
+               Cachex.get(:ysc_cache, "quickbooks:access_token")
     end
 
     test "retrieves access token from config when cache is empty" do
@@ -59,11 +61,13 @@ defmodule Ysc.Quickbooks.ClientTokenCacheTest do
       Application.put_env(
         :ysc,
         :quickbooks,
-        Application.get_env(:ysc, :quickbooks) |> Keyword.put(:access_token, config_token)
+        Application.get_env(:ysc, :quickbooks)
+        |> Keyword.put(:access_token, config_token)
       )
 
       # Verify config has the token
-      assert config_token == Application.get_env(:ysc, :quickbooks)[:access_token]
+      assert config_token ==
+               Application.get_env(:ysc, :quickbooks)[:access_token]
     end
 
     test "caches new access token after successful refresh" do
@@ -75,9 +79,12 @@ defmodule Ysc.Quickbooks.ClientTokenCacheTest do
       Cachex.put(:ysc_cache, "quickbooks:refresh_token", new_refresh_token)
 
       # Verify new access token was cached
-      assert {:ok, ^new_access_token} = Cachex.get(:ysc_cache, "quickbooks:access_token")
+      assert {:ok, ^new_access_token} =
+               Cachex.get(:ysc_cache, "quickbooks:access_token")
+
       # Verify new refresh token was cached
-      assert {:ok, ^new_refresh_token} = Cachex.get(:ysc_cache, "quickbooks:refresh_token")
+      assert {:ok, ^new_refresh_token} =
+               Cachex.get(:ysc_cache, "quickbooks:refresh_token")
     end
   end
 
@@ -87,7 +94,8 @@ defmodule Ysc.Quickbooks.ClientTokenCacheTest do
       Cachex.put(:ysc_cache, "quickbooks:refresh_token", cached_refresh_token)
 
       # Verify cached refresh token is available
-      assert {:ok, ^cached_refresh_token} = Cachex.get(:ysc_cache, "quickbooks:refresh_token")
+      assert {:ok, ^cached_refresh_token} =
+               Cachex.get(:ysc_cache, "quickbooks:refresh_token")
     end
 
     test "falls back to config refresh token when cache is empty" do
@@ -98,7 +106,8 @@ defmodule Ysc.Quickbooks.ClientTokenCacheTest do
       config_refresh_token = "original_refresh_token"
 
       # Verify config has the token
-      assert config_refresh_token == Application.get_env(:ysc, :quickbooks)[:refresh_token]
+      assert config_refresh_token ==
+               Application.get_env(:ysc, :quickbooks)[:refresh_token]
     end
 
     test "caches new refresh token after successful refresh" do
@@ -108,7 +117,8 @@ defmodule Ysc.Quickbooks.ClientTokenCacheTest do
       Cachex.put(:ysc_cache, "quickbooks:refresh_token", new_refresh_token)
 
       # Verify new refresh token was cached
-      assert {:ok, ^new_refresh_token} = Cachex.get(:ysc_cache, "quickbooks:refresh_token")
+      assert {:ok, ^new_refresh_token} =
+               Cachex.get(:ysc_cache, "quickbooks:refresh_token")
     end
   end
 
@@ -169,7 +179,9 @@ defmodule Ysc.Quickbooks.ClientTokenCacheTest do
       assert {:ok, nil} = Cachex.get(:ysc_cache, "quickbooks:refresh_token")
 
       # Step 2: Get refresh token from config (simulating fallback)
-      original_refresh_token = Application.get_env(:ysc, :quickbooks)[:refresh_token]
+      original_refresh_token =
+        Application.get_env(:ysc, :quickbooks)[:refresh_token]
+
       assert original_refresh_token == "original_refresh_token"
 
       # Step 3: Simulate successful refresh - cache new tokens
@@ -180,12 +192,18 @@ defmodule Ysc.Quickbooks.ClientTokenCacheTest do
       Cachex.put(:ysc_cache, "quickbooks:refresh_token", new_refresh_token)
 
       # Step 4: Verify new tokens are cached
-      assert {:ok, ^new_access_token} = Cachex.get(:ysc_cache, "quickbooks:access_token")
-      assert {:ok, ^new_refresh_token} = Cachex.get(:ysc_cache, "quickbooks:refresh_token")
+      assert {:ok, ^new_access_token} =
+               Cachex.get(:ysc_cache, "quickbooks:access_token")
+
+      assert {:ok, ^new_refresh_token} =
+               Cachex.get(:ysc_cache, "quickbooks:refresh_token")
 
       # Step 5: Verify subsequent access uses cached tokens
-      assert {:ok, ^new_access_token} = Cachex.get(:ysc_cache, "quickbooks:access_token")
-      assert {:ok, ^new_refresh_token} = Cachex.get(:ysc_cache, "quickbooks:refresh_token")
+      assert {:ok, ^new_access_token} =
+               Cachex.get(:ysc_cache, "quickbooks:access_token")
+
+      assert {:ok, ^new_refresh_token} =
+               Cachex.get(:ysc_cache, "quickbooks:refresh_token")
     end
 
     test "simulates fallback from cached refresh token to config token" do
@@ -194,10 +212,13 @@ defmodule Ysc.Quickbooks.ClientTokenCacheTest do
       Cachex.put(:ysc_cache, "quickbooks:refresh_token", invalid_cached_token)
 
       # Step 2: Verify cached token exists
-      assert {:ok, ^invalid_cached_token} = Cachex.get(:ysc_cache, "quickbooks:refresh_token")
+      assert {:ok, ^invalid_cached_token} =
+               Cachex.get(:ysc_cache, "quickbooks:refresh_token")
 
       # Step 3: Fallback to config token (simulating cache failure)
-      original_refresh_token = Application.get_env(:ysc, :quickbooks)[:refresh_token]
+      original_refresh_token =
+        Application.get_env(:ysc, :quickbooks)[:refresh_token]
+
       assert original_refresh_token == "original_refresh_token"
 
       # Step 4: Simulate successful refresh with original token - cache new tokens
@@ -208,15 +229,21 @@ defmodule Ysc.Quickbooks.ClientTokenCacheTest do
       Cachex.put(:ysc_cache, "quickbooks:refresh_token", new_refresh_token)
 
       # Step 5: Verify new tokens are cached
-      assert {:ok, ^new_access_token} = Cachex.get(:ysc_cache, "quickbooks:access_token")
-      assert {:ok, ^new_refresh_token} = Cachex.get(:ysc_cache, "quickbooks:refresh_token")
+      assert {:ok, ^new_access_token} =
+               Cachex.get(:ysc_cache, "quickbooks:access_token")
+
+      assert {:ok, ^new_refresh_token} =
+               Cachex.get(:ysc_cache, "quickbooks:refresh_token")
     end
   end
 
   describe "environment variable fallback" do
     test "can retrieve original tokens from environment variables" do
-      assert "original_access_token" == System.get_env("QUICKBOOKS_ACCESS_TOKEN")
-      assert "original_refresh_token" == System.get_env("QUICKBOOKS_REFRESH_TOKEN")
+      assert "original_access_token" ==
+               System.get_env("QUICKBOOKS_ACCESS_TOKEN")
+
+      assert "original_refresh_token" ==
+               System.get_env("QUICKBOOKS_REFRESH_TOKEN")
     end
   end
 end

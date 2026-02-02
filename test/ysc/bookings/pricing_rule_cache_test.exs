@@ -89,7 +89,14 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       # First call - cache miss, fetches from DB
       cached_rule =
-        PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       assert cached_rule.id == rule.id
       assert cached_rule.amount == Money.new(10_000, :USD)
@@ -108,11 +115,25 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
         })
 
       # First call - populates cache
-      PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+      PricingRuleCache.get(
+        :tahoe,
+        season.id,
+        nil,
+        nil,
+        :room,
+        :per_person_per_night
+      )
 
       # Second call - should hit cache (verify by checking it returns same result)
       cached_rule =
-        PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       assert cached_rule.id == rule.id
     end
@@ -121,7 +142,15 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
       season = create_season()
 
       # No pricing rule in database
-      result = PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+      result =
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       assert result == nil
     end
@@ -130,11 +159,29 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
       season = create_season()
 
       # First call - caches nil
-      result1 = PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+      result1 =
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
+
       assert result1 == nil
 
       # Second call - should return cached nil
-      result2 = PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+      result2 =
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
+
       assert result2 == nil
     end
 
@@ -164,7 +211,14 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       # Should return room-specific rule
       cached_rule =
-        PricingRuleCache.get(:tahoe, season.id, room.id, nil, :room, :per_person_per_night)
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          room.id,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       assert cached_rule.id == room_rule.id
       assert cached_rule.amount == Money.new(15_000, :USD)
@@ -193,9 +247,24 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       # Get both rules - should be cached separately
       cached1 =
-        PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
-      cached2 = PricingRuleCache.get(:tahoe, season.id, nil, nil, :buyout, :buyout_fixed)
+      cached2 =
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :buyout,
+          :buyout_fixed
+        )
 
       assert cached1.id == rule1.id
       assert cached2.id == rule2.id
@@ -218,7 +287,14 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       # First call - cache miss, fetches from DB
       cached_rule =
-        PricingRuleCache.get_children(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+        PricingRuleCache.get_children(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       assert cached_rule.id == rule.id
       assert cached_rule.children_amount == Money.new(5000, :USD)
@@ -238,11 +314,25 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
         })
 
       # First call - populates cache
-      PricingRuleCache.get_children(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+      PricingRuleCache.get_children(
+        :tahoe,
+        season.id,
+        nil,
+        nil,
+        :room,
+        :per_person_per_night
+      )
 
       # Second call - should hit cache
       cached_rule =
-        PricingRuleCache.get_children(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+        PricingRuleCache.get_children(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       assert cached_rule.id == rule.id
     end
@@ -263,11 +353,25 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       # Get regular rule (returns the same rule for adult pricing)
       cached_regular =
-        PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       # Get children rule (returns the same rule for children pricing)
       cached_children =
-        PricingRuleCache.get_children(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+        PricingRuleCache.get_children(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       # Both should return the same rule (since it has both prices)
       assert cached_regular.id == rule.id
@@ -292,7 +396,14 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       # Populate cache
       cached1 =
-        PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       assert cached1.id == rule.id
 
@@ -310,7 +421,14 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       # Next get should fetch updated rule from DB
       cached2 =
-        PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       assert cached2.id == updated_rule.id
       assert cached2.amount == Money.new(15_000, :USD)
@@ -358,7 +476,14 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
         })
 
       # Populate cache with version 1
-      PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+      PricingRuleCache.get(
+        :tahoe,
+        season.id,
+        nil,
+        nil,
+        :room,
+        :per_person_per_night
+      )
 
       # Wait to ensure version timestamp is different
       Process.sleep(1100)
@@ -374,7 +499,14 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
 
       # Get should detect stale version and refetch
       cached_rule =
-        PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       assert cached_rule.amount == Money.new(15_000, :USD)
     end
@@ -406,10 +538,25 @@ defmodule Ysc.Bookings.PricingRuleCacheTest do
         })
 
       # Fetch both - they should be cached separately
-      cached1 = PricingRuleCache.get(:tahoe, season.id, nil, nil, :room, :per_person_per_night)
+      cached1 =
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          nil,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       cached2 =
-        PricingRuleCache.get(:tahoe, season.id, room.id, nil, :room, :per_person_per_night)
+        PricingRuleCache.get(
+          :tahoe,
+          season.id,
+          room.id,
+          nil,
+          :room,
+          :per_person_per_night
+        )
 
       assert cached1.id == rule1.id
       assert cached2.id == rule2.id

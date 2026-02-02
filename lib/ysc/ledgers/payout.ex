@@ -31,7 +31,9 @@ defmodule Ysc.Ledgers.Payout do
     field :quickbooks_last_sync_attempt_at, :utc_datetime
 
     # Link to the payment record created for this payout in the ledger
-    belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
+    belongs_to :payment, Ysc.Ledgers.Payment,
+      foreign_key: :payment_id,
+      references: :id
 
     # Many-to-many relationships with payments and refunds
     many_to_many :payments, Ysc.Ledgers.Payment,

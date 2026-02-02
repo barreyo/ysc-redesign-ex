@@ -20,14 +20,17 @@ defmodule Ysc.TicketsFixtures do
     user =
       user
       |> Ecto.Changeset.change(
-        lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        lifetime_membership_awarded_at:
+          DateTime.truncate(DateTime.utc_now(), :second)
       )
       |> Ysc.Repo.update!()
       # Reload from DB to ensure the change is reflected when create_ticket_order fetches the user
       |> Ysc.Repo.reload!()
 
     event = attrs[:event] || EventsFixtures.event_fixture()
-    tier = attrs[:tier] || EventsFixtures.ticket_tier_fixture(%{event_id: event.id})
+
+    tier =
+      attrs[:tier] || EventsFixtures.ticket_tier_fixture(%{event_id: event.id})
 
     ticket_selections = attrs[:ticket_selections] || %{tier.id => 1}
 

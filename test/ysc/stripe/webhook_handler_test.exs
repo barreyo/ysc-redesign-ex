@@ -10,7 +10,9 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
 
   # Helper to create a basic Stripe event
   defp build_stripe_event(type, object_data, opts \\ []) do
-    event_id = Keyword.get(opts, :event_id, "evt_test_#{System.unique_integer()}")
+    event_id =
+      Keyword.get(opts, :event_id, "evt_test_#{System.unique_integer()}")
+
     created_at = Keyword.get(opts, :created, System.os_time(:second))
 
     %Stripe.Event{
@@ -106,7 +108,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       subscription = create_subscription(user)
 
       # Create event from 2 minutes ago (within 5 minute window)
-      recent_timestamp = DateTime.utc_now() |> DateTime.add(-120, :second) |> DateTime.to_unix()
+      recent_timestamp =
+        DateTime.utc_now() |> DateTime.add(-120, :second) |> DateTime.to_unix()
 
       invoice_data = %{
         "id" => "in_recent_#{System.unique_integer()}",
@@ -120,7 +123,9 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       }
 
       event =
-        build_stripe_event("invoice.payment_succeeded", invoice_data, created: recent_timestamp)
+        build_stripe_event("invoice.payment_succeeded", invoice_data,
+          created: recent_timestamp
+        )
 
       assert :ok = WebhookHandler.handle_event(event)
 
@@ -134,7 +139,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       subscription = create_subscription(user)
 
       # Create event from 6 minutes ago (outside 5 minute window)
-      old_timestamp = DateTime.utc_now() |> DateTime.add(-360, :second) |> DateTime.to_unix()
+      old_timestamp =
+        DateTime.utc_now() |> DateTime.add(-360, :second) |> DateTime.to_unix()
 
       invoice_data = %{
         "id" => "in_old_#{System.unique_integer()}",
@@ -145,7 +151,9 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       }
 
       event =
-        build_stripe_event("invoice.payment_succeeded", invoice_data, created: old_timestamp)
+        build_stripe_event("invoice.payment_succeeded", invoice_data,
+          created: old_timestamp
+        )
 
       assert {:error, :webhook_too_old} = WebhookHandler.handle_event(event)
 
@@ -168,7 +176,9 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       }
 
       event =
-        build_stripe_event("invoice.payment_succeeded", invoice_data, created: very_old_timestamp)
+        build_stripe_event("invoice.payment_succeeded", invoice_data,
+          created: very_old_timestamp
+        )
 
       assert {:error, :webhook_too_old} = WebhookHandler.handle_event(event)
     end
@@ -191,7 +201,10 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         "metadata" => %{}
       }
 
-      event = build_stripe_event("invoice.payment_succeeded", invoice_data, event_id: event_id)
+      event =
+        build_stripe_event("invoice.payment_succeeded", invoice_data,
+          event_id: event_id
+        )
 
       # First processing - should succeed
       assert :ok = WebhookHandler.handle_event(event)
@@ -227,12 +240,17 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         "charge" => nil
       }
 
-      event = build_stripe_event("invoice.payment_succeeded", invoice_data, event_id: event_id)
+      event =
+        build_stripe_event("invoice.payment_succeeded", invoice_data,
+          event_id: event_id
+        )
 
       assert :ok = WebhookHandler.handle_event(event)
 
       # Verify webhook event was stored
-      webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("stripe", event_id)
+      webhook_event =
+        Webhooks.get_webhook_event_by_provider_and_event_id("stripe", event_id)
+
       assert webhook_event != nil
       assert webhook_event.state == :processed
       assert webhook_event.event_type == "invoice.payment_succeeded"
@@ -290,12 +308,14 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
 
       # Verify no duplicate refund
       all_refunds =
-        from(r in Ysc.Ledgers.Refund, where: r.payment_id == ^payment.id) |> Ysc.Repo.all()
+        from(r in Ysc.Ledgers.Refund, where: r.payment_id == ^payment.id)
+        |> Ysc.Repo.all()
 
       assert length(all_refunds) == 1
     end
 
-    test "handles both charge.refunded and refund.created without duplicates", %{payment: payment} do
+    test "handles both charge.refunded and refund.created without duplicates",
+         %{payment: payment} do
       refund_id = "re_both_#{System.unique_integer()}"
 
       # Create refund struct
@@ -336,7 +356,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
 
       # Verify no duplicate refund
       all_refunds =
-        from(r in Ysc.Ledgers.Refund, where: r.payment_id == ^payment.id) |> Ysc.Repo.all()
+        from(r in Ysc.Ledgers.Refund, where: r.payment_id == ^payment.id)
+        |> Ysc.Repo.all()
 
       assert length(all_refunds) == 1
 
@@ -376,7 +397,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
 
       # Verify two separate refunds were created
       all_refunds =
-        from(r in Ysc.Ledgers.Refund, where: r.payment_id == ^payment.id) |> Ysc.Repo.all()
+        from(r in Ysc.Ledgers.Refund, where: r.payment_id == ^payment.id)
+        |> Ysc.Repo.all()
 
       assert length(all_refunds) == 2
 
@@ -421,7 +443,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       stripe_subscription_id = "sub_race_#{System.unique_integer()}"
 
       # Verify subscription doesn't exist yet
-      assert Subscriptions.get_subscription_by_stripe_id(stripe_subscription_id) == nil
+      assert Subscriptions.get_subscription_by_stripe_id(stripe_subscription_id) ==
+               nil
 
       invoice_data = %{
         "id" => "in_race_#{System.unique_integer()}",
@@ -452,7 +475,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       # end)
     end
 
-    test "resolves subscription from customer when subscription ID is null", %{} do
+    test "resolves subscription from customer when subscription ID is null",
+         %{} do
       user = user_with_stripe_id()
       subscription = create_subscription(user)
 
@@ -479,7 +503,9 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       assert payment.user_id == user.id
 
       # Verify payment is linked to subscription
-      subscription_payments = Ledgers.get_payments_for_subscription(subscription.id)
+      subscription_payments =
+        Ledgers.get_payments_for_subscription(subscription.id)
+
       assert Enum.any?(subscription_payments, fn p -> p.id == payment.id end)
     end
 
@@ -531,7 +557,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       )
     end
 
-    test "sends membership_renewal_success email on renewal (subscription_cycle)", %{} do
+    test "sends membership_renewal_success email on renewal (subscription_cycle)",
+         %{} do
       user = user_with_stripe_id()
       subscription = create_subscription(user)
 
@@ -556,7 +583,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       )
     end
 
-    test "sends membership_renewal_success email on subscription_update billing reason", %{} do
+    test "sends membership_renewal_success email on subscription_update billing reason",
+         %{} do
       user = user_with_stripe_id()
       subscription = create_subscription(user)
 
@@ -601,12 +629,15 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         }
       }
 
-      event = build_stripe_event("customer.subscription.created", subscription_data)
+      event =
+        build_stripe_event("customer.subscription.created", subscription_data)
 
       assert :ok = WebhookHandler.handle_event(event)
 
       # Verify subscription was created
-      subscription = Subscriptions.get_subscription_by_stripe_id(subscription_data.id)
+      subscription =
+        Subscriptions.get_subscription_by_stripe_id(subscription_data.id)
+
       assert subscription != nil
       assert subscription.user_id == user.id
       assert subscription.stripe_status == "active"
@@ -622,7 +653,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         status: "canceled"
       }
 
-      event = build_stripe_event("customer.subscription.deleted", subscription_data)
+      event =
+        build_stripe_event("customer.subscription.deleted", subscription_data)
 
       assert :ok = WebhookHandler.handle_event(event)
 
@@ -650,7 +682,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         }
       }
 
-      event = build_stripe_event("customer.subscription.updated", subscription_data)
+      event =
+        build_stripe_event("customer.subscription.updated", subscription_data)
 
       assert :ok = WebhookHandler.handle_event(event)
 
@@ -729,7 +762,9 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         "charge" => nil
       }
 
-      payment_event = build_stripe_event("invoice.payment_succeeded", invoice_data)
+      payment_event =
+        build_stripe_event("invoice.payment_succeeded", invoice_data)
+
       assert :ok = WebhookHandler.handle_event(payment_event)
 
       payment = Ledgers.get_payment_by_external_id(invoice_data["id"])
@@ -763,7 +798,9 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         "charge" => nil
       }
 
-      payment_event = build_stripe_event("invoice.payment_succeeded", invoice_data)
+      payment_event =
+        build_stripe_event("invoice.payment_succeeded", invoice_data)
+
       assert :ok = WebhookHandler.handle_event(payment_event)
 
       payment = Ledgers.get_payment_by_external_id(invoice_data["id"])
@@ -860,7 +897,9 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
       assert :ok = WebhookHandler.handle_event(event)
 
       # Webhook should be marked as failed
-      webhook_event = Webhooks.get_webhook_event_by_provider_and_event_id("stripe", event.id)
+      webhook_event =
+        Webhooks.get_webhook_event_by_provider_and_event_id("stripe", event.id)
+
       assert webhook_event != nil
       assert webhook_event.state == :failed
     end
@@ -885,7 +924,8 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
         description: "Test payment"
       }
 
-      event = build_stripe_event("payment_intent.succeeded", payment_intent_data)
+      event =
+        build_stripe_event("payment_intent.succeeded", payment_intent_data)
 
       assert :ok = WebhookHandler.handle_event(event)
     end

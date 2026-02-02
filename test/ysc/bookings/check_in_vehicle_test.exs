@@ -354,7 +354,16 @@ defmodule Ysc.Bookings.CheckInVehicleTest do
     test "vehicles with various color descriptions" do
       check_in = create_check_in()
 
-      colors = ["Red", "Blue", "Black", "White", "Silver", "Gray", "Green", "Burgundy"]
+      colors = [
+        "Red",
+        "Blue",
+        "Black",
+        "White",
+        "Silver",
+        "Gray",
+        "Green",
+        "Burgundy"
+      ]
 
       for color <- colors do
         {:ok, vehicle} =

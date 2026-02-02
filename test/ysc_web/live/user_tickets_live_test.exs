@@ -57,7 +57,8 @@ defmodule YscWeb.UserTicketsLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/users/tickets")
 
-      result = render_click(view, "cancel-order", %{"order-id" => Ecto.ULID.generate()})
+      result =
+        render_click(view, "cancel-order", %{"order-id" => Ecto.ULID.generate()})
 
       assert result =~ "Order not found"
     end
@@ -68,7 +69,8 @@ defmodule YscWeb.UserTicketsLiveTest do
 
       {:ok, view, _html} = live(conn, ~p"/users/tickets")
 
-      result = render_click(view, "resume-order", %{"order-id" => Ecto.ULID.generate()})
+      result =
+        render_click(view, "resume-order", %{"order-id" => Ecto.ULID.generate()})
 
       assert result =~ "Order not found"
     end

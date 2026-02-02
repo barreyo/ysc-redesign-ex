@@ -31,7 +31,9 @@ defmodule Ysc.Forms.ContactFormTest do
       assert changeset.changes.name == "John Doe"
       assert changeset.changes.email == "john@example.com"
       assert changeset.changes.subject == "Question about membership"
-      assert changeset.changes.message == "I would like to know more about membership options."
+
+      assert changeset.changes.message ==
+               "I would like to know more about membership options."
     end
 
     test "creates valid changeset with user association" do
@@ -151,6 +153,7 @@ defmodule Ysc.Forms.ContactFormTest do
       changeset = ContactForm.changeset(%ContactForm{}, attrs)
 
       refute changeset.valid?
+
       assert "should be at least 10 character(s)" in errors_on(changeset).message
     end
 
@@ -274,7 +277,9 @@ defmodule Ysc.Forms.ContactFormTest do
       changeset2 = ContactForm.changeset(%ContactForm{}, attrs2)
       {:ok, _form2} = Repo.insert(changeset2)
 
-      forms = Repo.all(from c in ContactForm, where: c.email == "same@example.com")
+      forms =
+        Repo.all(from c in ContactForm, where: c.email == "same@example.com")
+
       assert length(forms) == 2
     end
   end

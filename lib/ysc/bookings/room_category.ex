@@ -18,7 +18,9 @@ defmodule Ysc.Bookings.RoomCategory do
 
     # Relationships
     has_many :rooms, Ysc.Bookings.Room, foreign_key: :room_category_id
-    has_many :pricing_rules, Ysc.Bookings.PricingRule, foreign_key: :room_category_id
+
+    has_many :pricing_rules, Ysc.Bookings.PricingRule,
+      foreign_key: :room_category_id
 
     timestamps()
   end

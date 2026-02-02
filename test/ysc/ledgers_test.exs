@@ -58,7 +58,9 @@ defmodule Ysc.LedgersTest do
       account = Ledgers.get_account_by_name("cash")
       update_attrs = %{description: "Updated description"}
 
-      assert {:ok, %LedgerAccount{} = updated} = Ledgers.update_account(account, update_attrs)
+      assert {:ok, %LedgerAccount{} = updated} =
+               Ledgers.update_account(account, update_attrs)
+
       assert updated.description == "Updated description"
     end
 
@@ -83,7 +85,8 @@ defmodule Ysc.LedgersTest do
       start_date = DateTime.new!(today, ~T[00:00:00], "Etc/UTC")
       end_date = DateTime.new!(today, ~T[23:59:59], "Etc/UTC")
 
-      accounts_with_balances = Ledgers.get_accounts_with_balances(start_date, end_date)
+      accounts_with_balances =
+        Ledgers.get_accounts_with_balances(start_date, end_date)
 
       assert is_list(accounts_with_balances)
 
@@ -132,7 +135,9 @@ defmodule Ysc.LedgersTest do
       %{user: user}
     end
 
-    test "process_payment/1 creates payment with double-entry entries", %{user: user} do
+    test "process_payment/1 creates payment with double-entry entries", %{
+      user: user
+    } do
       # $50.00
       amount = Money.new(5000, :USD)
       # $1.75
@@ -150,7 +155,8 @@ defmodule Ysc.LedgersTest do
         payment_method_id: nil
       }
 
-      assert {:ok, {payment, transaction, entries}} = Ledgers.process_payment(payment_attrs)
+      assert {:ok, {payment, transaction, entries}} =
+               Ledgers.process_payment(payment_attrs)
 
       # Check payment was created
       assert %Payment{} = payment
@@ -234,7 +240,8 @@ defmodule Ysc.LedgersTest do
         payment_method_id: nil
       }
 
-      {:ok, {payment, _transaction, _entries}} = Ledgers.process_payment(payment_attrs)
+      {:ok, {payment, _transaction, _entries}} =
+        Ledgers.process_payment(payment_attrs)
 
       %{user: user, payment: payment}
     end
@@ -250,7 +257,8 @@ defmodule Ysc.LedgersTest do
         external_refund_id: "re_test_123"
       }
 
-      assert {:ok, {refund, refund_transaction, entries}} = Ledgers.process_refund(refund_attrs)
+      assert {:ok, {refund, refund_transaction, entries}} =
+               Ledgers.process_refund(refund_attrs)
 
       # Check refund record was created
       assert %Refund{} = refund
@@ -398,7 +406,8 @@ defmodule Ysc.LedgersTest do
       # Verify Stripe receivable entry (debit)
       stripe_receivable_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Payment receivable from Stripe" && e.debit_credit == :debit
+          e.description =~ "Payment receivable from Stripe" &&
+            e.debit_credit == :debit
         end)
 
       assert stripe_receivable_entry != nil
@@ -409,7 +418,8 @@ defmodule Ysc.LedgersTest do
       # Verify event revenue entry (credit)
       event_revenue_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Event revenue from tickets" && e.debit_credit == :credit
+          e.description =~ "Event revenue from tickets" &&
+            e.debit_credit == :credit
         end)
 
       assert event_revenue_entry != nil
@@ -420,12 +430,18 @@ defmodule Ysc.LedgersTest do
       # Verify donation revenue entry (credit)
       donation_revenue_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Donation revenue from tickets" && e.debit_credit == :credit
+          e.description =~ "Donation revenue from tickets" &&
+            e.debit_credit == :credit
         end)
 
       assert donation_revenue_entry != nil
       assert donation_revenue_entry.amount == donation_amount
-      assert donation_revenue_entry.related_entity_type in [:donation, "donation"]
+
+      assert donation_revenue_entry.related_entity_type in [
+               :donation,
+               "donation"
+             ]
+
       assert donation_revenue_entry.related_entity_id == event_id
 
       # Verify Stripe fee entries
@@ -441,7 +457,8 @@ defmodule Ysc.LedgersTest do
       assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
     end
 
-    test "process_event_payment_with_donations/1 handles donation-only payments", %{user: user} do
+    test "process_event_payment_with_donations/1 handles donation-only payments",
+         %{user: user} do
       # $50.00 donation only (no event tickets)
       total_amount = Money.new(5_000, :USD)
       event_amount = Money.new(0, :USD)
@@ -479,7 +496,8 @@ defmodule Ysc.LedgersTest do
       # Should have donation revenue entry
       donation_revenue_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Donation revenue from tickets" && e.debit_credit == :credit
+          e.description =~ "Donation revenue from tickets" &&
+            e.debit_credit == :credit
         end)
 
       assert donation_revenue_entry != nil
@@ -489,7 +507,8 @@ defmodule Ysc.LedgersTest do
       assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
     end
 
-    test "process_event_payment_with_donations/1 handles event-only payments", %{user: user} do
+    test "process_event_payment_with_donations/1 handles event-only payments",
+         %{user: user} do
       # $75.00 event only (no donations)
       total_amount = Money.new(7_500, :USD)
       event_amount = Money.new(7_500, :USD)
@@ -519,7 +538,8 @@ defmodule Ysc.LedgersTest do
       # Check entries - should have event revenue entry
       event_revenue_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Event revenue from tickets" && e.debit_credit == :credit
+          e.description =~ "Event revenue from tickets" &&
+            e.debit_credit == :credit
         end)
 
       assert event_revenue_entry != nil
@@ -537,7 +557,8 @@ defmodule Ysc.LedgersTest do
       assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
     end
 
-    test "process_event_payment_with_donations/1 creates correct account balances", %{user: user} do
+    test "process_event_payment_with_donations/1 creates correct account balances",
+         %{user: user} do
       # $100.00 total: $60.00 event + $40.00 donation
       total_amount = Money.new(10_000, :USD)
       event_amount = Money.new(6_000, :USD)
@@ -567,7 +588,10 @@ defmodule Ysc.LedgersTest do
       stripe_fees_account = Ledgers.get_account_by_name("stripe_fees")
 
       event_balance = Ledgers.get_account_balance(event_revenue_account.id)
-      donation_balance = Ledgers.get_account_balance(donation_revenue_account.id)
+
+      donation_balance =
+        Ledgers.get_account_balance(donation_revenue_account.id)
+
       stripe_balance = Ledgers.get_account_balance(stripe_account.id)
       fees_balance = Ledgers.get_account_balance(stripe_fees_account.id)
 
@@ -613,7 +637,9 @@ defmodule Ysc.LedgersTest do
       }
 
       assert {:ok, {payment, transaction, entries}} =
-               Ledgers.process_event_payment_with_donations_and_discounts(payment_attrs)
+               Ledgers.process_event_payment_with_donations_and_discounts(
+                 payment_attrs
+               )
 
       assert %Payment{} = payment
       assert payment.amount == total_amount
@@ -689,7 +715,8 @@ defmodule Ysc.LedgersTest do
         entity_id: nil
       }
 
-      assert {:ok, {credit_payment, transaction, entries}} = Ledgers.add_credit(credit_attrs)
+      assert {:ok, {credit_payment, transaction, entries}} =
+               Ledgers.add_credit(credit_attrs)
 
       # Check credit payment was created
       assert %Payment{} = credit_payment
@@ -777,7 +804,9 @@ defmodule Ysc.LedgersTest do
       %{user: user, payment1: payment1, payment2: payment2}
     end
 
-    test "process_stripe_payout/1 creates payout with entries", %{payment1: _payment1} do
+    test "process_stripe_payout/1 creates payout with entries", %{
+      payment1: _payment1
+    } do
       payout_attrs = %{
         payout_amount: Money.new(10_000, :USD),
         stripe_payout_id: "po_test_123",
@@ -812,11 +841,16 @@ defmodule Ysc.LedgersTest do
           metadata: %{}
         })
 
-      assert {:ok, updated_payout} = Ledgers.link_payment_to_payout(payout, payment1)
-      assert {:ok, updated_payout} = Ledgers.link_payment_to_payout(updated_payout, payment2)
+      assert {:ok, updated_payout} =
+               Ledgers.link_payment_to_payout(payout, payment1)
+
+      assert {:ok, updated_payout} =
+               Ledgers.link_payment_to_payout(updated_payout, payment2)
 
       # Reload payout with payments
-      updated_payout = Ysc.Repo.reload!(updated_payout) |> Ysc.Repo.preload(:payments)
+      updated_payout =
+        Ysc.Repo.reload!(updated_payout) |> Ysc.Repo.preload(:payments)
+
       assert length(updated_payout.payments) == 2
     end
 
@@ -840,10 +874,13 @@ defmodule Ysc.LedgersTest do
           metadata: %{}
         })
 
-      assert {:ok, updated_payout} = Ledgers.link_refund_to_payout(payout, refund)
+      assert {:ok, updated_payout} =
+               Ledgers.link_refund_to_payout(payout, refund)
 
       # Reload payout with refunds
-      updated_payout = Ysc.Repo.reload!(updated_payout) |> Ysc.Repo.preload(:refunds)
+      updated_payout =
+        Ysc.Repo.reload!(updated_payout) |> Ysc.Repo.preload(:refunds)
+
       assert length(updated_payout.refunds) == 1
     end
   end
@@ -906,7 +943,9 @@ defmodule Ysc.LedgersTest do
       assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
     end
 
-    test "verify_ledger_balance/0 returns balanced after payment and refund", %{user: user} do
+    test "verify_ledger_balance/0 returns balanced after payment and refund", %{
+      user: user
+    } do
       {:ok, {payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
@@ -963,14 +1002,19 @@ defmodule Ysc.LedgersTest do
         set: [payment_date: today_start]
       )
 
-      balance_today = Ledgers.get_account_balance(account.id, today_start, today_end)
+      balance_today =
+        Ledgers.get_account_balance(account.id, today_start, today_end)
+
       assert Money.positive?(balance_today)
 
       # Get balance for yesterday (should be zero)
       yesterday = Date.add(today, -1)
       yesterday_start = DateTime.new!(yesterday, ~T[00:00:00], "Etc/UTC")
       yesterday_end = DateTime.new!(yesterday, ~T[23:59:59], "Etc/UTC")
-      balance_yesterday = Ledgers.get_account_balance(account.id, yesterday_start, yesterday_end)
+
+      balance_yesterday =
+        Ledgers.get_account_balance(account.id, yesterday_start, yesterday_end)
+
       assert Money.equal?(balance_yesterday, Money.new(0, :USD))
     end
   end
@@ -1030,6 +1074,7 @@ defmodule Ysc.LedgersTest do
       entries = Ysc.Ledgers.get_entries_by_payment(payment.id)
       booking_entry = Enum.find(entries, &(&1.related_entity_type == :booking))
       assert booking_entry.related_entity_type == :booking
+
       # Property is used to determine revenue account but not stored in ledger entries
       # Verify the description contains the property information
       assert booking_entry.description =~ "Tahoe"
@@ -1053,7 +1098,10 @@ defmodule Ysc.LedgersTest do
       # entity_type is stored in ledger entries, not on payment directly
       # Subscription payments use :membership as entity_type
       entries = Ysc.Ledgers.get_entries_by_payment(payment.id)
-      membership_entry = Enum.find(entries, &(&1.related_entity_type == :membership))
+
+      membership_entry =
+        Enum.find(entries, &(&1.related_entity_type == :membership))
+
       assert membership_entry.related_entity_type == :membership
       assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
     end
@@ -1074,7 +1122,10 @@ defmodule Ysc.LedgersTest do
 
       # entity_type is stored in ledger entries, not on payment directly
       entries = Ysc.Ledgers.get_entries_by_payment(payment.id)
-      donation_entry = Enum.find(entries, &(&1.related_entity_type == :donation))
+
+      donation_entry =
+        Enum.find(entries, &(&1.related_entity_type == :donation))
+
       assert donation_entry.related_entity_type == :donation
       assert {:ok, :balanced} = Ledgers.verify_ledger_balance()
     end
@@ -1139,15 +1190,18 @@ defmodule Ysc.LedgersTest do
       assert nil == Ledgers.get_payment(Ecto.ULID.generate())
     end
 
-    test "get_payment_with_associations/1 returns payment with all associations", %{
-      payment: payment
-    } do
+    test "get_payment_with_associations/1 returns payment with all associations",
+         %{
+           payment: payment
+         } do
       retrieved = Ledgers.get_payment_with_associations(payment.id)
       assert retrieved.id == payment.id
       assert Ecto.assoc_loaded?(retrieved.user)
     end
 
-    test "get_payment_by_external_id/1 returns payment by external id", %{payment: payment} do
+    test "get_payment_by_external_id/1 returns payment by external id", %{
+      payment: payment
+    } do
       retrieved = Ledgers.get_payment_by_external_id("pi_retrieval_test")
       assert retrieved.id == payment.id
     end
@@ -1156,7 +1210,10 @@ defmodule Ysc.LedgersTest do
       assert nil == Ledgers.get_payment_by_external_id("pi_nonexistent")
     end
 
-    test "get_payments_by_user/1 returns all payments for user", %{user: user, payment: payment} do
+    test "get_payments_by_user/1 returns all payments for user", %{
+      user: user,
+      payment: payment
+    } do
       payments = Ledgers.get_payments_by_user(user.id)
       assert payments != []
       assert Enum.any?(payments, &(&1.id == payment.id))
@@ -1177,8 +1234,12 @@ defmodule Ysc.LedgersTest do
              end)
     end
 
-    test "list_user_payments_paginated/3 returns paginated payments", %{user: user} do
-      {entries, total_count} = Ledgers.list_user_payments_paginated(user.id, 1, 10)
+    test "list_user_payments_paginated/3 returns paginated payments", %{
+      user: user
+    } do
+      {entries, total_count} =
+        Ledgers.list_user_payments_paginated(user.id, 1, 10)
+
       assert is_list(entries)
       assert is_integer(total_count)
       assert total_count >= 0
@@ -1249,7 +1310,9 @@ defmodule Ysc.LedgersTest do
       assert Ecto.assoc_loaded?(retrieved.payment)
     end
 
-    test "get_entries_by_payment/1 returns all entries for payment", %{payment: payment} do
+    test "get_entries_by_payment/1 returns all entries for payment", %{
+      payment: payment
+    } do
       entries = Ledgers.get_entries_by_payment(payment.id)
       assert is_list(entries)
       assert entries != []
@@ -1331,7 +1394,9 @@ defmodule Ysc.LedgersTest do
       assert nil == Ledgers.get_refund(Ecto.ULID.generate())
     end
 
-    test "get_refund_by_external_id/1 returns refund by external id", %{refund: refund} do
+    test "get_refund_by_external_id/1 returns refund by external id", %{
+      refund: refund
+    } do
       retrieved = Ledgers.get_refund_by_external_id("re_retrieval_test")
       assert retrieved.id == refund.id
     end
@@ -1345,8 +1410,10 @@ defmodule Ysc.LedgersTest do
       # For now, just verify the function exists and works
       update_attrs = %{reason: "Updated reason"}
       result = Ledgers.update_refund(refund, update_attrs)
+
       # The update might succeed or fail depending on the schema, but function should exist
-      assert match?({:ok, _updated_refund}, result) || match?({:error, _changeset}, result)
+      assert match?({:ok, _updated_refund}, result) ||
+               match?({:error, _changeset}, result)
     end
   end
 
@@ -1416,7 +1483,9 @@ defmodule Ysc.LedgersTest do
              end)
     end
 
-    test "calculate_account_balance/1 calculates balance for account", %{user: user} do
+    test "calculate_account_balance/1 calculates balance for account", %{
+      user: user
+    } do
       account = Ledgers.get_account_by_name("stripe_account")
 
       {:ok, {_payment, _transaction, _entries}} =
@@ -1538,7 +1607,9 @@ defmodule Ysc.LedgersTest do
       assert length(payments) <= 10
     end
 
-    test "get_recent_payments_with_types/3 returns payments with type info", %{user: user} do
+    test "get_recent_payments_with_types/3 returns payments with type info", %{
+      user: user
+    } do
       {:ok, {_payment, _transaction, _entries}} =
         Ledgers.process_payment(%{
           user_id: user.id,
@@ -1555,7 +1626,9 @@ defmodule Ysc.LedgersTest do
       start_date = DateTime.add(DateTime.utc_now(), -30, :day)
       end_date = DateTime.utc_now()
 
-      payments = Ledgers.get_recent_payments_with_types(start_date, end_date, 10)
+      payments =
+        Ledgers.get_recent_payments_with_types(start_date, end_date, 10)
+
       assert is_list(payments)
 
       # add_payment_type_info adds :payment_type_info key to the payment struct
@@ -1638,24 +1711,34 @@ defmodule Ysc.LedgersTest do
       %{user: user, payment: payment, payout: payout}
     end
 
-    test "get_payout_by_stripe_id/1 returns payout by stripe_id", %{payout: payout} do
+    test "get_payout_by_stripe_id/1 returns payout by stripe_id", %{
+      payout: payout
+    } do
       found = Ledgers.get_payout_by_stripe_id(payout.stripe_payout_id)
       assert found.id == payout.id
     end
 
-    test "get_payout!/1 returns payout with preloaded associations", %{payout: payout} do
+    test "get_payout!/1 returns payout with preloaded associations", %{
+      payout: payout
+    } do
       found = Ledgers.get_payout!(payout.id)
       assert found.id == payout.id
       assert Ecto.assoc_loaded?(found.payment)
     end
 
-    test "get_payout_payments/1 returns payments for payout", %{payout: payout, payment: payment} do
+    test "get_payout_payments/1 returns payments for payout", %{
+      payout: payout,
+      payment: payment
+    } do
       payments = Ledgers.get_payout_payments(payout.id)
       assert payments != []
       assert Enum.any?(payments, &(&1.id == payment.id))
     end
 
-    test "get_payout_refunds/1 returns refunds for payout", %{payout: payout, payment: payment} do
+    test "get_payout_refunds/1 returns refunds for payout", %{
+      payout: payout,
+      payment: payment
+    } do
       {:ok, {refund, _transaction, _entries}} =
         Ledgers.process_refund(%{
           payment_id: payment.id,
@@ -1716,10 +1799,16 @@ defmodule Ysc.LedgersTest do
 
       payment_with_info = Ledgers.add_payment_type_info(payment)
       assert Map.has_key?(payment_with_info, :payment_type_info)
-      assert payment_with_info.payment_type_info.type in ["Membership", "Unknown"]
+
+      assert payment_with_info.payment_type_info.type in [
+               "Membership",
+               "Unknown"
+             ]
     end
 
-    test "add_payment_type_info_batch/1 adds type info to multiple payments", %{user: user} do
+    test "add_payment_type_info_batch/1 adds type info to multiple payments", %{
+      user: user
+    } do
       {:ok, {payment1, _, _}} =
         Ledgers.process_payment(%{
           user_id: user.id,
@@ -1750,7 +1839,11 @@ defmodule Ysc.LedgersTest do
       payments_with_info = Ledgers.add_payment_type_info_batch(payments)
 
       assert length(payments_with_info) == 2
-      assert Enum.all?(payments_with_info, &Map.has_key?(&1, :payment_type_info))
+
+      assert Enum.all?(
+               payments_with_info,
+               &Map.has_key?(&1, :payment_type_info)
+             )
     end
   end
 
@@ -1983,7 +2076,9 @@ defmodule Ysc.LedgersTest do
         status: :completed
       }
 
-      assert {:ok, %LedgerTransaction{} = transaction} = Ledgers.create_transaction(attrs)
+      assert {:ok, %LedgerTransaction{} = transaction} =
+               Ledgers.create_transaction(attrs)
+
       assert transaction.payment_id == payment.id
     end
 
@@ -2012,7 +2107,9 @@ defmodule Ysc.LedgersTest do
         description: "Test entry"
       }
 
-      assert {:ok, %Ysc.Ledgers.LedgerEntry{} = entry} = Ledgers.create_entry(attrs)
+      assert {:ok, %Ysc.Ledgers.LedgerEntry{} = entry} =
+               Ledgers.create_entry(attrs)
+
       assert entry.account_id == account.id
     end
 
@@ -2025,7 +2122,9 @@ defmodule Ysc.LedgersTest do
         currency: "usd"
       }
 
-      assert {:ok, %Ysc.Ledgers.Payout{} = payout} = Ledgers.create_payout(attrs)
+      assert {:ok, %Ysc.Ledgers.Payout{} = payout} =
+               Ledgers.create_payout(attrs)
+
       assert payout.stripe_payout_id == "po_create"
     end
   end

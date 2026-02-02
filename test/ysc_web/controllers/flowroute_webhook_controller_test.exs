@@ -32,7 +32,9 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
       assert conn.resp_body == "OK"
 
       # Verify the SMS was stored
-      sms_received = Sms.get_sms_received_by_provider_id(:flowroute, "mdr2-test-message-123")
+      sms_received =
+        Sms.get_sms_received_by_provider_id(:flowroute, "mdr2-test-message-123")
+
       assert sms_received != nil
       assert sms_received.from == "14155551234"
       assert sms_received.to == "12061231234"
@@ -57,7 +59,9 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
       assert conn.status == 200
 
       # Verify the SMS was matched to the user
-      sms_received = Sms.get_sms_received_by_provider_id(:flowroute, "mdr2-user-match-123")
+      sms_received =
+        Sms.get_sms_received_by_provider_id(:flowroute, "mdr2-user-match-123")
+
       assert sms_received.user_id == user.id
     end
 
@@ -193,7 +197,9 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
 
       assert conn.status == 200
 
-      sms_received = Sms.get_sms_received_by_provider_id(:flowroute, "mdr2-raw-payload-123")
+      sms_received =
+        Sms.get_sms_received_by_provider_id(:flowroute, "mdr2-raw-payload-123")
+
       assert sms_received.raw_payload == payload
     end
 
@@ -213,7 +219,9 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
 
       assert conn.status == 200
 
-      sms_received = Sms.get_sms_received_by_provider_id(:flowroute, "mdr2-timestamp-123")
+      sms_received =
+        Sms.get_sms_received_by_provider_id(:flowroute, "mdr2-timestamp-123")
+
       assert sms_received.provider_timestamp == ~U[2025-12-05 10:30:00Z]
     end
 
@@ -257,7 +265,9 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
       assert conn1.status == 200
 
       # Second request with same message_id should fail
-      conn2 = FlowrouteWebhookController.handle_inbound_sms(build_conn(), payload)
+      conn2 =
+        FlowrouteWebhookController.handle_inbound_sms(build_conn(), payload)
+
       assert conn2.status == 400
       assert conn2.resp_body == "Failed to process"
     end
@@ -276,7 +286,9 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
 
       assert conn.status == 200
 
-      sms_received = Sms.get_sms_received_by_provider_id(:flowroute, "mdr2-mms-123")
+      sms_received =
+        Sms.get_sms_received_by_provider_id(:flowroute, "mdr2-mms-123")
+
       assert sms_received.is_mms == true
     end
   end
@@ -295,7 +307,12 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
 
       assert conn.status == 200
 
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-dlr-delivered-123")
+      receipts =
+        Sms.list_delivery_receipts_for_message(
+          :flowroute,
+          "mdr2-dlr-delivered-123"
+        )
+
       assert length(receipts) == 1
       assert hd(receipts).status == :delivered
       assert hd(receipts).status_code == "0"
@@ -314,7 +331,12 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
 
       assert conn.status == 200
 
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-dlr-failed-123")
+      receipts =
+        Sms.list_delivery_receipts_for_message(
+          :flowroute,
+          "mdr2-dlr-failed-123"
+        )
+
       assert length(receipts) == 1
       assert hd(receipts).status == :failed
       assert hd(receipts).status_code == "100"
@@ -332,7 +354,12 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
 
       assert conn.status == 200
 
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-dlr-buffered-123")
+      receipts =
+        Sms.list_delivery_receipts_for_message(
+          :flowroute,
+          "mdr2-dlr-buffered-123"
+        )
+
       assert length(receipts) == 1
       assert hd(receipts).status == :message_buffered
     end
@@ -348,7 +375,9 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
 
       assert conn.status == 200
 
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-dlr-sent-123")
+      receipts =
+        Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-dlr-sent-123")
+
       assert length(receipts) == 1
       assert hd(receipts).status == :message_sent
     end
@@ -375,7 +404,9 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
 
       assert conn.status == 200
 
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-link-123")
+      receipts =
+        Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-link-123")
+
       assert length(receipts) == 1
       assert hd(receipts).sms_message_id == sms_message.id
     end
@@ -403,15 +434,24 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
       assert conn.status == 200
 
       # Verify delivery receipt was created and linked
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-status-update-123")
+      receipts =
+        Sms.list_delivery_receipts_for_message(
+          :flowroute,
+          "mdr2-status-update-123"
+        )
+
       assert length(receipts) == 1
       assert hd(receipts).status == :delivered
       # Verify linking occurred
-      updated_sms = Sms.get_sms_message_by_provider_id(:flowroute, "mdr2-status-update-123")
+      updated_sms =
+        Sms.get_sms_message_by_provider_id(:flowroute, "mdr2-status-update-123")
+
       assert hd(receipts).sms_message_id == updated_sms.id
     end
 
-    test "updates SMS message status to failed from delivery receipt", %{conn: conn} do
+    test "updates SMS message status to failed from delivery receipt", %{
+      conn: conn
+    } do
       {:ok, _sms_message} =
         Sms.create_sms_message(%{
           provider: :flowroute,
@@ -433,7 +473,12 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
       assert conn.status == 200
 
       # Verify delivery receipt was created and linked
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-fail-update-123")
+      receipts =
+        Sms.list_delivery_receipts_for_message(
+          :flowroute,
+          "mdr2-fail-update-123"
+        )
+
       assert length(receipts) == 1
       assert hd(receipts).status == :failed
     end
@@ -458,7 +503,9 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
 
       assert conn.status == 200
 
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-dlr-raw-123")
+      receipts =
+        Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-dlr-raw-123")
+
       assert hd(receipts).raw_payload == payload
     end
 
@@ -476,7 +523,12 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
 
       assert conn.status == 200
 
-      receipts = Sms.list_delivery_receipts_for_message(:flowroute, "mdr2-dlr-timestamp-123")
+      receipts =
+        Sms.list_delivery_receipts_for_message(
+          :flowroute,
+          "mdr2-dlr-timestamp-123"
+        )
+
       assert hd(receipts).provider_timestamp == ~U[2025-12-05 14:30:00Z]
     end
   end
@@ -511,7 +563,8 @@ defmodule YscWeb.FlowrouteWebhookControllerTest do
         "attributes" => %{
           "status" => Keyword.fetch!(opts, :status),
           "status_code" => Keyword.get(opts, :status_code),
-          "status_code_description" => Keyword.get(opts, :status_code_description),
+          "status_code_description" =>
+            Keyword.get(opts, :status_code_description),
           "body" => Keyword.get(opts, :body),
           "level" => Keyword.get(opts, :level),
           "timestamp" => Keyword.get(opts, :timestamp)

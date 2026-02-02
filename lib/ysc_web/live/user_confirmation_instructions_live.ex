@@ -11,7 +11,11 @@ defmodule YscWeb.UserConfirmationInstructionsLive do
         <:subtitle>We'll send a new confirmation link to your inbox</:subtitle>
       </.header>
 
-      <.simple_form for={@form} id="resend_confirmation_form" phx-submit="send_instructions">
+      <.simple_form
+        for={@form}
+        id="resend_confirmation_form"
+        phx-submit="send_instructions"
+      >
         <.input field={@form[:email]} type="email" placeholder="Email" required />
         <:actions>
           <.button phx-disable-with="Sending..." class="w-full">
@@ -34,7 +38,11 @@ defmodule YscWeb.UserConfirmationInstructionsLive do
      |> assign(:page_title, "Resend Confirmation Instructions")}
   end
 
-  def handle_event("send_instructions", %{"user" => %{"email" => email}}, socket) do
+  def handle_event(
+        "send_instructions",
+        %{"user" => %{"email" => email}},
+        socket
+      ) do
     if user = Accounts.get_user_by_email(email) do
       Accounts.deliver_user_confirmation_instructions(
         user,

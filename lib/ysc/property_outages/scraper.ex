@@ -132,11 +132,16 @@ defmodule Ysc.PropertyOutages.Scraper do
   end
 
   defp fetch_outages_from_provider(:optimum) do
-    Logger.info("Fetching outages from Optimum (Kubra.io)", url: @optimum_api_url)
+    Logger.info("Fetching outages from Optimum (Kubra.io)",
+      url: @optimum_api_url
+    )
 
     case fetch_optimum_outages() do
       {:ok, outages} ->
-        Logger.info("Successfully fetched Optimum outages", count: length(outages))
+        Logger.info("Successfully fetched Optimum outages",
+          count: length(outages)
+        )
+
         outages
 
       {:error, :not_found} ->
@@ -167,11 +172,16 @@ defmodule Ysc.PropertyOutages.Scraper do
   end
 
   defp fetch_outages_from_provider(:liberty) do
-    Logger.info("Fetching outages from Liberty Utilities", url: @liberty_api_url)
+    Logger.info("Fetching outages from Liberty Utilities",
+      url: @liberty_api_url
+    )
 
     case fetch_liberty_outages() do
       {:ok, outages} ->
-        Logger.info("Successfully fetched Liberty Utilities outages", count: length(outages))
+        Logger.info("Successfully fetched Liberty Utilities outages",
+          count: length(outages)
+        )
+
         outages
 
       {:error, :not_found} ->
@@ -220,7 +230,8 @@ defmodule Ysc.PropertyOutages.Scraper do
           headers
           |> Enum.find_value(fn
             {key, value} when is_binary(key) ->
-              if String.downcase(key) == "content-encoding", do: String.downcase(value)
+              if String.downcase(key) == "content-encoding",
+                do: String.downcase(value)
 
             {key, value} when is_atom(key) ->
               if String.downcase(Atom.to_string(key)) == "content-encoding",
@@ -249,7 +260,10 @@ defmodule Ysc.PropertyOutages.Scraper do
 
             "zstd" ->
               # Zstd not commonly available in Elixir, try to parse as-is first
-              Logger.warning("Zstd compression detected but may not be supported")
+              Logger.warning(
+                "Zstd compression detected but may not be supported"
+              )
+
               body
 
             _ ->
@@ -271,7 +285,10 @@ defmodule Ysc.PropertyOutages.Scraper do
 
         case Jason.decode(decompressed_body) do
           {:ok, json} ->
-            Logger.debug("Successfully parsed Optimum JSON", keys: Map.keys(json))
+            Logger.debug("Successfully parsed Optimum JSON",
+              keys: Map.keys(json)
+            )
+
             outages = parse_optimum_response(json, json)
             {:ok, outages}
 
@@ -280,7 +297,10 @@ defmodule Ysc.PropertyOutages.Scraper do
               error: inspect(reason),
               body_preview: body_preview,
               body_length:
-                if(is_binary(decompressed_body), do: byte_size(decompressed_body), else: 0)
+                if(is_binary(decompressed_body),
+                  do: byte_size(decompressed_body),
+                  else: 0
+                )
             )
 
             {:error, :parse_error}
@@ -335,7 +355,8 @@ defmodule Ysc.PropertyOutages.Scraper do
     end
   end
 
-  defp parse_optimum_response(%{"file_data" => file_data}, raw_json) when is_list(file_data) do
+  defp parse_optimum_response(%{"file_data" => file_data}, raw_json)
+       when is_list(file_data) do
     Enum.map(file_data, fn outage ->
       desc = outage["desc"] || %{}
       title = outage["title"] || "Outage"
@@ -421,7 +442,8 @@ defmodule Ysc.PropertyOutages.Scraper do
       {"pragma", "no-cache"},
       {"priority", "u=1, i"},
       {"referer", "https://myaccount.libertyenergyandwater.com/"},
-      {"sec-ch-ua", ~S("Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99")},
+      {"sec-ch-ua",
+       ~S("Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99")},
       {"sec-ch-ua-mobile", "?0"},
       {"sec-ch-ua-platform", ~S("macOS")},
       {"sec-fetch-dest", "empty"},
@@ -448,7 +470,8 @@ defmodule Ysc.PropertyOutages.Scraper do
           headers
           |> Enum.find_value(fn
             {key, value} when is_binary(key) ->
-              if String.downcase(key) == "content-encoding", do: String.downcase(value)
+              if String.downcase(key) == "content-encoding",
+                do: String.downcase(value)
 
             {key, value} when is_atom(key) ->
               if String.downcase(Atom.to_string(key)) == "content-encoding",
@@ -490,13 +513,19 @@ defmodule Ysc.PropertyOutages.Scraper do
                     decompress_brotli(body)
 
                   "zstd" ->
-                    Logger.warning("Zstd compression detected but may not be supported")
+                    Logger.warning(
+                      "Zstd compression detected but may not be supported"
+                    )
+
                     body
 
                   _ ->
                     # No compression detected, but JSON parsing failed
                     # Log the body for debugging
-                    Logger.warning("Content-encoding is nil/unknown but JSON parsing failed")
+                    Logger.warning(
+                      "Content-encoding is nil/unknown but JSON parsing failed"
+                    )
+
                     body
                 end
 
@@ -522,12 +551,16 @@ defmodule Ysc.PropertyOutages.Scraper do
                       inspect(decompressed_body)
                     end
 
-                  Logger.error("Failed to parse Liberty Utilities JSON response",
+                  Logger.error(
+                    "Failed to parse Liberty Utilities JSON response",
                     error: inspect(reason),
                     content_encoding: content_encoding,
                     body_preview: body_preview,
                     body_length:
-                      if(is_binary(decompressed_body), do: byte_size(decompressed_body), else: 0)
+                      if(is_binary(decompressed_body),
+                        do: byte_size(decompressed_body),
+                        else: 0
+                      )
                   )
 
                   {:error, :parse_error}
@@ -536,7 +569,10 @@ defmodule Ysc.PropertyOutages.Scraper do
 
         case result do
           {:ok, json} ->
-            Logger.debug("Successfully parsed Liberty Utilities JSON", keys: Map.keys(json))
+            Logger.debug("Successfully parsed Liberty Utilities JSON",
+              keys: Map.keys(json)
+            )
+
             outages = parse_liberty_response(json, json)
             {:ok, outages}
 
@@ -560,9 +596,14 @@ defmodule Ysc.PropertyOutages.Scraper do
         response_headers =
           headers
           |> Enum.map(fn
-            {key, value} when is_binary(key) -> {String.downcase(key), value}
-            {key, value} when is_atom(key) -> {String.downcase(Atom.to_string(key)), value}
-            other -> other
+            {key, value} when is_binary(key) ->
+              {String.downcase(key), value}
+
+            {key, value} when is_atom(key) ->
+              {String.downcase(Atom.to_string(key)), value}
+
+            other ->
+              other
           end)
           |> Enum.into(%{})
 
@@ -611,7 +652,8 @@ defmodule Ysc.PropertyOutages.Scraper do
     end
   end
 
-  defp parse_liberty_response(%{"data" => data}, _raw_json) when is_list(data) do
+  defp parse_liberty_response(%{"data" => data}, _raw_json)
+       when is_list(data) do
     Logger.debug("Parsing Liberty Utilities response",
       total_incidents: length(data),
       account_id: @liberty_account_id
@@ -623,7 +665,9 @@ defmodule Ysc.PropertyOutages.Scraper do
       |> Enum.filter(fn incident ->
         # Only check electricity outages (commodity_Type: "E")
         is_electricity = incident["commodity_Type"] == "E"
-        has_account = has_account_in_affected_areas?(incident, @liberty_account_id)
+
+        has_account =
+          has_account_in_affected_areas?(incident, @liberty_account_id)
 
         Logger.debug("Checking incident",
           incident_id: incident["incidentId"],
@@ -631,7 +675,10 @@ defmodule Ysc.PropertyOutages.Scraper do
           is_electricity: is_electricity,
           has_account: has_account,
           affected_areas_count:
-            if(is_list(incident["affectedAreas"]), do: length(incident["affectedAreas"]), else: 0)
+            if(is_list(incident["affectedAreas"]),
+              do: length(incident["affectedAreas"]),
+              else: 0
+            )
         )
 
         is_electricity && has_account
@@ -639,7 +686,8 @@ defmodule Ysc.PropertyOutages.Scraper do
 
     Logger.info("Filtered Liberty Utilities incidents",
       total_incidents: length(data),
-      electricity_incidents: Enum.count(data, fn i -> i["commodity_Type"] == "E" end),
+      electricity_incidents:
+        Enum.count(data, fn i -> i["commodity_Type"] == "E" end),
       incidents_affecting_account: length(filtered_incidents),
       account_id: @liberty_account_id
     )
@@ -701,7 +749,10 @@ defmodule Ysc.PropertyOutages.Scraper do
         ])
         |> Map.put(
           "affectedAreas",
-          filter_affected_areas_for_account(incident["affectedAreas"], @liberty_account_id)
+          filter_affected_areas_for_account(
+            incident["affectedAreas"],
+            @liberty_account_id
+          )
         )
 
       %{
@@ -763,7 +814,10 @@ defmodule Ysc.PropertyOutages.Scraper do
   defp parse_liberty_date(date_string) when is_binary(date_string) do
     # Liberty date format: "11/05/2025 09:42:47"
     # Try parsing as MM/DD/YYYY HH:MM:SS
-    case Regex.run(~r/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/, date_string) do
+    case Regex.run(
+           ~r/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/,
+           date_string
+         ) do
       [_, month, day, year, _hour, _minute, _second] ->
         case Date.from_iso8601("#{year}-#{month}-#{day}") do
           {:ok, date} -> date
@@ -889,7 +943,8 @@ defmodule Ysc.PropertyOutages.Scraper do
     )
 
     # Get active bookings that overlap with the incident date
-    active_bookings = get_active_bookings_for_outage(outage.property, outage.incident_date)
+    active_bookings =
+      get_active_bookings_for_outage(outage.property, outage.incident_date)
 
     Logger.info("Found active bookings for outage notification",
       count: length(active_bookings),
@@ -907,7 +962,8 @@ defmodule Ysc.PropertyOutages.Scraper do
     # A booking overlaps if: checkin_date <= incident_date < checkout_date
     Bookings.list_bookings(property, incident_date, incident_date)
     |> Enum.filter(fn booking ->
-      booking.checkin_date <= incident_date and booking.checkout_date > incident_date
+      booking.checkin_date <= incident_date and
+        booking.checkout_date > incident_date
     end)
   end
 
@@ -935,8 +991,11 @@ defmodule Ysc.PropertyOutages.Scraper do
           nil
         end
 
-      cabin_master_phone = if cabin_master, do: cabin_master.phone_number, else: nil
-      cabin_master_email = OutageNotification.get_cabin_master_email(outage.property)
+      cabin_master_phone =
+        if cabin_master, do: cabin_master.phone_number, else: nil
+
+      cabin_master_email =
+        OutageNotification.get_cabin_master_email(outage.property)
 
       # Build email variables
       variables = %{
@@ -953,7 +1012,8 @@ defmodule Ysc.PropertyOutages.Scraper do
         cabin_master_email: cabin_master_email
       }
 
-      subject = "Property Outage Alert - #{OutageNotification.property_name(outage.property)}"
+      subject =
+        "Property Outage Alert - #{OutageNotification.property_name(outage.property)}"
 
       # Create text body for email
       text_body = """
@@ -1017,7 +1077,8 @@ defmodule Ysc.PropertyOutages.Scraper do
           )
       end
     else
-      Logger.warning("Cannot send outage notification - booking has no user or email",
+      Logger.warning(
+        "Cannot send outage notification - booking has no user or email",
         booking_id: booking.id,
         outage_id: outage.incident_id
       )

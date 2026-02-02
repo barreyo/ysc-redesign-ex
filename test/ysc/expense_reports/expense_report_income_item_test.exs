@@ -11,7 +11,8 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         amount: Money.new(10000, :USD)
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       assert changeset.valid?
     end
@@ -24,10 +25,13 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         proof_s3_path: "https://s3.amazonaws.com/bucket/file.pdf"
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       assert changeset.valid?
-      assert get_change(changeset, :proof_s3_path) == "https://s3.amazonaws.com/bucket/file.pdf"
+
+      assert get_change(changeset, :proof_s3_path) ==
+               "https://s3.amazonaws.com/bucket/file.pdf"
     end
 
     test "parses money from string" do
@@ -37,7 +41,8 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         amount: "150.50"
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       assert changeset.valid?
       assert get_change(changeset, :amount) == Money.new(:USD, "150.50")
@@ -49,7 +54,8 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         amount: Money.new(1000, :USD)
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       refute changeset.valid?
       assert %{date: ["can't be blank"]} = errors_on(changeset)
@@ -61,7 +67,8 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         amount: Money.new(1000, :USD)
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       refute changeset.valid?
       assert %{description: ["can't be blank"]} = errors_on(changeset)
@@ -73,7 +80,8 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         description: "Income item"
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       refute changeset.valid?
       assert %{amount: ["can't be blank"]} = errors_on(changeset)
@@ -88,10 +96,13 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         amount: Money.new(1000, :USD)
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       refute changeset.valid?
-      assert %{description: ["should be at most 1000 character(s)"]} = errors_on(changeset)
+
+      assert %{description: ["should be at most 1000 character(s)"]} =
+               errors_on(changeset)
     end
 
     test "validates proof_s3_path max length" do
@@ -104,10 +115,13 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         proof_s3_path: long_path
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       refute changeset.valid?
-      assert %{proof_s3_path: ["should be at most 2048 character(s)"]} = errors_on(changeset)
+
+      assert %{proof_s3_path: ["should be at most 2048 character(s)"]} =
+               errors_on(changeset)
     end
 
     test "rejects amount with non-USD currency" do
@@ -117,7 +131,8 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         amount: Money.new(1000, :EUR)
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       refute changeset.valid?
       assert %{amount: ["must be in USD"]} = errors_on(changeset)
@@ -130,7 +145,8 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         amount: Money.new(:USD, "0.01")
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       assert changeset.valid?
     end
@@ -142,7 +158,8 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         amount: Money.new(:USD, "999999.99")
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       assert changeset.valid?
     end
@@ -156,7 +173,8 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         amount: Money.new(1000, :USD)
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       assert changeset.valid?
     end
@@ -171,7 +189,8 @@ defmodule Ysc.ExpenseReports.ExpenseReportIncomeItemTest do
         proof_s3_path: path
       }
 
-      changeset = ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
+      changeset =
+        ExpenseReportIncomeItem.changeset(%ExpenseReportIncomeItem{}, attrs)
 
       assert changeset.valid?
     end

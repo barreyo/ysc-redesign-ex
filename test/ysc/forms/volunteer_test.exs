@@ -277,7 +277,9 @@ defmodule Ysc.Forms.VolunteerTest do
       {:ok, _volunteer2} = Repo.insert(changeset2)
 
       # Both should succeed
-      volunteers = Repo.all(from v in Volunteer, where: v.email == "same@example.com")
+      volunteers =
+        Repo.all(from v in Volunteer, where: v.email == "same@example.com")
+
       assert length(volunteers) == 2
     end
   end

@@ -22,7 +22,8 @@ defmodule Ysc.Events.TicketDetailTest do
     user =
       user
       |> Ecto.Changeset.change(
-        lifetime_membership_awarded_at: DateTime.truncate(DateTime.utc_now(), :second)
+        lifetime_membership_awarded_at:
+          DateTime.truncate(DateTime.utc_now(), :second)
       )
       |> Repo.update!()
 
@@ -34,7 +35,8 @@ defmodule Ysc.Events.TicketDetailTest do
         description: "A test event",
         state: :published,
         organizer_id: organizer.id,
-        start_date: DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
+        start_date:
+          DateTime.add(DateTime.truncate(DateTime.utc_now(), :second), 30, :day),
         max_attendees: 100,
         published_at: DateTime.truncate(DateTime.utc_now(), :second)
       })
@@ -52,7 +54,10 @@ defmodule Ysc.Events.TicketDetailTest do
       Ysc.Tickets.create_ticket_order(user.id, event.id, %{tier.id => 1})
 
     # Get the ticket from the order
-    ticket = Repo.one(from t in Ticket, where: t.ticket_order_id == ^ticket_order.id, limit: 1)
+    ticket =
+      Repo.one(
+        from t in Ticket, where: t.ticket_order_id == ^ticket_order.id, limit: 1
+      )
 
     %{ticket: ticket}
   end

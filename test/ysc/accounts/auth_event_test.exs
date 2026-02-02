@@ -441,16 +441,38 @@ defmodule Ysc.Accounts.AuthEventTest do
 
     test "calculates risk for single threat indicators" do
       # Test individual threat indicators that have risk scores
-      assert AuthEvent.calculate_risk_score(%{threat_indicators: ["new_device"]}) == 20
-      assert AuthEvent.calculate_risk_score(%{threat_indicators: ["unusual_location"]}) == 25
-      assert AuthEvent.calculate_risk_score(%{threat_indicators: ["rapid_attempts"]}) == 30
-      assert AuthEvent.calculate_risk_score(%{threat_indicators: ["suspicious_ip"]}) == 35
-      assert AuthEvent.calculate_risk_score(%{threat_indicators: ["unusual_time"]}) == 15
+      assert AuthEvent.calculate_risk_score(%{
+               threat_indicators: ["new_device"]
+             }) == 20
+
+      assert AuthEvent.calculate_risk_score(%{
+               threat_indicators: ["unusual_location"]
+             }) == 25
+
+      assert AuthEvent.calculate_risk_score(%{
+               threat_indicators: ["rapid_attempts"]
+             }) == 30
+
+      assert AuthEvent.calculate_risk_score(%{
+               threat_indicators: ["suspicious_ip"]
+             }) == 35
+
+      assert AuthEvent.calculate_risk_score(%{
+               threat_indicators: ["unusual_time"]
+             }) == 15
 
       # Test threat indicators that don't have specific risk scores
-      assert AuthEvent.calculate_risk_score(%{threat_indicators: ["bot_behavior"]}) == 0
-      assert AuthEvent.calculate_risk_score(%{threat_indicators: ["known_attacker"]}) == 0
-      assert AuthEvent.calculate_risk_score(%{threat_indicators: ["geolocation_mismatch"]}) == 0
+      assert AuthEvent.calculate_risk_score(%{
+               threat_indicators: ["bot_behavior"]
+             }) == 0
+
+      assert AuthEvent.calculate_risk_score(%{
+               threat_indicators: ["known_attacker"]
+             }) == 0
+
+      assert AuthEvent.calculate_risk_score(%{
+               threat_indicators: ["geolocation_mismatch"]
+             }) == 0
     end
 
     test "calculates cumulative risk for multiple threat indicators" do
@@ -532,7 +554,9 @@ defmodule Ysc.Accounts.AuthEventTest do
       # Mock connection data
       conn = %Plug.Conn{
         remote_ip: {127, 0, 0, 1},
-        req_headers: [{"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}]
+        req_headers: [
+          {"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+        ]
       }
 
       {:ok, auth_event} = AuthService.log_login_success(user, conn)
@@ -542,7 +566,9 @@ defmodule Ysc.Accounts.AuthEventTest do
       assert auth_event.success == true
       assert auth_event.email_attempted == user.email
       assert auth_event.ip_address == "127.0.0.1"
-      assert auth_event.user_agent == "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+
+      assert auth_event.user_agent ==
+               "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
     end
 
     test "creates a failed login event" do
@@ -551,7 +577,9 @@ defmodule Ysc.Accounts.AuthEventTest do
       # Mock connection data
       conn = %Plug.Conn{
         remote_ip: {127, 0, 0, 1},
-        req_headers: [{"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}]
+        req_headers: [
+          {"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+        ]
       }
 
       {:ok, auth_event} = AuthService.log_login_failure(email, conn)
@@ -570,7 +598,9 @@ defmodule Ysc.Accounts.AuthEventTest do
       # Mock connection data
       conn = %Plug.Conn{
         remote_ip: {127, 0, 0, 1},
-        req_headers: [{"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}]
+        req_headers: [
+          {"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+        ]
       }
 
       {:ok, auth_event} = AuthService.log_logout(user, conn)
@@ -605,7 +635,12 @@ defmodule Ysc.Accounts.AuthEventTest do
 
       # High risk
       high_risk_attrs = %{
-        threat_indicators: ["new_device", "unusual_location", "rapid_attempts", "suspicious_ip"]
+        threat_indicators: [
+          "new_device",
+          "unusual_location",
+          "rapid_attempts",
+          "suspicious_ip"
+        ]
       }
 
       risk_score = AuthEvent.calculate_risk_score(high_risk_attrs)
@@ -619,7 +654,12 @@ defmodule Ysc.Accounts.AuthEventTest do
 
       # Suspicious
       suspicious_attrs = %{
-        threat_indicators: ["new_device", "unusual_location", "rapid_attempts", "suspicious_ip"]
+        threat_indicators: [
+          "new_device",
+          "unusual_location",
+          "rapid_attempts",
+          "suspicious_ip"
+        ]
       }
 
       assert AuthEvent.suspicious?(suspicious_attrs)
@@ -633,7 +673,16 @@ defmodule Ysc.Accounts.AuthEventTest do
 
       # Should still work and return valid data
       assert parsed.device_type in ["desktop", "mobile", "tablet", "unknown"]
-      assert parsed.browser in ["Chrome", "Firefox", "Safari", "Edge", "Opera", "Unknown", nil]
+
+      assert parsed.browser in [
+               "Chrome",
+               "Firefox",
+               "Safari",
+               "Edge",
+               "Opera",
+               "Unknown",
+               nil
+             ]
     end
 
     test "sanitizes UTF-8 strings in AuthService" do
@@ -649,7 +698,9 @@ defmodule Ysc.Accounts.AuthEventTest do
 
       # Should handle valid UTF-8
       valid_string = "Valid UTF-8 string"
-      assert Ysc.Accounts.AuthService.sanitize_utf8(valid_string) == valid_string
+
+      assert Ysc.Accounts.AuthService.sanitize_utf8(valid_string) ==
+               valid_string
 
       # Should handle null bytes (PostgreSQL doesn't allow them)
       null_byte_string = "Test\x00String"
@@ -667,7 +718,9 @@ defmodule Ysc.Accounts.AuthEventTest do
       # Mock connection data
       conn = %Plug.Conn{
         remote_ip: {127, 0, 0, 1},
-        req_headers: [{"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}]
+        req_headers: [
+          {"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+        ]
       }
 
       # Log a successful login
@@ -676,7 +729,9 @@ defmodule Ysc.Accounts.AuthEventTest do
       # Should now return the login datetime
       last_login_datetime = AuthService.get_last_successful_login_datetime(user)
       assert last_login_datetime != nil
-      assert DateTime.compare(last_login_datetime, auth_event.inserted_at) == :eq
+
+      assert DateTime.compare(last_login_datetime, auth_event.inserted_at) ==
+               :eq
 
       # Should also return the full event
       last_login_event = AuthService.get_last_successful_login_event(user)
@@ -690,7 +745,9 @@ defmodule Ysc.Accounts.AuthEventTest do
       # Mock connection data
       conn = %Plug.Conn{
         remote_ip: {127, 0, 0, 1},
-        req_headers: [{"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}]
+        req_headers: [
+          {"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"}
+        ]
       }
 
       # Initially no session data
@@ -707,7 +764,9 @@ defmodule Ysc.Accounts.AuthEventTest do
       # Should return login time as last session activity
       last_session_datetime = AuthService.get_last_login_session_datetime(user)
       assert last_session_datetime != nil
-      assert DateTime.compare(last_session_datetime, login_event.inserted_at) == :eq
+
+      assert DateTime.compare(last_session_datetime, login_event.inserted_at) ==
+               :eq
 
       # Should return the login event as last session event
       last_session_event = AuthService.get_last_login_session_event(user)
@@ -727,7 +786,9 @@ defmodule Ysc.Accounts.AuthEventTest do
       # Should now return logout time as last session activity
       last_session_datetime = AuthService.get_last_login_session_datetime(user)
       assert last_session_datetime != nil
-      assert DateTime.compare(last_session_datetime, logout_event.inserted_at) == :eq
+
+      assert DateTime.compare(last_session_datetime, logout_event.inserted_at) ==
+               :eq
 
       # Should return the logout event as last session event
       last_session_event = AuthService.get_last_login_session_event(user)

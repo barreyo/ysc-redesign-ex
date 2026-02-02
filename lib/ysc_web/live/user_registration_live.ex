@@ -11,12 +11,18 @@ defmodule YscWeb.UserRegistrationLive do
     ~H"""
     <div id="registration-wrapper" class="max-w-xl mx-auto py-10">
       <div class="flex w-full mx-auto items-center text-center justify-center">
-        <.link navigate={~p"/"} class="p-10 hover:opacity-80 transition duration-200 ease-in-out">
+        <.link
+          navigate={~p"/"}
+          class="p-10 hover:opacity-80 transition duration-200 ease-in-out"
+        >
           <.ysc_logo class="h-28" />
         </.link>
       </div>
       <div class="w-full px-2">
-        <.stepper active_step={@current_step} steps={["Eligibility", "About you", "Questions"]} />
+        <.stepper
+          active_step={@current_step}
+          steps={["Eligibility", "About you", "Questions"]}
+        />
       </div>
 
       <div id="registration-form" class="px-2 py-8">
@@ -25,7 +31,10 @@ defmodule YscWeb.UserRegistrationLive do
             Apply for membership
             <:subtitle>
               Already a member?
-              <.link navigate={~p"/users/log-in"} class="font-semibold text-blue-700 hover:underline">
+              <.link
+                navigate={~p"/users/log-in"}
+                class="font-semibold text-blue-700 hover:underline"
+              >
                 Sign in
               </.link>
               to your account.
@@ -71,7 +80,8 @@ defmodule YscWeb.UserRegistrationLive do
                         },
                         family: %{
                           option: "family",
-                          subtitle: "You, your partner and dependents (18 years or younger)",
+                          subtitle:
+                            "You, your partner and dependents (18 years or younger)",
                           icon: "user-group"
                         }
                       ]}
@@ -88,7 +98,9 @@ defmodule YscWeb.UserRegistrationLive do
               </div>
             </div>
 
-            <div class={if @current_step !== 1, do: "hidden", else: "flex flex-col space-y-3"}>
+            <div class={
+              if @current_step !== 1, do: "hidden", else: "flex flex-col space-y-3"
+            }>
               <.header class="text-left">Account Information</.header>
               <.input
                 field={@form[:email]}
@@ -102,7 +114,12 @@ defmodule YscWeb.UserRegistrationLive do
               <.input field={@form[:last_name]} label="Last Name*" required />
 
               <.inputs_for :let={rf} field={@form[:registration_form]}>
-                <.input field={rf[:birth_date]} label="Birth Date*" type="date" required />
+                <.input
+                  field={rf[:birth_date]}
+                  label="Birth Date*"
+                  type="date"
+                  required
+                />
                 <.input field={rf[:occupation]} label="Occupation" />
               </.inputs_for>
 
@@ -117,15 +134,31 @@ defmodule YscWeb.UserRegistrationLive do
                 <div :if={!@trigger_submit}>
                   <.inputs_for :let={nested_f} field={@form[:family_members]}>
                     <div class="flex space-x-2">
-                      <input type="hidden" name="user[family_members_order][]" value={nested_f.index} />
+                      <input
+                        type="hidden"
+                        name="user[family_members_order][]"
+                        value={nested_f.index}
+                      />
                       <.input
                         type="select"
                         options={[Spouse: "spouse", Child: "child"]}
                         field={nested_f[:type]}
                       />
-                      <.input type="text" field={nested_f[:first_name]} placeholder="First Name" />
-                      <.input type="text" field={nested_f[:last_name]} placeholder="Last Name" />
-                      <.input type="date-text" field={nested_f[:birth_date]} placeholder="Birth Date" />
+                      <.input
+                        type="text"
+                        field={nested_f[:first_name]}
+                        placeholder="First Name"
+                      />
+                      <.input
+                        type="text"
+                        field={nested_f[:last_name]}
+                        placeholder="Last Name"
+                      />
+                      <.input
+                        type="date-text"
+                        field={nested_f[:birth_date]}
+                        placeholder="Birth Date"
+                      />
 
                       <label class="cursor-pointer py-3 block align-middle items-center justify-center text-center">
                         <input
@@ -145,8 +178,13 @@ defmodule YscWeb.UserRegistrationLive do
 
                 <div class="w-full py-4">
                   <label class="w-full block border border-1 border-zinc-100 cursor-pointer rounded hover:bg-zinc-100 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-800/80 text-center align-center">
-                    <input type="checkbox" name="user[family_members_order][]" class="hidden" />
-                    <.icon name="hero-plus-circle" class="w-6 h-6" /> Add Family Member
+                    <input
+                      type="checkbox"
+                      name="user[family_members_order][]"
+                      class="hidden"
+                    />
+                    <.icon name="hero-plus-circle" class="w-6 h-6" />
+                    Add Family Member
                   </label>
                 </div>
               </div>
@@ -167,7 +205,9 @@ defmodule YscWeb.UserRegistrationLive do
               </.inputs_for>
             </div>
 
-            <div class={if @current_step !== 2, do: "hidden", else: "flex flex-col space-y-3"}>
+            <div class={
+              if @current_step !== 2, do: "hidden", else: "flex flex-col space-y-3"
+            }>
               <.header class="text-left">Additional Questions</.header>
               <.inputs_for :let={rf} field={@form[:registration_form]}>
                 <.input
@@ -189,7 +229,13 @@ defmodule YscWeb.UserRegistrationLive do
                   field={rf[:most_connected_nordic_country]}
                   label="To which one Nordic/Scandinavian country do you feel the most connected?*"
                   type="select"
-                  options={[Sweden: "SE", Norway: "NO", Finland: "FI", Iceland: "IS", Denmark: "DK"]}
+                  options={[
+                    Sweden: "SE",
+                    Norway: "NO",
+                    Finland: "FI",
+                    Iceland: "IS",
+                    Denmark: "DK"
+                  ]}
                   required
                 />
                 <.input
@@ -230,7 +276,10 @@ defmodule YscWeb.UserRegistrationLive do
               </.inputs_for>
             </div>
 
-            <div id="registration-actions" class="flex flex-row justify-between py-6">
+            <div
+              id="registration-actions"
+              class="flex flex-row justify-between py-6"
+            >
               <div>
                 <div :if={@current_step > 0}>
                   <button
@@ -238,7 +287,8 @@ defmodule YscWeb.UserRegistrationLive do
                     class="rounded hover:bg-zinc-100 py-2 px-3 transition duration-200 ease-in-out text-sm font-semibold leading-6 text-zinc-800 active:text-zinc-800/80"
                     phx-click="prev-step"
                   >
-                    <.icon name="hero-arrow-left-solid" class="w-4 h-4" /> Previous step
+                    <.icon name="hero-arrow-left-solid" class="w-4 h-4" />
+                    Previous step
                   </button>
                 </div>
               </div>
@@ -266,7 +316,8 @@ defmodule YscWeb.UserRegistrationLive do
                       )
                     }
                   >
-                    Next Step <.icon name="hero-arrow-right-solid" class="w-4 h-4" />
+                    Next Step
+                    <.icon name="hero-arrow-right-solid" class="w-4 h-4" />
                   </button>
                 </div>
 
@@ -296,7 +347,8 @@ defmodule YscWeb.UserRegistrationLive do
         v -> v
       end
 
-    browser_timezone = connect_params |> Map.get("timezone", "America/Los_Angeles")
+    browser_timezone =
+      connect_params |> Map.get("timezone", "America/Los_Angeles")
 
     application_changeset =
       SignupApplication.application_changeset(
@@ -357,7 +409,10 @@ defmodule YscWeb.UserRegistrationLive do
       user_params
       |> Map.replace("registration_form", reg_form_updated)
       |> Map.put("family_members", filtered_family_members)
-      |> Map.put("most_connected_country", reg_form_updated["most_connected_nordic_country"])
+      |> Map.put(
+        "most_connected_country",
+        reg_form_updated["most_connected_nordic_country"]
+      )
 
     case Accounts.register_user(updated_user_params) do
       {:ok, user} ->
@@ -375,7 +430,8 @@ defmodule YscWeb.UserRegistrationLive do
                 Timex.now("America/Los_Angeles"),
                 "{Mshort} {D}, {YYYY} at {h12}:{m} {AM}"
               ),
-            review_url: YscWeb.Endpoint.url() <> "/admin/users/#{user.id}/review"
+            review_url:
+              YscWeb.Endpoint.url() <> "/admin/users/#{user.id}/review"
           }
         )
 
@@ -397,7 +453,8 @@ defmodule YscWeb.UserRegistrationLive do
          |> redirect(to: ~p"/account/setup/#{user.id}?from_signup=true")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, socket |> assign(check_errors: true) |> assign_form(changeset)}
+        {:noreply,
+         socket |> assign(check_errors: true) |> assign_form(changeset)}
     end
   end
 
@@ -447,9 +504,16 @@ defmodule YscWeb.UserRegistrationLive do
 
     new_step =
       case int_step do
-        1 -> if assigns.step_0_invalid, do: current_step, else: int_step
-        2 -> if assigns.step_0_invalid || assigns.step_1_invalid, do: current_step, else: int_step
-        _ -> int_step
+        1 ->
+          if assigns.step_0_invalid, do: current_step, else: int_step
+
+        2 ->
+          if assigns.step_0_invalid || assigns.step_1_invalid,
+            do: current_step,
+            else: int_step
+
+        _ ->
+          int_step
       end
 
     {:noreply, socket |> assign(:current_step, new_step)}
@@ -476,7 +540,8 @@ defmodule YscWeb.UserRegistrationLive do
     # Step 0: membership_type and membership_eligibility
     has_step_0 =
       (reg_form["membership_type"] && reg_form["membership_type"] != "") ||
-        (reg_form["membership_eligibility"] && reg_form["membership_eligibility"] != [])
+        (reg_form["membership_eligibility"] &&
+           reg_form["membership_eligibility"] != [])
 
     # Step 1: user fields and address fields
     has_step_1 =
@@ -524,7 +589,12 @@ defmodule YscWeb.UserRegistrationLive do
 
     step_2_invalid =
       Enum.any?(Keyword.keys(reg_form_errors), fn k ->
-        k in [:place_of_birth, :citizenship, :most_connected_nordic_country, :agreed_to_bylaws]
+        k in [
+          :place_of_birth,
+          :citizenship,
+          :most_connected_nordic_country,
+          :agreed_to_bylaws
+        ]
       end)
 
     socket
@@ -533,7 +603,12 @@ defmodule YscWeb.UserRegistrationLive do
     |> assign(:step_2_invalid, step_2_invalid)
   end
 
-  defp disable_next_button(current_step, step_0_invalid, step_1_invalid, step_2_invalid) do
+  defp disable_next_button(
+         current_step,
+         step_0_invalid,
+         step_1_invalid,
+         step_2_invalid
+       ) do
     case current_step do
       0 -> step_0_invalid
       1 -> step_1_invalid
@@ -552,7 +627,9 @@ defmodule YscWeb.UserRegistrationLive do
             [] ->
               # Add empty family member to existing changes using put_assoc
               # This preserves the validation state and errors
-              Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
+              Ecto.Changeset.put_assoc(changeset, :family_members, [
+                %FamilyMember{}
+              ])
 
             _ ->
               changeset
@@ -562,7 +639,9 @@ defmodule YscWeb.UserRegistrationLive do
         Ecto.assoc_loaded?(changeset.data.family_members) ->
           case Changeset.get_field(changeset, :family_members) do
             [] ->
-              Ecto.Changeset.put_assoc(changeset, :family_members, [%FamilyMember{}])
+              Ecto.Changeset.put_assoc(changeset, :family_members, [
+                %FamilyMember{}
+              ])
 
             _ ->
               changeset

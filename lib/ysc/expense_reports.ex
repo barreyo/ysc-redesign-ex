@@ -16,7 +16,12 @@ defmodule Ysc.ExpenseReports do
   }
 
   alias Ysc.S3Config
-  alias YscWeb.Emails.{Notifier, ExpenseReportConfirmation, ExpenseReportTreasurerNotification}
+
+  alias YscWeb.Emails.{
+    Notifier,
+    ExpenseReportConfirmation,
+    ExpenseReportTreasurerNotification
+  }
 
   # Expense Reports
 
@@ -95,7 +100,10 @@ defmodule Ysc.ExpenseReports do
 
         struct ->
           receipt_path = Map.get(struct, :receipt_s3_path)
-          Logger.debug("Expense item #{idx} - struct, receipt: #{inspect(receipt_path)}")
+
+          Logger.debug(
+            "Expense item #{idx} - struct, receipt: #{inspect(receipt_path)}"
+          )
       end
     end)
 
@@ -129,7 +137,8 @@ defmodule Ysc.ExpenseReports do
     case result do
       {:ok, expense_report} ->
         if expense_report.status == "submitted" do
-          Logger.debug("Expense report created with submitted status, enqueueing QuickBooks sync",
+          Logger.debug(
+            "Expense report created with submitted status, enqueueing QuickBooks sync",
             expense_report_id: expense_report.id
           )
 
@@ -296,7 +305,8 @@ defmodule Ysc.ExpenseReports do
               error: inspect(reason)
             )
 
-            Sentry.capture_message("Failed to enqueue QuickBooks sync for expense report",
+            Sentry.capture_message(
+              "Failed to enqueue QuickBooks sync for expense report",
               level: :error,
               extra: %{
                 expense_report_id: expense_report.id,
@@ -339,7 +349,8 @@ defmodule Ysc.ExpenseReports do
              :address
            ]) do
         nil ->
-          Logger.error("Expense report not found in database when sending emails",
+          Logger.error(
+            "Expense report not found in database when sending emails",
             expense_report_id: expense_report.id
           )
 
@@ -372,9 +383,11 @@ defmodule Ysc.ExpenseReports do
 
     # Send confirmation email to user
     try do
-      Logger.info("send_expense_report_emails_impl: Preparing confirmation email data",
+      Logger.info(
+        "send_expense_report_emails_impl: Preparing confirmation email data",
         expense_report_id: expense_report.id,
-        user_email: if(expense_report.user, do: expense_report.user.email, else: nil)
+        user_email:
+          if(expense_report.user, do: expense_report.user.email, else: nil)
       )
 
       email_data = ExpenseReportConfirmation.prepare_email_data(expense_report)
@@ -402,7 +415,8 @@ defmodule Ysc.ExpenseReports do
 
       template_name = ExpenseReportConfirmation.get_template_name()
 
-      Logger.info("send_expense_report_emails_impl: Calling Notifier.schedule_email",
+      Logger.info(
+        "send_expense_report_emails_impl: Calling Notifier.schedule_email",
         expense_report_id: expense_report.id,
         recipient: expense_report.user.email,
         subject: subject,
@@ -452,8 +466,10 @@ defmodule Ysc.ExpenseReports do
           exception_message: exception_message,
           exception: inspect(e, limit: :infinity),
           stacktrace: stacktrace,
-          user_email: if(expense_report.user, do: expense_report.user.email, else: nil),
-          user_id: if(expense_report.user, do: expense_report.user.id, else: nil)
+          user_email:
+            if(expense_report.user, do: expense_report.user.email, else: nil),
+          user_id:
+            if(expense_report.user, do: expense_report.user.id, else: nil)
         )
     end
 
@@ -464,7 +480,9 @@ defmodule Ysc.ExpenseReports do
       )
 
       treasurer =
-        from(u in User, where: u.board_position == "treasurer" and u.state == :active)
+        from(u in User,
+          where: u.board_position == "treasurer" and u.state == :active
+        )
         |> Repo.one()
 
       Logger.info("send_expense_report_emails_impl: Treasurer query result",
@@ -481,9 +499,11 @@ defmodule Ysc.ExpenseReports do
           treasurer_email: treasurer.email
         )
 
-        email_data = ExpenseReportTreasurerNotification.prepare_email_data(expense_report)
+        email_data =
+          ExpenseReportTreasurerNotification.prepare_email_data(expense_report)
 
-        Logger.info("send_expense_report_emails_impl: Treasurer email data prepared",
+        Logger.info(
+          "send_expense_report_emails_impl: Treasurer email data prepared",
           expense_report_id: expense_report.id,
           email_data_keys: Map.keys(email_data),
           email_data_expense_report_keys:
@@ -492,11 +512,17 @@ defmodule Ysc.ExpenseReports do
               else: :not_present
             ),
           email_data_user_keys:
-            if(Map.has_key?(email_data, :user), do: Map.keys(email_data.user), else: :not_present)
+            if(Map.has_key?(email_data, :user),
+              do: Map.keys(email_data.user),
+              else: :not_present
+            )
         )
 
         subject = ExpenseReportTreasurerNotification.get_subject()
-        idempotency_key = "expense_report_treasurer_notification_#{expense_report.id}"
+
+        idempotency_key =
+          "expense_report_treasurer_notification_#{expense_report.id}"
+
         template_name = ExpenseReportTreasurerNotification.get_template_name()
 
         Logger.info(
@@ -525,20 +551,23 @@ defmodule Ysc.ExpenseReports do
 
         case result do
           {:error, _reason} ->
-            Logger.warning("Failed to schedule expense report treasurer notification email",
+            Logger.warning(
+              "Failed to schedule expense report treasurer notification email",
               expense_report_id: expense_report.id,
               recipient: treasurer.email,
               result: inspect(result, limit: 100)
             )
 
           _ ->
-            Logger.debug("Scheduled expense report treasurer notification email",
+            Logger.debug(
+              "Scheduled expense report treasurer notification email",
               expense_report_id: expense_report.id,
               recipient: treasurer.email
             )
         end
       else
-        Logger.warning("No active treasurer found, skipping treasurer notification email",
+        Logger.warning(
+          "No active treasurer found, skipping treasurer notification email",
           expense_report_id: expense_report.id
         )
       end
@@ -842,7 +871,8 @@ defmodule Ysc.ExpenseReports do
   # LiveView uploads have format: receipts/TIMESTAMP_filename
   defp recently_uploaded_file?(s3_path) do
     # Extract timestamp from path like "receipts/1767121378_filename" or "receipts/1767121378_live_view_upload-..."
-    case Regex.run(~r/receipts\/(\d+)_/, s3_path) || Regex.run(~r/proofs\/(\d+)_/, s3_path) do
+    case Regex.run(~r/receipts\/(\d+)_/, s3_path) ||
+           Regex.run(~r/proofs\/(\d+)_/, s3_path) do
       [_full_match, timestamp_str] ->
         case Integer.parse(timestamp_str) do
           {timestamp, _} ->
@@ -888,7 +918,8 @@ defmodule Ysc.ExpenseReports do
   defp validate_and_send_expense_report_emails(loaded_report) do
     # Validate that we have required associations
     if is_nil(loaded_report.user) do
-      Logger.error("Cannot send emails: expense report missing user association",
+      Logger.error(
+        "Cannot send emails: expense report missing user association",
         expense_report_id: loaded_report.id
       )
 

@@ -21,7 +21,9 @@ defmodule Ysc.Bookings.RefundPolicyRule do
     field :description, :string
     field :priority, :integer, default: 0
 
-    belongs_to :refund_policy, RefundPolicy, foreign_key: :refund_policy_id, references: :id
+    belongs_to :refund_policy, RefundPolicy,
+      foreign_key: :refund_policy_id,
+      references: :id
 
     timestamps()
   end
@@ -38,7 +40,11 @@ defmodule Ysc.Bookings.RefundPolicyRule do
       :priority,
       :refund_policy_id
     ])
-    |> validate_required([:days_before_checkin, :refund_percentage, :refund_policy_id])
+    |> validate_required([
+      :days_before_checkin,
+      :refund_percentage,
+      :refund_policy_id
+    ])
     |> validate_number(:days_before_checkin, greater_than_or_equal_to: 0)
     |> validate_number(:refund_percentage,
       greater_than_or_equal_to: 0,

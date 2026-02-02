@@ -31,7 +31,10 @@ defmodule YscWeb.EventDetailsLive.UrlRestorationTest do
   end
 
   describe "restore checkout state from URL" do
-    test "restores pending order with valid URL parameters", %{conn: conn, user: user} do
+    test "restores pending order with valid URL parameters", %{
+      conn: conn,
+      user: user
+    } do
       event = event_with_tickets(tier_count: 1, state: :upcoming)
       event = Repo.preload(event, :ticket_tiers, force: true)
       tier = hd(event.ticket_tiers)
@@ -50,7 +53,8 @@ defmodule YscWeb.EventDetailsLive.UrlRestorationTest do
         |> Repo.insert()
 
       # Create payment intent for this order
-      payment_intent = build_payment_intent(%{amount: money_to_cents(tier.price)})
+      payment_intent =
+        build_payment_intent(%{amount: money_to_cents(tier.price)})
 
       {:ok, order} =
         order
@@ -173,10 +177,11 @@ defmodule YscWeb.EventDetailsLive.UrlRestorationTest do
       assert is_binary(html)
     end
 
-    test "restores order with payment intent in requires_payment_method status", %{
-      conn: conn,
-      user: user
-    } do
+    test "restores order with payment intent in requires_payment_method status",
+         %{
+           conn: conn,
+           user: user
+         } do
       event = event_with_tickets(tier_count: 1, state: :upcoming)
       event = Repo.preload(event, :ticket_tiers, force: true)
       tier = hd(event.ticket_tiers)
@@ -250,7 +255,10 @@ defmodule YscWeb.EventDetailsLive.UrlRestorationTest do
   end
 
   describe "payment return from Stripe" do
-    test "handles payment_intent parameter after successful payment", %{conn: conn, user: user} do
+    test "handles payment_intent parameter after successful payment", %{
+      conn: conn,
+      user: user
+    } do
       event = event_with_tickets(tier_count: 1, state: :upcoming)
       event = Repo.preload(event, :ticket_tiers, force: true)
       tier = hd(event.ticket_tiers)
@@ -279,7 +287,9 @@ defmodule YscWeb.EventDetailsLive.UrlRestorationTest do
       end)
 
       # Simulate return from Stripe with payment_intent parameter
-      url = ~p"/events/#{event.id}?payment_intent=#{payment_intent.id}&order_id=#{order.id}"
+      url =
+        ~p"/events/#{event.id}?payment_intent=#{payment_intent.id}&order_id=#{order.id}"
+
       {:ok, view, _html} = live(conn, url)
       :timer.sleep(500)
 
@@ -287,7 +297,10 @@ defmodule YscWeb.EventDetailsLive.UrlRestorationTest do
       assert is_binary(html)
     end
 
-    test "handles payment_intent_client_secret parameter", %{conn: conn, user: user} do
+    test "handles payment_intent_client_secret parameter", %{
+      conn: conn,
+      user: user
+    } do
       event = event_with_tickets(tier_count: 1, state: :upcoming)
       event = Repo.preload(event, :ticket_tiers, force: true)
       tier = hd(event.ticket_tiers)
@@ -326,7 +339,10 @@ defmodule YscWeb.EventDetailsLive.UrlRestorationTest do
       assert is_binary(html)
     end
 
-    test "handles redirect_status=succeeded parameter", %{conn: conn, user: user} do
+    test "handles redirect_status=succeeded parameter", %{
+      conn: conn,
+      user: user
+    } do
       event = event_with_tickets(tier_count: 1, state: :upcoming)
       event = Repo.preload(event, :ticket_tiers, force: true)
       tier = hd(event.ticket_tiers)

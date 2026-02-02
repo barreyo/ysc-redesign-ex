@@ -62,7 +62,8 @@ if config_env() == :prod do
       For example: ecto://USER:PASS@HOST/DATABASE
       """
 
-  maybe_ipv6 = if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
+  maybe_ipv6 =
+    if System.get_env("ECTO_IPV6") in ~w(true 1), do: [:inet6], else: []
 
   config :ysc, Ysc.Repo,
     # ssl: true,
@@ -202,7 +203,8 @@ if config_env() == :prod do
           trial_period_days: 0,
           stripe_price_id: nil,
           statement_descriptor: "Lifetime Membership",
-          description: "Lifetime membership with all Family membership perks - never expires",
+          description:
+            "Lifetime membership with all Family membership perks - never expires",
           metadata: %{
             "plan_type" => "membership",
             "interval" => "lifetime"
@@ -271,10 +273,13 @@ if config_env() == :prod do
   #
   # Configure Swoosh to use Amazon SES for sending emails in production.
   # The adapter expects `access_key` and `secret` (not `access_key_id` and `secret_access_key`).
-  ses_access_key = System.get_env("SES_AWS_ACCESS_KEY_ID") || System.get_env("AWS_ACCESS_KEY_ID")
+  ses_access_key =
+    System.get_env("SES_AWS_ACCESS_KEY_ID") ||
+      System.get_env("AWS_ACCESS_KEY_ID")
 
   ses_secret_key =
-    System.get_env("SES_AWS_SECRET_ACCESS_KEY") || System.get_env("AWS_SECRET_ACCESS_KEY")
+    System.get_env("SES_AWS_SECRET_ACCESS_KEY") ||
+      System.get_env("AWS_SECRET_ACCESS_KEY")
 
   if ses_access_key && ses_secret_key do
     config :ysc, Ysc.Mailer,
@@ -299,10 +304,13 @@ if config_env() == :prod do
   # If AWS_ENDPOINT_URL_S3 is not set, defaults to Tigris endpoint.
   s3_bucket = System.get_env("BUCKET_NAME") || "media"
   s3_region = System.get_env("AWS_REGION") || "auto"
-  s3_base_url = System.get_env("AWS_ENDPOINT_URL_S3") || "https://fly.storage.tigris.dev"
+
+  s3_base_url =
+    System.get_env("AWS_ENDPOINT_URL_S3") || "https://fly.storage.tigris.dev"
 
   # Store S3 config for application use
-  expense_reports_bucket = System.get_env("EXPENSE_REPORTS_BUCKET_NAME") || "expense-reports"
+  expense_reports_bucket =
+    System.get_env("EXPENSE_REPORTS_BUCKET_NAME") || "expense-reports"
 
   config :ysc,
     s3_bucket: s3_bucket,
@@ -342,6 +350,7 @@ if config_env() == :prod do
       # Production - use Tigris endpoint
       true ->
         uri = URI.parse(s3_base_url)
+
         # Extract hostname (e.g., "fly.storage.tigris.dev" from "https://fly.storage.tigris.dev")
         host = uri.host || "fly.storage.tigris.dev"
 
@@ -411,7 +420,11 @@ if config_env() == :prod do
     client_secret: System.get_env("QUICKBOOKS_CLIENT_SECRET"),
     company_id: System.get_env("QUICKBOOKS_COMPANY_ID"),
     webhook_verifier_token: System.get_env("QUICKBOOKS_WEBHOOK_VERIFIER_TOKEN"),
-    url: System.get_env("QUICKBOOKS_BASE_URL", "https://sandbox-quickbooks.api.intuit.com/v3"),
+    url:
+      System.get_env(
+        "QUICKBOOKS_BASE_URL",
+        "https://sandbox-quickbooks.api.intuit.com/v3"
+      ),
     app_id: System.get_env("QUICKBOOKS_APP_ID"),
     access_token: System.get_env("QUICKBOOKS_ACCESS_TOKEN"),
     refresh_token: System.get_env("QUICKBOOKS_REFRESH_TOKEN"),
@@ -420,10 +433,13 @@ if config_env() == :prod do
     event_item_id: System.get_env("QUICKBOOKS_EVENT_ITEM_ID"),
     donation_item_id: System.get_env("QUICKBOOKS_DONATION_ITEM_ID"),
     tahoe_booking_item_id: System.get_env("QUICKBOOKS_TAHOE_BOOKING_ITEM_ID"),
-    clear_lake_booking_item_id: System.get_env("QUICKBOOKS_CLEAR_LAKE_BOOKING_ITEM_ID"),
+    clear_lake_booking_item_id:
+      System.get_env("QUICKBOOKS_CLEAR_LAKE_BOOKING_ITEM_ID"),
     membership_item_id: System.get_env("QUICKBOOKS_MEMBERSHIP_ITEM_ID"),
-    single_membership_item_id: System.get_env("QUICKBOOKS_SINGLE_MEMBERSHIP_ITEM_ID"),
-    family_membership_item_id: System.get_env("QUICKBOOKS_FAMILY_MEMBERSHIP_ITEM_ID"),
+    single_membership_item_id:
+      System.get_env("QUICKBOOKS_SINGLE_MEMBERSHIP_ITEM_ID"),
+    family_membership_item_id:
+      System.get_env("QUICKBOOKS_FAMILY_MEMBERSHIP_ITEM_ID"),
     default_item_id: System.get_env("QUICKBOOKS_DEFAULT_ITEM_ID"),
     stripe_fee_item_id: System.get_env("QUICKBOOKS_STRIPE_FEE_ITEM_ID"),
     # QuickBooks Account IDs (required - cannot be auto-created)

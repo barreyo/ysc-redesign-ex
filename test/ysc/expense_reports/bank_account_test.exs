@@ -52,6 +52,7 @@ defmodule Ysc.ExpenseReports.BankAccountTest do
           })
 
         refute changeset.valid?
+
         # Check that routing_number has an error (may be checksum or format error)
         assert has_error?(changeset, :routing_number)
       end
@@ -246,7 +247,9 @@ defmodule Ysc.ExpenseReports.BankAccountTest do
         })
 
       assert changeset.valid?
-      assert Ecto.Changeset.get_change(changeset, :account_number_last_4) == "7890"
+
+      assert Ecto.Changeset.get_change(changeset, :account_number_last_4) ==
+               "7890"
     end
   end
 

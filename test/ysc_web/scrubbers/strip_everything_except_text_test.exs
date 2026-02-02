@@ -34,8 +34,10 @@ defmodule YscWeb.Scrubber.StripEverythingExceptTextTest do
       html = "<div><strong>Bold</strong> and <em>italic</em> text<br></div>"
       result = Scrubber.scrub(html, StripEverythingExceptText)
       # HTML sanitizer may normalize br tags
-      assert result == "<div><strong>Bold</strong> and <em>italic</em> text<br></div>" or
-               result == "<div><strong>Bold</strong> and <em>italic</em> text<br /></div>"
+      assert result ==
+               "<div><strong>Bold</strong> and <em>italic</em> text<br></div>" or
+               result ==
+                 "<div><strong>Bold</strong> and <em>italic</em> text<br /></div>"
     end
 
     test "strips script tags but preserves content as text" do
@@ -56,7 +58,8 @@ defmodule YscWeb.Scrubber.StripEverythingExceptTextTest do
       html = "<div>Content</div><img src='image.jpg' alt='test'>"
       result = Scrubber.scrub(html, StripEverythingExceptText)
       # Img tags are stripped (they have no text content)
-      assert result == "<div>Content</div>" or String.contains?(result, "<div>Content</div>")
+      assert result == "<div>Content</div>" or
+               String.contains?(result, "<div>Content</div>")
     end
 
     test "strips anchor tags but preserves text" do

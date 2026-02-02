@@ -21,7 +21,11 @@ defmodule Ysc.Events.Ticket do
     field :reference_id, :string
 
     belongs_to :event, Ysc.Events.Event, foreign_key: :event_id, references: :id
-    belongs_to :ticket_tier, Ysc.Events.TicketTier, foreign_key: :ticket_tier_id, references: :id
+
+    belongs_to :ticket_tier, Ysc.Events.TicketTier,
+      foreign_key: :ticket_tier_id,
+      references: :id
+
     belongs_to :user, Ysc.Accounts.User, foreign_key: :user_id, references: :id
 
     belongs_to :ticket_order, Ysc.Tickets.TicketOrder,
@@ -30,7 +34,9 @@ defmodule Ysc.Events.Ticket do
 
     field :status, Ysc.Events.TicketStatus
 
-    belongs_to :payment, Ysc.Ledgers.Payment, foreign_key: :payment_id, references: :id
+    belongs_to :payment, Ysc.Ledgers.Payment,
+      foreign_key: :payment_id,
+      references: :id
 
     field :expires_at, :utc_datetime
     field :discount_amount, Money.Ecto.Composite.Type, default_currency: :USD

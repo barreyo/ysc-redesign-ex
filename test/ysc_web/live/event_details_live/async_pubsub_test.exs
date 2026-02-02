@@ -33,7 +33,9 @@ defmodule YscWeb.EventDetailsLive.AsyncPubsubTest do
   end
 
   describe "async ticket operations" do
-    test "handles async ticket selection and updates availability", %{conn: conn} do
+    test "handles async ticket selection and updates availability", %{
+      conn: conn
+    } do
       event = event_with_tickets(tier_count: 1, state: :upcoming)
       event = Repo.preload(event, :ticket_tiers, force: true)
       tier = hd(event.ticket_tiers)
@@ -79,9 +81,18 @@ defmodule YscWeb.EventDetailsLive.AsyncPubsubTest do
       :timer.sleep(100)
 
       # Change donation amounts
-      render_click(view, "set-donation-amount", %{"tier-id" => tier.id, "amount" => "25"})
+      render_click(view, "set-donation-amount", %{
+        "tier-id" => tier.id,
+        "amount" => "25"
+      })
+
       :timer.sleep(100)
-      render_click(view, "set-donation-amount", %{"tier-id" => tier.id, "amount" => "50"})
+
+      render_click(view, "set-donation-amount", %{
+        "tier-id" => tier.id,
+        "amount" => "50"
+      })
+
       :timer.sleep(200)
 
       html = render(view)
@@ -90,7 +101,9 @@ defmodule YscWeb.EventDetailsLive.AsyncPubsubTest do
   end
 
   describe "PubSub ticket availability events" do
-    test "receives ticket availability updates from other sessions", %{conn: conn} do
+    test "receives ticket availability updates from other sessions", %{
+      conn: conn
+    } do
       event = event_with_tickets(tier_count: 1, state: :upcoming)
       event = Repo.preload(event, :ticket_tiers, force: true)
       _tier = hd(event.ticket_tiers)
@@ -189,7 +202,9 @@ defmodule YscWeb.EventDetailsLive.AsyncPubsubTest do
         })
         |> Repo.insert()
 
-      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}?order_id=#{order.id}")
+      {:ok, view, _html} =
+        live(conn, ~p"/events/#{event.id}?order_id=#{order.id}")
+
       :timer.sleep(300)
 
       # Broadcast cancellation event
@@ -226,7 +241,9 @@ defmodule YscWeb.EventDetailsLive.AsyncPubsubTest do
         })
         |> Repo.insert()
 
-      {:ok, view, _html} = live(conn, ~p"/events/#{event.id}?order_id=#{order.id}")
+      {:ok, view, _html} =
+        live(conn, ~p"/events/#{event.id}?order_id=#{order.id}")
+
       :timer.sleep(300)
 
       # Broadcast expiration event
@@ -331,7 +348,10 @@ defmodule YscWeb.EventDetailsLive.AsyncPubsubTest do
       {:ok, view, _html} = live(conn, ~p"/events/#{event.id}")
       :timer.sleep(300)
 
-      render_click(view, "increase-ticket-quantity", %{"tier-id" => registration_tier.id})
+      render_click(view, "increase-ticket-quantity", %{
+        "tier-id" => registration_tier.id
+      })
+
       :timer.sleep(200)
 
       html = render(view)

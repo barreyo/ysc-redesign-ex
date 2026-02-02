@@ -228,7 +228,9 @@ defmodule Ysc.Ledgers.LedgerTransactionTest do
       {:ok, transaction} = Repo.insert(changeset)
 
       assert transaction.total_amount == Money.new(10_000_000, :USD)
-      assert Money.to_decimal(transaction.total_amount) == Decimal.new("10000000")
+
+      assert Money.to_decimal(transaction.total_amount) ==
+               Decimal.new("10000000")
     end
 
     test "maintains precision for fractional amounts" do

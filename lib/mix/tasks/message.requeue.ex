@@ -82,7 +82,11 @@ defmodule Mix.Tasks.Message.Requeue do
         Logger.info("  Recipient: #{recipient}")
         Logger.info("  Template: #{template}")
         Logger.info("  Attempt: #{job.attempt}/#{job.max_attempts}")
-        Logger.info("  Failed At: #{format_datetime(job.discarded_at || job.inserted_at)}")
+
+        Logger.info(
+          "  Failed At: #{format_datetime(job.discarded_at || job.inserted_at)}"
+        )
+
         Logger.info("  Created At: #{format_datetime(job.inserted_at)}")
 
         if job.errors && job.errors != [] do
@@ -155,12 +159,19 @@ defmodule Mix.Tasks.Message.Requeue do
       Logger.info("")
 
       if opts[:dry_run] do
-        failed_jobs = Requeue.list_failed_jobs(limit: opts[:limit] || 100, since: opts[:since])
+        failed_jobs =
+          Requeue.list_failed_jobs(
+            limit: opts[:limit] || 100,
+            since: opts[:since]
+          )
 
         Enum.each(failed_jobs, fn job ->
           recipient = get_in(job.args, ["recipient"]) || "unknown"
           template = get_in(job.args, ["template"]) || "unknown"
-          Logger.info("Would re-queue: Job #{job.id} - #{recipient} (#{template})")
+
+          Logger.info(
+            "Would re-queue: Job #{job.id} - #{recipient} (#{template})"
+          )
         end)
       end
 
@@ -198,8 +209,11 @@ defmodule Mix.Tasks.Message.Requeue do
       ["--since", since], acc ->
         since_dt =
           case DateTime.from_iso8601(since) do
-            {:ok, dt, _} -> dt
-            {:error, _} -> raise ArgumentError, "Invalid datetime format: #{since}"
+            {:ok, dt, _} ->
+              dt
+
+            {:error, _} ->
+              raise ArgumentError, "Invalid datetime format: #{since}"
           end
 
         Keyword.put(acc, :since, since_dt)

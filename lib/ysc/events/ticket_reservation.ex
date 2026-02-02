@@ -16,10 +16,16 @@ defmodule Ysc.Events.TicketReservation do
   @timestamps_opts [type: :utc_datetime]
 
   schema "ticket_reservations" do
-    belongs_to :ticket_tier, Ysc.Events.TicketTier, foreign_key: :ticket_tier_id, references: :id
+    belongs_to :ticket_tier, Ysc.Events.TicketTier,
+      foreign_key: :ticket_tier_id,
+      references: :id
+
     belongs_to :user, User, foreign_key: :user_id, references: :id
     belongs_to :created_by, User, foreign_key: :created_by_id, references: :id
-    belongs_to :ticket_order, TicketOrder, foreign_key: :ticket_order_id, references: :id
+
+    belongs_to :ticket_order, TicketOrder,
+      foreign_key: :ticket_order_id,
+      references: :id
 
     field :quantity, :integer
     field :discount_percentage, :decimal
@@ -70,7 +76,11 @@ defmodule Ysc.Events.TicketReservation do
     if status in ["active", "fulfilled", "cancelled"] do
       changeset
     else
-      add_error(changeset, :status, "must be one of: active, fulfilled, cancelled")
+      add_error(
+        changeset,
+        :status,
+        "must be one of: active, fulfilled, cancelled"
+      )
     end
   end
 

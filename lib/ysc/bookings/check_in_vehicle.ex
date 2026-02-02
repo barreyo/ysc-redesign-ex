@@ -16,7 +16,9 @@ defmodule Ysc.Bookings.CheckInVehicle do
     field :color, :string
     field :make, :string
 
-    belongs_to :check_in, Ysc.Bookings.CheckIn, foreign_key: :check_in_id, references: :id
+    belongs_to :check_in, Ysc.Bookings.CheckIn,
+      foreign_key: :check_in_id,
+      references: :id
 
     timestamps(type: :utc_datetime)
   end
