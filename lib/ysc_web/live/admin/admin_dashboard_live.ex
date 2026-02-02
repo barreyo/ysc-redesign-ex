@@ -26,11 +26,16 @@ defmodule YscWeb.AdminDashboardLive do
         <!-- Command Center Header -->
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 py-8 border-b border-zinc-100 mb-8">
           <div>
-            <h1 class="text-3xl font-black text-zinc-900 tracking-tight">Overview</h1>
+            <h1 class="text-3xl font-black text-zinc-900 tracking-tight">
+              Overview
+            </h1>
             <p class="text-xs text-zinc-500 font-medium mt-1 flex items-center gap-2">
               <span class={[
                 "w-2 h-2 rounded-full",
-                if(@loading_dashboard, do: "bg-amber-500 animate-pulse", else: "bg-emerald-500")
+                if(@loading_dashboard,
+                  do: "bg-amber-500 animate-pulse",
+                  else: "bg-emerald-500"
+                )
               ]}>
               </span>
               <%= if @loading_dashboard do %>
@@ -53,7 +58,9 @@ defmodule YscWeb.AdminDashboardLive do
                 Applications
               </p>
               <div class="flex items-baseline gap-2">
-                <p class="text-3xl font-black text-zinc-900"><%= @pending_reviews_count %></p>
+                <p class="text-3xl font-black text-zinc-900">
+                  <%= @pending_reviews_count %>
+                </p>
                 <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded italic">
                   Pending
                 </span>
@@ -61,8 +68,12 @@ defmodule YscWeb.AdminDashboardLive do
             </div>
             <div class="mt-6 pt-4 border-t border-zinc-50 grid grid-cols-2 gap-4">
               <div>
-                <p class="text-[9px] font-bold text-zinc-400 uppercase">This Month</p>
-                <p class="text-sm font-black text-zinc-700"><%= @applications_this_month %></p>
+                <p class="text-[9px] font-bold text-zinc-400 uppercase">
+                  This Month
+                </p>
+                <p class="text-sm font-black text-zinc-700">
+                  <%= @applications_this_month %>
+                </p>
                 <p class="text-[9px] text-zinc-500 mt-0.5">
                   <%= if @applications_last_month > 0 do %>
                     <span class={
@@ -79,11 +90,15 @@ defmodule YscWeb.AdminDashboardLive do
               </div>
               <div>
                 <p class="text-[9px] font-bold text-zinc-400 uppercase">YTD</p>
-                <p class="text-sm font-black text-zinc-700"><%= @applications_this_year %></p>
+                <p class="text-sm font-black text-zinc-700">
+                  <%= @applications_this_year %>
+                </p>
                 <p class="text-[9px] text-zinc-500 mt-0.5">
                   <%= if @applications_last_year > 0 do %>
                     <span class={
-                      if @applications_year_change >= 0, do: "text-emerald-600", else: "text-rose-600"
+                      if @applications_year_change >= 0,
+                        do: "text-emerald-600",
+                        else: "text-rose-600"
                     }>
                       <%= if @applications_year_change >= 0, do: "+", else: "" %><%= @applications_year_change %>%
                     </span>
@@ -118,7 +133,9 @@ defmodule YscWeb.AdminDashboardLive do
             </div>
             <div class="mt-6 pt-4 border-t border-zinc-50 grid grid-cols-2 gap-4">
               <div>
-                <p class="text-[9px] font-bold text-zinc-400 uppercase">vs Last Month</p>
+                <p class="text-[9px] font-bold text-zinc-400 uppercase">
+                  vs Last Month
+                </p>
                 <p class="text-sm font-bold text-zinc-500">
                   <%= format_money(@last_month_revenue) %>
                 </p>
@@ -193,8 +210,12 @@ defmodule YscWeb.AdminDashboardLive do
               <p class="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-3">
                 Active Now
               </p>
-              <p class="text-3xl font-black text-zinc-900"><%= @active_guests_count %></p>
-              <p class="text-xs text-zinc-500 mt-1 font-medium">Guests across properties</p>
+              <p class="text-3xl font-black text-zinc-900">
+                <%= @active_guests_count %>
+              </p>
+              <p class="text-xs text-zinc-500 mt-1 font-medium">
+                Guests across properties
+              </p>
             </div>
             <div class="mt-6 flex -space-x-2 overflow-hidden">
               <div :for={user <- @active_guests_sample} class="relative">
@@ -240,7 +261,10 @@ defmodule YscWeb.AdminDashboardLive do
                 :if={Enum.empty?(@pending_users)}
                 class="text-center py-10 border-2 border-dashed border-zinc-100 rounded"
               >
-                <.icon name="hero-check-circle" class="w-8 h-8 text-zinc-200 mx-auto mb-2" />
+                <.icon
+                  name="hero-check-circle"
+                  class="w-8 h-8 text-zinc-200 mx-auto mb-2"
+                />
                 <p class="text-sm text-zinc-400">No pending applications</p>
               </div>
 
@@ -290,7 +314,10 @@ defmodule YscWeb.AdminDashboardLive do
                         <%= get_membership_type_display(user) %>
                       </p>
                     </div>
-                    <.button phx-click="navigate-to-review" phx-value-user-id={user.id}>
+                    <.button
+                      phx-click="navigate-to-review"
+                      phx-value-user-id={user.id}
+                    >
                       <%= get_review_button_text(user) %>
                     </.button>
                   </div>
@@ -299,12 +326,17 @@ defmodule YscWeb.AdminDashboardLive do
             </div>
             <!-- Recent Discussions Section -->
             <div class="bg-white rounded shadow-sm border border-zinc-200 p-8">
-              <h3 class="text-lg font-black text-zinc-900 tracking-tight mb-6">Recent Discussions</h3>
+              <h3 class="text-lg font-black text-zinc-900 tracking-tight mb-6">
+                Recent Discussions
+              </h3>
               <div
                 :if={Enum.empty?(@latest_comments)}
                 class="text-center py-10 border-2 border-dashed border-zinc-100 rounded"
               >
-                <.icon name="hero-chat-bubble-left-right" class="w-8 h-8 text-zinc-200 mx-auto mb-2" />
+                <.icon
+                  name="hero-chat-bubble-left-right"
+                  class="w-8 h-8 text-zinc-200 mx-auto mb-2"
+                />
                 <p class="text-sm text-zinc-400">No new comments to moderate</p>
               </div>
               <ul :if={not Enum.empty?(@latest_comments)} class="space-y-4">
@@ -315,7 +347,9 @@ defmodule YscWeb.AdminDashboardLive do
                   <div class="flex justify-between items-start mb-2">
                     <div class="flex-1">
                       <.link
-                        navigate={~p"/posts/#{comment.post.url_name || comment.post.id}"}
+                        navigate={
+                          ~p"/posts/#{comment.post.url_name || comment.post.id}"
+                        }
                         class="text-sm font-semibold text-zinc-800 hover:text-blue-600"
                       >
                         <%= comment.post.title %>
@@ -333,7 +367,10 @@ defmodule YscWeb.AdminDashboardLive do
                       </span>
                     </span>
                     <span>
-                      <%= Timex.format!(comment.inserted_at, "{YYYY}-{0M}-{0D} {h12}:{m} {AM}") %>
+                      <%= Timex.format!(
+                        comment.inserted_at,
+                        "{YYYY}-{0M}-{0D} {h12}:{m} {AM}"
+                      ) %>
                     </span>
                   </div>
                 </li>
@@ -344,7 +381,9 @@ defmodule YscWeb.AdminDashboardLive do
           <section class="lg:col-span-1">
             <div class="sticky top-24 bg-white rounded shadow-sm border border-zinc-200 p-8 h-fit">
               <div class="flex items-center justify-between mb-8 border-b border-zinc-50 pb-4">
-                <h2 class="text-xl font-black text-zinc-900 tracking-tight">Ticket Sales</h2>
+                <h2 class="text-xl font-black text-zinc-900 tracking-tight">
+                  Ticket Sales
+                </h2>
                 <.link
                   navigate={~p"/admin/events"}
                   class="text-[10px] font-black text-teal-600 underline"
@@ -357,12 +396,17 @@ defmodule YscWeb.AdminDashboardLive do
                 :if={Enum.empty?(@events_with_tickets)}
                 class="text-center py-10 border-2 border-dashed border-zinc-100 rounded"
               >
-                <.icon name="hero-calendar" class="w-8 h-8 text-zinc-200 mx-auto mb-2" />
+                <.icon
+                  name="hero-calendar"
+                  class="w-8 h-8 text-zinc-200 mx-auto mb-2"
+                />
                 <p class="text-sm text-zinc-400">No upcoming events</p>
               </div>
 
               <div :if={not Enum.empty?(@events_with_tickets)} class="space-y-10">
-                <div :for={%{event: event, ticket_tiers: tiers} <- @events_with_tickets}>
+                <div :for={
+                  %{event: event, ticket_tiers: tiers} <- @events_with_tickets
+                }>
                   <div class="flex justify-between items-start mb-4 group">
                     <.link
                       navigate={~p"/events/#{event.id}"}
@@ -468,13 +512,15 @@ defmodule YscWeb.AdminDashboardLive do
     # Optimize revenue calculations by fetching accounts once and combining queries
     {current_revenue, revenue_change_text, revenue_change_direction, last_month_revenue,
      last_year_month_revenue, revenue_bookings, revenue_events, revenue_membership,
-     revenue_mix_bookings_percent, revenue_mix_events_percent, revenue_mix_membership_percent} =
+     revenue_mix_bookings_percent, revenue_mix_events_percent,
+     revenue_mix_membership_percent} =
       calculate_all_revenue_stats()
 
     next_event_date = get_next_event_date(events_with_tickets)
 
     {applications_this_month, applications_this_year, applications_last_month,
-     applications_last_year, applications_month_change, applications_year_change} =
+     applications_last_year, applications_month_change,
+     applications_year_change} =
       get_application_statistics()
 
     {active_guests_count, active_guests_sample} = get_active_guests()
@@ -593,7 +639,9 @@ defmodule YscWeb.AdminDashboardLive do
 
     # Start of last year (same month)
     last_year_month_start = Timex.shift(month_start, years: -1)
-    last_year_month_end = Timex.shift(month_start, years: -1) |> Timex.shift(months: 1)
+
+    last_year_month_end =
+      Timex.shift(month_start, years: -1) |> Timex.shift(months: 1)
 
     # Count applications last year (same month)
     applications_last_year =
@@ -607,20 +655,27 @@ defmodule YscWeb.AdminDashboardLive do
     # Calculate percentage changes
     applications_month_change =
       if applications_last_month > 0 do
-        round((applications_this_month - applications_last_month) / applications_last_month * 100)
+        round(
+          (applications_this_month - applications_last_month) /
+            applications_last_month * 100
+        )
       else
         0
       end
 
     applications_year_change =
       if applications_last_year > 0 do
-        round((applications_this_year - applications_last_year) / applications_last_year * 100)
+        round(
+          (applications_this_year - applications_last_year) /
+            applications_last_year * 100
+        )
       else
         0
       end
 
     {applications_this_month, applications_this_year, applications_last_month,
-     applications_last_year, applications_month_change, applications_year_change}
+     applications_last_year, applications_month_change,
+     applications_year_change}
   end
 
   defp get_status_pillar_color(user) do
@@ -786,7 +841,9 @@ defmodule YscWeb.AdminDashboardLive do
 
     # Get same month last year
     last_year_month_start = Timex.shift(month_start, years: -1)
-    last_year_month_end = Timex.shift(month_start, years: -1) |> Timex.shift(months: 1)
+
+    last_year_month_end =
+      Timex.shift(month_start, years: -1) |> Timex.shift(months: 1)
 
     # Fetch all revenue accounts in a single query
     revenue_account_names = [
@@ -813,10 +870,13 @@ defmodule YscWeb.AdminDashboardLive do
       |> Enum.filter(&(&1 != nil))
       |> Enum.map(& &1.id)
 
-    events_account_id = if accounts["event_revenue"], do: accounts["event_revenue"].id, else: nil
+    events_account_id =
+      if accounts["event_revenue"], do: accounts["event_revenue"].id, else: nil
 
     membership_account_id =
-      if accounts["membership_revenue"], do: accounts["membership_revenue"].id, else: nil
+      if accounts["membership_revenue"],
+        do: accounts["membership_revenue"].id,
+        else: nil
 
     all_revenue_account_ids = Map.values(accounts) |> Enum.map(& &1.id)
 
@@ -829,7 +889,8 @@ defmodule YscWeb.AdminDashboardLive do
         where:
           (e.inserted_at >= ^month_start and e.inserted_at < ^now) or
             (e.inserted_at >= ^prev_month_start and e.inserted_at < ^month_start) or
-            (e.inserted_at >= ^last_year_month_start and e.inserted_at < ^last_year_month_end),
+            (e.inserted_at >= ^last_year_month_start and
+               e.inserted_at < ^last_year_month_end),
         select: %{
           account_id: e.account_id,
           amount: fragment("ABS((?.amount).amount)", e),
@@ -840,52 +901,71 @@ defmodule YscWeb.AdminDashboardLive do
 
     # Aggregate by account and time period in Elixir
     revenue_data =
-      Enum.reduce(all_entries, %{current: %{}, prev: %{}, last_year: %{}}, fn entry, acc ->
-        account_id = entry.account_id
-        amount = entry.amount || Decimal.new(0)
-        inserted_at = entry.inserted_at
+      Enum.reduce(
+        all_entries,
+        %{current: %{}, prev: %{}, last_year: %{}},
+        fn entry, acc ->
+          account_id = entry.account_id
+          amount = entry.amount || Decimal.new(0)
+          inserted_at = entry.inserted_at
 
-        acc =
-          if DateTime.compare(inserted_at, month_start) != :lt and
-               DateTime.compare(inserted_at, now) == :lt do
+          acc =
+            if DateTime.compare(inserted_at, month_start) != :lt and
+                 DateTime.compare(inserted_at, now) == :lt do
+              %{
+                acc
+                | current:
+                    Map.update(
+                      acc.current || %{},
+                      account_id,
+                      amount,
+                      fn existing ->
+                        Decimal.add(existing, amount)
+                      end
+                    )
+              }
+            else
+              acc
+            end
+
+          acc =
+            if DateTime.compare(inserted_at, prev_month_start) != :lt and
+                 DateTime.compare(inserted_at, month_start) == :lt do
+              %{
+                acc
+                | prev:
+                    Map.update(
+                      acc.prev || %{},
+                      account_id,
+                      amount,
+                      fn existing ->
+                        Decimal.add(existing, amount)
+                      end
+                    )
+              }
+            else
+              acc
+            end
+
+          if DateTime.compare(inserted_at, last_year_month_start) != :lt and
+               DateTime.compare(inserted_at, last_year_month_end) == :lt do
             %{
               acc
-              | current:
-                  Map.update(acc.current || %{}, account_id, amount, fn existing ->
-                    Decimal.add(existing, amount)
-                  end)
+              | last_year:
+                  Map.update(
+                    acc.last_year || %{},
+                    account_id,
+                    amount,
+                    fn existing ->
+                      Decimal.add(existing, amount)
+                    end
+                  )
             }
           else
             acc
           end
-
-        acc =
-          if DateTime.compare(inserted_at, prev_month_start) != :lt and
-               DateTime.compare(inserted_at, month_start) == :lt do
-            %{
-              acc
-              | prev:
-                  Map.update(acc.prev || %{}, account_id, amount, fn existing ->
-                    Decimal.add(existing, amount)
-                  end)
-            }
-          else
-            acc
-          end
-
-        if DateTime.compare(inserted_at, last_year_month_start) != :lt and
-             DateTime.compare(inserted_at, last_year_month_end) == :lt do
-          %{
-            acc
-            | last_year:
-                Map.update(acc.last_year || %{}, account_id, amount, fn existing ->
-                  Decimal.add(existing, amount)
-                end)
-          }
-        else
-          acc
         end
-      end)
+      )
 
     # Calculate totals for each period
     current_total =
@@ -967,15 +1047,21 @@ defmodule YscWeb.AdminDashboardLive do
         current_amount = Decimal.to_float(current_revenue.amount)
         prev_amount = Decimal.to_float(prev_revenue.amount)
 
-        change_percent = ((current_amount - prev_amount) / prev_amount * 100) |> round()
+        change_percent =
+          ((current_amount - prev_amount) / prev_amount * 100) |> round()
 
         month_name = Timex.format!(prev_month_start, "{Mshort}")
 
         {text, direction} =
           cond do
-            change_percent > 0 -> {"+#{change_percent}% from #{month_name}", :up}
-            change_percent < 0 -> {"#{change_percent}% from #{month_name}", :down}
-            true -> {"0% from #{month_name}", :stable}
+            change_percent > 0 ->
+              {"+#{change_percent}% from #{month_name}", :up}
+
+            change_percent < 0 ->
+              {"#{change_percent}% from #{month_name}", :down}
+
+            true ->
+              {"0% from #{month_name}", :stable}
           end
 
         {text, direction}
@@ -983,9 +1069,9 @@ defmodule YscWeb.AdminDashboardLive do
         {"First month", :stable}
       end
 
-    {current_revenue, revenue_change_text, revenue_change_direction, prev_revenue,
-     last_year_revenue, bookings_revenue, events_revenue, membership_revenue, bookings_percent,
-     events_percent, membership_percent}
+    {current_revenue, revenue_change_text, revenue_change_direction,
+     prev_revenue, last_year_revenue, bookings_revenue, events_revenue,
+     membership_revenue, bookings_percent, events_percent, membership_percent}
   end
 
   defp format_money(money) do
