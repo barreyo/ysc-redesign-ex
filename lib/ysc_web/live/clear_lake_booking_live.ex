@@ -44,8 +44,7 @@ defmodule YscWeb.ClearLakeBookingLive do
     # For initial static render, defer heavy operations until socket is connected
     # This ensures fast time-to-paint for the initial HTML response
     {user_with_subs, can_book, booking_disabled_reason, active_tab, membership_type,
-     day_booking_allowed, buyout_booking_allowed, booking_mode,
-     active_bookings} =
+     day_booking_allowed, buyout_booking_allowed, booking_mode, active_bookings} =
       if connected?(socket) do
         # Load user with subscriptions and subscription_items FIRST (to avoid multiple fetches)
         # Preloading subscription_items prevents duplicate queries in get_membership_plan_type
@@ -119,9 +118,8 @@ defmodule YscWeb.ClearLakeBookingLive do
             do: get_active_bookings(user_with_subs.id),
             else: []
 
-        {user_with_subs, can_book, booking_disabled_reason, active_tab,
-         membership_type, day_booking_allowed, buyout_booking_allowed,
-         booking_mode, active_bookings}
+        {user_with_subs, can_book, booking_disabled_reason, active_tab, membership_type,
+         day_booking_allowed, buyout_booking_allowed, booking_mode, active_bookings}
       else
         # Static render: use minimal data for fast initial paint
         user_with_subs = user
@@ -134,9 +132,8 @@ defmodule YscWeb.ClearLakeBookingLive do
         booking_mode = booking_mode || :day
         active_bookings = []
 
-        {user_with_subs, can_book, booking_disabled_reason, active_tab,
-         membership_type, day_booking_allowed, buyout_booking_allowed,
-         booking_mode, active_bookings}
+        {user_with_subs, can_book, booking_disabled_reason, active_tab, membership_type,
+         day_booking_allowed, buyout_booking_allowed, booking_mode, active_bookings}
       end
 
     socket =
@@ -272,8 +269,7 @@ defmodule YscWeb.ClearLakeBookingLive do
          can_book_changed do
       # Only recalculate today and max_booking_date if dates changed
       # This prevents unnecessary component updates
-      {today, max_booking_date, current_season, season_start_date,
-       season_end_date} =
+      {today, max_booking_date, current_season, season_start_date, season_end_date} =
         if dates_changed do
           today = Date.utc_today()
 
@@ -283,8 +279,7 @@ defmodule YscWeb.ClearLakeBookingLive do
           max_booking_date =
             SeasonHelpers.calculate_max_booking_date(:clear_lake, today)
 
-          {today, max_booking_date, current_season, season_start_date,
-           season_end_date}
+          {today, max_booking_date, current_season, season_start_date, season_end_date}
         else
           {
             socket.assigns.today,
@@ -364,10 +359,8 @@ defmodule YscWeb.ClearLakeBookingLive do
           validated_date_form =
             to_form(
               %{
-                "checkin_date" =>
-                  date_to_datetime_string(s.assigns.checkin_date),
-                "checkout_date" =>
-                  date_to_datetime_string(s.assigns.checkout_date)
+                "checkin_date" => date_to_datetime_string(s.assigns.checkin_date),
+                "checkout_date" => date_to_datetime_string(s.assigns.checkout_date)
               },
               as: "booking_dates"
             )
@@ -428,11 +421,7 @@ defmodule YscWeb.ClearLakeBookingLive do
           ]}
           class="h-full w-full"
         />
-        <div
-          class="absolute inset-0 z-[5] bg-black/30 pointer-events-none"
-          aria-hidden="true"
-        >
-        </div>
+        <div class="absolute inset-0 z-[5] bg-black/30 pointer-events-none" aria-hidden="true"></div>
       </div>
       <!-- Title Text Section -->
       <div class="absolute bottom-0 left-0 right-0 z-[10] px-4 py-12 lg:py-16 pointer-events-none">
@@ -500,10 +489,7 @@ defmodule YscWeb.ClearLakeBookingLive do
           </div>
         </div>
         <!-- Booking Form -->
-        <div
-          :if={@can_book}
-          class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start"
-        >
+        <div :if={@can_book} class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <!-- Left Column: Selection Area (2 columns on large screens) -->
           <div class="lg:col-span-2 space-y-8">
             <!-- Step 1: Booking Mode Selection -->
@@ -519,18 +505,14 @@ defmodule YscWeb.ClearLakeBookingLive do
               </p>
               <fieldset>
                 <form phx-change="booking-mode-changed">
-                  <div
-                    class="grid grid-cols-1 md:grid-cols-2 gap-4"
-                    role="radiogroup"
-                  >
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4" role="radiogroup">
                     <label class={[
                       "flex flex-col p-6 border-2 rounded-lg cursor-pointer transition-all",
                       if(
                         @selected_booking_mode == :day ||
                           @selected_booking_mode == nil,
                         do: "border-teal-600 bg-teal-50 shadow-md",
-                        else:
-                          "border-zinc-300 hover:border-teal-400 hover:bg-zinc-50"
+                        else: "border-zinc-300 hover:border-teal-400 hover:bg-zinc-50"
                       ),
                       if(!@day_booking_allowed,
                         do: "opacity-50 cursor-not-allowed",
@@ -587,8 +569,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                       "flex flex-col p-6 border-2 rounded-lg cursor-pointer transition-all",
                       if(@selected_booking_mode == :buyout,
                         do: "border-teal-600 bg-teal-50 shadow-md",
-                        else:
-                          "border-zinc-300 hover:border-teal-400 hover:bg-zinc-50"
+                        else: "border-zinc-300 hover:border-teal-400 hover:bg-zinc-50"
                       ),
                       if(
                         !@buyout_booking_allowed ||
@@ -696,10 +677,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <!-- Guests and Children Selection (Dropdown) -->
                   <div class="py-1">
-                    <div
-                      id="guests-label"
-                      class="block text-sm font-semibold text-zinc-700 mb-2"
-                    >
+                    <div id="guests-label" class="block text-sm font-semibold text-zinc-700 mb-2">
                       Guests
                     </div>
                     <div class="relative">
@@ -759,8 +737,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                                   if(@guests_count <= 1,
                                     do:
                                       "border-zinc-200 bg-zinc-100 text-zinc-400 cursor-not-allowed",
-                                    else:
-                                      "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
+                                    else: "border-zinc-300 hover:bg-zinc-50 text-zinc-700"
                                   )
                                 ]}
                               >
@@ -862,22 +839,13 @@ defmodule YscWeb.ClearLakeBookingLive do
                 />
                 <!-- Error Messages -->
                 <div class="mt-4 space-y-1">
-                  <p
-                    :if={@date_validation_errors[:weekend]}
-                    class="text-red-600 text-sm"
-                  >
+                  <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
                     <%= @date_validation_errors[:weekend] %>
                   </p>
-                  <p
-                    :if={@date_validation_errors[:max_nights]}
-                    class="text-red-600 text-sm"
-                  >
+                  <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
                     <%= @date_validation_errors[:max_nights] %>
                   </p>
-                  <p
-                    :if={@date_validation_errors[:availability]}
-                    class="text-red-600 text-sm"
-                  >
+                  <p :if={@date_validation_errors[:availability]} class="text-red-600 text-sm">
                     <%= @date_validation_errors[:availability] %>
                   </p>
                 </div>
@@ -905,15 +873,11 @@ defmodule YscWeb.ClearLakeBookingLive do
                 <div class="mb-4">
                   <p class="text-sm font-medium text-zinc-800 mb-2">
                     The calendar shows how many spots are available for each day (up to 12 guests per day).
-                    <span
-                      :if={@guests_count && @guests_count > 0}
-                      class="font-semibold text-teal-700"
-                    >
+                    <span :if={@guests_count && @guests_count > 0} class="font-semibold text-teal-700">
                       Dates with fewer than <%= @guests_count %> spot<%= if @guests_count ==
                                                                               1,
                                                                             do: "",
-                                                                            else:
-                                                                              "s" %> available are disabled.
+                                                                            else: "s" %> available are disabled.
                     </span>
                   </p>
                   <p class="text-xs text-zinc-600">
@@ -940,22 +904,13 @@ defmodule YscWeb.ClearLakeBookingLive do
                   <p :if={@form_errors[:checkout_date]} class="text-red-600 text-sm">
                     <%= @form_errors[:checkout_date] %>
                   </p>
-                  <p
-                    :if={@date_validation_errors[:weekend]}
-                    class="text-red-600 text-sm"
-                  >
+                  <p :if={@date_validation_errors[:weekend]} class="text-red-600 text-sm">
                     <%= @date_validation_errors[:weekend] %>
                   </p>
-                  <p
-                    :if={@date_validation_errors[:max_nights]}
-                    class="text-red-600 text-sm"
-                  >
+                  <p :if={@date_validation_errors[:max_nights]} class="text-red-600 text-sm">
                     <%= @date_validation_errors[:max_nights] %>
                   </p>
-                  <p
-                    :if={@date_validation_errors[:active_booking]}
-                    class="text-red-600 text-sm"
-                  >
+                  <p :if={@date_validation_errors[:active_booking]} class="text-red-600 text-sm">
                     <%= @date_validation_errors[:active_booking] %>
                   </p>
                   <p
@@ -964,26 +919,17 @@ defmodule YscWeb.ClearLakeBookingLive do
                   >
                     <%= @date_validation_errors[:advance_booking_limit] %>
                   </p>
-                  <p
-                    :if={@date_validation_errors[:season_date_range]}
-                    class="text-red-600 text-sm"
-                  >
+                  <p :if={@date_validation_errors[:season_date_range]} class="text-red-600 text-sm">
                     <%= @date_validation_errors[:season_date_range] %>
                   </p>
                 </div>
               </section>
             </div>
             <!-- Price Error -->
-            <div
-              :if={@price_error}
-              class="bg-red-50 border border-red-200 rounded-lg p-4"
-            >
+            <div :if={@price_error} class="bg-red-50 border border-red-200 rounded-lg p-4">
               <div class="flex items-start">
                 <div class="flex-shrink-0">
-                  <.icon
-                    name="hero-exclamation-circle"
-                    class="h-5 w-5 text-red-600 -mt-1"
-                  />
+                  <.icon name="hero-exclamation-circle" class="h-5 w-5 text-red-600 -mt-1" />
                 </div>
                 <div class="ms-3">
                   <p class="text-sm text-red-800"><%= @price_error %></p>
@@ -1019,10 +965,8 @@ defmodule YscWeb.ClearLakeBookingLive do
                                                                                @checkout_date,
                                                                                @checkin_date
                                                                              ) == 1,
-                                                                             do:
-                                                                               "night",
-                                                                             else:
-                                                                               "nights" %>
+                                                                             do: "night",
+                                                                             else: "nights" %>
                     </span>
                   </div>
                 </div>
@@ -1069,10 +1013,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                   class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg"
                 >
                   <div class="flex items-start gap-2">
-                    <.icon
-                      name="hero-truck"
-                      class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5"
-                    />
+                    <.icon name="hero-truck" class="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                     <div class="flex-1">
                       <p class="text-xs text-amber-800 leading-relaxed">
                         <strong>Parking Tip:</strong>
@@ -1088,10 +1029,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 >
                   <div class="flex items-start gap-2">
                     <div class="flex-shrink-0">
-                      <.icon
-                        name="hero-exclamation-triangle"
-                        class="h-4 w-4 text-amber-600 mt-0.5"
-                      />
+                      <.icon name="hero-exclamation-triangle" class="h-4 w-4 text-amber-600 mt-0.5" />
                     </div>
                     <div class="flex-1">
                       <h4 class="text-xs font-semibold text-amber-800 mb-1">
@@ -1135,10 +1073,8 @@ defmodule YscWeb.ClearLakeBookingLive do
                           <span>
                             Spot Rental (<%= @guests_count %> × <%= nights %> night<%= if nights !=
                                                                                             1,
-                                                                                          do:
-                                                                                            "s",
-                                                                                          else:
-                                                                                            "" %>)
+                                                                                          do: "s",
+                                                                                          else: "" %>)
                           </span>
                           <span class="font-bold text-zinc-900">
                             <%= MoneyHelper.format_money!(
@@ -1187,16 +1123,10 @@ defmodule YscWeb.ClearLakeBookingLive do
                     <div class="flex justify-between items-end">
                       <span class="text-lg font-bold text-zinc-900">Total</span>
                       <div class="text-right">
-                        <span
-                          :if={!@availability_error}
-                          class="text-2xl font-black text-teal-600"
-                        >
+                        <span :if={!@availability_error} class="text-2xl font-black text-teal-600">
                           <%= MoneyHelper.format_money!(@calculated_price) %>
                         </span>
-                        <span
-                          :if={@availability_error}
-                          class="text-2xl font-bold text-zinc-400"
-                        >
+                        <span :if={@availability_error} class="text-2xl font-bold text-zinc-400">
                           —
                         </span>
                       </div>
@@ -1252,10 +1182,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                   </ul>
                 </div>
                 <!-- Empty State -->
-                <div
-                  :if={!@checkin_date || !@checkout_date}
-                  class="text-center py-8"
-                >
+                <div :if={!@checkin_date || !@checkout_date} class="text-center py-8">
                   <p class="text-sm text-zinc-500">
                     Select dates to see your reservation summary
                   </p>
@@ -1338,11 +1265,7 @@ defmodule YscWeb.ClearLakeBookingLive do
           ]}
           class="h-full w-full"
         />
-        <div
-          class="absolute inset-0 z-[5] bg-black/40 pointer-events-none"
-          aria-hidden="true"
-        >
-        </div>
+        <div class="absolute inset-0 z-[5] bg-black/40 pointer-events-none" aria-hidden="true"></div>
       </div>
       <!-- Title Text Section - z-index lowered to ensure mobile menu appears above -->
       <div class="absolute bottom-0 left-0 right-0 z-[10] px-4 py-16 lg:py-20 pointer-events-none">
@@ -1368,8 +1291,7 @@ defmodule YscWeb.ClearLakeBookingLive do
             Experience Clear Lake
           </h1>
           <p class="text-lg text-zinc-600 leading-relaxed">
-            Welcome to the
-            <strong class="text-zinc-900">YSC Clear Lake Cabin</strong>
+            Welcome to the <strong class="text-zinc-900">YSC Clear Lake Cabin</strong>
             — your year-round gateway to California's oldest natural lake. Since <strong class="text-zinc-900">1963</strong>, the YSC has proudly owned this beautiful cabin, located in the heart of
             <strong class="text-zinc-900">Kelseyville</strong>
             on the shores of <strong class="text-zinc-900">Clear Lake</strong>.
@@ -1453,9 +1375,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 </p>
               </div>
               <.link
-                navigate={
-                  ~p"/users/log-in?#{%{redirect_to: ~p"/bookings/clear-lake"}}"
-                }
+                navigate={~p"/users/log-in?#{%{redirect_to: ~p"/bookings/clear-lake"}}"}
                 class="px-8 py-3 bg-white text-teal-600 font-bold rounded-lg hover:bg-teal-50 transition shadow-lg whitespace-nowrap"
               >
                 Sign In to Book
@@ -1515,9 +1435,7 @@ defmodule YscWeb.ClearLakeBookingLive do
               </div>
               <.link
                 :if={!@user}
-                navigate={
-                  ~p"/users/log-in?#{%{redirect_to: ~p"/bookings/clear-lake"}}"
-                }
+                navigate={~p"/users/log-in?#{%{redirect_to: ~p"/bookings/clear-lake"}}"}
                 class="px-8 py-3 bg-teal-600 text-white font-bold rounded-lg hover:bg-teal-700 transition shadow-lg shadow-teal-200"
               >
                 Sign In to Book
@@ -1534,10 +1452,7 @@ defmodule YscWeb.ClearLakeBookingLive do
           <!-- Arrival Section -->
           <article id="arrival-section" class="pt-10 border-t border-zinc-100">
             <!-- Door Code & Access (for linking from booking receipt) -->
-            <div
-              id="door-code-access"
-              class="mb-8 p-6 bg-teal-50 border border-teal-200 rounded-lg"
-            >
+            <div id="door-code-access" class="mb-8 p-6 bg-teal-50 border border-teal-200 rounded-lg">
               <h3 class="font-bold text-teal-900 mb-3 flex items-center gap-2">
                 <.icon name="hero-key" class="w-5 h-5" /> Door Code & Access
               </h3>
@@ -1606,8 +1521,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                   <!-- Vertical Trail Directions -->
                   <div class="relative pl-8 space-y-6 mt-6">
                     <!-- Trail line -->
-                    <div class="absolute left-3 top-0 bottom-0 w-0.5 bg-teal-300">
-                    </div>
+                    <div class="absolute left-3 top-0 bottom-0 w-0.5 bg-teal-300"></div>
                     <!-- Direction steps -->
                     <div class="relative flex gap-4">
                       <div class="flex-shrink-0 w-6 h-6 rounded-full bg-teal-600 border-4 border-white shadow-md flex items-center justify-center z-10">
@@ -1934,10 +1848,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                     <span class="text-xl">📜</span>
                     <span>Code of Conduct</span>
                   </span>
-                  <.icon
-                    name="hero-arrow-top-right-on-square"
-                    class="w-5 h-5 text-zinc-400"
-                  />
+                  <.icon name="hero-arrow-top-right-on-square" class="w-5 h-5 text-zinc-400" />
                 </.link>
               </div>
             </div>
@@ -1969,10 +1880,7 @@ defmodule YscWeb.ClearLakeBookingLive do
             </div>
           </section>
           <!-- Legacy Section -->
-          <section
-            id="legacy"
-            class="bg-zinc-50 rounded-3xl p-8 border border-zinc-100"
-          >
+          <section id="legacy" class="bg-zinc-50 rounded-3xl p-8 border border-zinc-100">
             <h4 class="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">
               The YSC Spirit
             </h4>
@@ -1986,8 +1894,7 @@ defmodule YscWeb.ClearLakeBookingLive do
               navigate={~p"/code-of-conduct"}
               class="text-teal-700 font-bold hover:underline flex items-center gap-2"
             >
-              Read the Cabin Code of Conduct
-              <.icon name="hero-arrow-right" class="w-4 h-4" />
+              Read the Cabin Code of Conduct <.icon name="hero-arrow-right" class="w-4 h-4" />
             </.link>
           </section>
           <!-- Legacy Timeline Section -->
@@ -1997,8 +1904,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 A 60-Year Legacy
               </h2>
               <div class="space-y-8 relative">
-                <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-zinc-100">
-                </div>
+                <div class="absolute left-[11px] top-2 bottom-2 w-0.5 bg-zinc-100"></div>
 
                 <div class="relative pl-10">
                   <div class="absolute left-0 top-1.5 w-6 h-6 rounded-full bg-white border-4 border-teal-600">
@@ -2093,8 +1999,7 @@ defmodule YscWeb.ClearLakeBookingLive do
             <!-- Lake Lore Card - Dark Background -->
             <div class="bg-zinc-900 rounded-2xl p-8 text-white shadow-xl shadow-zinc-900/20">
               <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
-                <.icon name="hero-information-circle" class="w-6 h-6 text-teal-400" />
-                Lake Lore
+                <.icon name="hero-information-circle" class="w-6 h-6 text-teal-400" /> Lake Lore
               </h3>
               <div class="space-y-4 text-base text-zinc-300">
                 <p>
@@ -2167,8 +2072,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                 Honorary Stewards
               </h4>
               <p class="text-sm text-zinc-500 leading-relaxed">
-                Special thanks to
-                <strong>Allen Hinkelman, Solveig Barnes, and Dave Conroy</strong>
+                Special thanks to <strong>Allen Hinkelman, Solveig Barnes, and Dave Conroy</strong>
                 for taking the lead in 2019 to turn this dream into a reality.
               </p>
             </div>
@@ -2482,8 +2386,7 @@ defmodule YscWeb.ClearLakeBookingLive do
   end
 
   def handle_event("toggle-guests-dropdown", _params, socket) do
-    {:noreply,
-     assign(socket, guests_dropdown_open: !socket.assigns.guests_dropdown_open)}
+    {:noreply, assign(socket, guests_dropdown_open: !socket.assigns.guests_dropdown_open)}
   end
 
   def handle_event("close-guests-dropdown", _params, socket) do
@@ -2569,8 +2472,7 @@ defmodule YscWeb.ClearLakeBookingLive do
                  "Sorry, there is not enough capacity for your requested dates and number of guests."
            },
            calculated_price: socket.assigns.calculated_price,
-           availability_error:
-             availability_error || "Not enough capacity available"
+           availability_error: availability_error || "Not enough capacity available"
          )}
 
       {:error, :property_unavailable} ->
@@ -2582,8 +2484,7 @@ defmodule YscWeb.ClearLakeBookingLive do
          )
          |> assign(
            form_errors: %{
-             general:
-               "Sorry, the property is not available for your requested dates."
+             general: "Sorry, the property is not available for your requested dates."
            },
            calculated_price: socket.assigns.calculated_price,
            availability_error: "Property unavailable"
@@ -2674,9 +2575,7 @@ defmodule YscWeb.ClearLakeBookingLive do
       socket =
         socket
         |> assign(active_tab: active_tab)
-        |> push_patch(
-          to: ~p"/bookings/clear-lake?#{URI.encode_query(query_params)}"
-        )
+        |> push_patch(to: ~p"/bookings/clear-lake?#{URI.encode_query(query_params)}")
 
       {:noreply, socket}
     else
@@ -2821,8 +2720,7 @@ defmodule YscWeb.ClearLakeBookingLive do
   end
 
   defp format_booking_error(:insufficient_capacity),
-    do:
-      "Sorry, there is not enough capacity for your requested dates and number of guests."
+    do: "Sorry, there is not enough capacity for your requested dates and number of guests."
 
   defp format_booking_error(:property_unavailable),
     do: "Sorry, the property is not available for your requested dates."
