@@ -46,7 +46,7 @@ services:
       - "1025:1025"
 
   keila:
-    image: ysc-keila:latest
+    image: ghcr.io/young-scandinavians-club/keila:latest
     ports:
       - "4001:4000"
     environment:
