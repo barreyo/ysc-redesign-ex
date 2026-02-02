@@ -72,9 +72,10 @@ defmodule YscWeb.UserTicketsLive do
                   </div>
                   <div class="flex items-center gap-1.5">
                     <.icon name="hero-ticket" class="w-4 h-4 text-teal-600" />
-                    <%= length(ticket_order.tickets) %> Ticket<%= if length(ticket_order.tickets) != 1,
-                      do: "s",
-                      else: "" %>
+                    <%= length(ticket_order.tickets) %> Ticket<%= if length(ticket_order.tickets) !=
+                                                                       1,
+                                                                     do: "s",
+                                                                     else: "" %>
                   </div>
                 </div>
 

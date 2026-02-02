@@ -197,7 +197,8 @@ defmodule YscWeb.Components.Autocomplete do
           "absolute z-50 w-full mt-1 bg-white border border-zinc-200 rounded-md shadow-lg",
           "transition-all duration-150 ease-out origin-top",
           if(
-            @search_value != "" && String.length(@search_value) >= @min_chars && length(@results) == 0,
+            @search_value != "" && String.length(@search_value) >= @min_chars &&
+              length(@results) == 0,
             do: "opacity-100 scale-y-100 translate-y-0",
             else: "opacity-0 scale-y-95 -translate-y-1 pointer-events-none"
           )

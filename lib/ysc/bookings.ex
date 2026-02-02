@@ -1421,7 +1421,8 @@ defmodule Ysc.Bookings do
   defp validate_guests_count(_), do: {:error, :invalid_guests_count}
 
   defp validate_children_count(children_count)
-       when is_integer(children_count) and children_count >= 0, do: :ok
+       when is_integer(children_count) and children_count >= 0,
+       do: :ok
 
   defp validate_children_count(_), do: {:error, :invalid_children_count}
 

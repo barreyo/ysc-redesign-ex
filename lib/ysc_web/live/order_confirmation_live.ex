@@ -486,7 +486,8 @@ defmodule YscWeb.OrderConfirmationLive do
                             <span class="text-zinc-400">
                               • <%= String.slice(refund.reason, 0, 30) %><%= if String.length(
                                                                                   refund.reason
-                                                                                ) > 30, do: "..." %>
+                                                                                ) > 30,
+                                                                                do: "..." %>
                             </span>
                           <% end %>
                         </span>

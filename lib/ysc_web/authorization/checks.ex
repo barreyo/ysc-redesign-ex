@@ -11,7 +11,8 @@ defmodule YscWeb.Authorization.Policy.Checks do
   def own_resource(%User{id: id}, %{primary_user_id: id}) when is_binary(id), do: true
 
   def own_resource(%User{id: id}, %{primary_user_id: primary_user_id})
-      when is_binary(id) and is_binary(primary_user_id), do: id == primary_user_id
+      when is_binary(id) and is_binary(primary_user_id),
+      do: id == primary_user_id
 
   def own_resource(_, _), do: false
 
@@ -19,7 +20,8 @@ defmodule YscWeb.Authorization.Policy.Checks do
   def own_resource(%User{id: id}, %{primary_user_id: id}, _opts) when is_binary(id), do: true
 
   def own_resource(%User{id: id}, %{primary_user_id: primary_user_id}, _opts)
-      when is_binary(id) and is_binary(primary_user_id), do: id == primary_user_id
+      when is_binary(id) and is_binary(primary_user_id),
+      do: id == primary_user_id
 
   def own_resource(_, _, _), do: false
 
