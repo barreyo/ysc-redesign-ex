@@ -346,13 +346,34 @@ defmodule YscWeb.BookingReceiptLiveTest do
       conn = log_in_user(conn, user)
 
       today = Date.utc_today()
+      # Use Monday–Thursday range to satisfy "Saturday must include Sunday" rule
+      base = Date.add(today, 10)
+      dow = Date.day_of_week(base, :monday)
+      days_until_monday = rem(8 - dow, 7)
+      checkin_date = Date.add(base, days_until_monday)
+      # Buyout only allowed in summer; use first Monday on or after May 1 if in winter
+      checkin_date =
+        if checkin_date.month in [1, 2, 3, 4, 11, 12] do
+          year =
+            if checkin_date.month in [1, 2, 3, 4],
+              do: checkin_date.year,
+              else: checkin_date.year + 1
+
+          may_first = Date.new!(year, 5, 1)
+          dow_may = Date.day_of_week(may_first, :monday)
+          Date.add(may_first, rem(8 - dow_may, 7))
+        else
+          checkin_date
+        end
+
+      checkout_date = Date.add(checkin_date, 3)
 
       booking =
         booking_fixture(%{
           user_id: user.id,
           status: :complete,
-          checkin_date: Date.add(today, 10),
-          checkout_date: Date.add(today, 13)
+          checkin_date: checkin_date,
+          checkout_date: checkout_date
         })
 
       {:ok, view, _html} = live(conn, ~p"/bookings/#{booking.id}/receipt")
@@ -407,13 +428,34 @@ defmodule YscWeb.BookingReceiptLiveTest do
       conn = log_in_user(conn, user)
 
       today = Date.utc_today()
+      # Use Monday–Thursday range to satisfy "Saturday must include Sunday" rule
+      base = Date.add(today, 10)
+      dow = Date.day_of_week(base, :monday)
+      days_until_monday = rem(8 - dow, 7)
+      checkin_date = Date.add(base, days_until_monday)
+      # Buyout only allowed in summer; use first Monday on or after May 1 if in winter
+      checkin_date =
+        if checkin_date.month in [1, 2, 3, 4, 11, 12] do
+          year =
+            if checkin_date.month in [1, 2, 3, 4],
+              do: checkin_date.year,
+              else: checkin_date.year + 1
+
+          may_first = Date.new!(year, 5, 1)
+          dow_may = Date.day_of_week(may_first, :monday)
+          Date.add(may_first, rem(8 - dow_may, 7))
+        else
+          checkin_date
+        end
+
+      checkout_date = Date.add(checkin_date, 3)
 
       booking =
         booking_fixture(%{
           user_id: user.id,
           status: :complete,
-          checkin_date: Date.add(today, 10),
-          checkout_date: Date.add(today, 13)
+          checkin_date: checkin_date,
+          checkout_date: checkout_date
         })
 
       {:ok, view, _html} = live(conn, ~p"/bookings/#{booking.id}/receipt")
