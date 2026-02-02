@@ -254,7 +254,10 @@ defmodule YscWeb.BookingReceiptLiveTest do
       conn = log_in_user(conn, user)
 
       today = Date.utc_today()
-      checkin_date = Date.add(today, 10)
+      # Find next Friday
+      days_to_friday = 5 - Date.day_of_week(today, :monday)
+      days_to_friday = if days_to_friday < 0, do: days_to_friday + 7, else: days_to_friday
+      checkin_date = Date.add(today, days_to_friday + 7)
       checkout_date = Date.add(checkin_date, 3)
 
       booking =
@@ -278,7 +281,10 @@ defmodule YscWeb.BookingReceiptLiveTest do
       conn = log_in_user(conn, user)
 
       today = Date.utc_today()
-      checkin_date = Date.add(today, 10)
+      # Find next Friday
+      days_to_friday = 5 - Date.day_of_week(today, :monday)
+      days_to_friday = if days_to_friday < 0, do: days_to_friday + 7, else: days_to_friday
+      checkin_date = Date.add(today, days_to_friday + 7)
       checkout_date = Date.add(checkin_date, 3)
 
       booking =
@@ -306,7 +312,10 @@ defmodule YscWeb.BookingReceiptLiveTest do
       conn = log_in_user(conn, user)
 
       today = Date.utc_today()
-      checkin_date = Date.add(today, 10)
+      # Find next Friday
+      days_to_friday = 5 - Date.day_of_week(today, :monday)
+      days_to_friday = if days_to_friday < 0, do: days_to_friday + 7, else: days_to_friday
+      checkin_date = Date.add(today, days_to_friday + 7)
       checkout_date = Date.add(checkin_date, 3)
 
       booking =

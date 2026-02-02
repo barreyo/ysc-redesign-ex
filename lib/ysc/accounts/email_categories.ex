@@ -20,6 +20,7 @@ defmodule Ysc.Accounts.EmailCategories do
     "conduct_violation_confirmation" => :account,
     "volunteer_confirmation" => :account,
     "membership_payment_failure" => :account,
+    "membership_payment_confirmation" => :account,
     "membership_renewal_success" => :account,
     "membership_payment_reminder_7day" => :account,
     "membership_payment_reminder_30day" => :account,

@@ -10,6 +10,7 @@ defmodule Ysc.Accounts.EmailCategoriesTest do
     test "returns correct category for known templates" do
       assert EmailCategories.get_category("confirm_email") == :account
       assert EmailCategories.get_category("event_notification") == :event
+      assert EmailCategories.get_category("membership_payment_confirmation") == :account
     end
 
     test "defaults to :account for unknown templates" do

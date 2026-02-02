@@ -6,6 +6,7 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
   alias Ysc.Ledgers
   alias Ysc.Webhooks
   import Ysc.AccountsFixtures
+  import Swoosh.TestAssertions
 
   # Helper to create a basic Stripe event
   defp build_stripe_event(type, object_data, opts \\ []) do
@@ -500,6 +501,84 @@ defmodule Ysc.Stripe.WebhookHandlerTest do
 
       # Should NOT create payment
       assert Ledgers.get_payment_by_external_id(invoice_data["id"]) == nil
+    end
+  end
+
+  describe "membership payment emails" do
+    test "sends membership_payment_confirmation email on first payment (subscription_create)",
+         %{} do
+      user = user_with_stripe_id()
+      subscription = create_subscription(user)
+
+      invoice_data = %{
+        "id" => "in_first_#{System.unique_integer()}",
+        "customer" => user.stripe_id,
+        "subscription" => subscription.stripe_id,
+        "billing_reason" => "subscription_create",
+        "amount_paid" => 4500,
+        "description" => "Membership Invoice",
+        "number" => "INV-001",
+        "charge" => nil,
+        "metadata" => %{}
+      }
+
+      event = build_stripe_event("invoice.payment_succeeded", invoice_data)
+      assert :ok = WebhookHandler.handle_event(event)
+
+      assert_email_sent(
+        subject: "Welcome to YSC – Your Membership is Active! 🎉",
+        to: {nil, user.email}
+      )
+    end
+
+    test "sends membership_renewal_success email on renewal (subscription_cycle)", %{} do
+      user = user_with_stripe_id()
+      subscription = create_subscription(user)
+
+      invoice_data = %{
+        "id" => "in_renewal_#{System.unique_integer()}",
+        "customer" => user.stripe_id,
+        "subscription" => subscription.stripe_id,
+        "billing_reason" => "subscription_cycle",
+        "amount_paid" => 4500,
+        "description" => "Membership Renewal",
+        "number" => "INV-002",
+        "charge" => nil,
+        "metadata" => %{}
+      }
+
+      event = build_stripe_event("invoice.payment_succeeded", invoice_data)
+      assert :ok = WebhookHandler.handle_event(event)
+
+      assert_email_sent(
+        subject: "Your YSC Membership Has Been Renewed! 🎉",
+        to: {nil, user.email}
+      )
+    end
+
+    test "sends membership_renewal_success email on subscription_update billing reason", %{} do
+      user = user_with_stripe_id()
+      subscription = create_subscription(user)
+
+      invoice_data = %{
+        "id" => "in_update_#{System.unique_integer()}",
+        "customer" => user.stripe_id,
+        "subscription" => subscription.stripe_id,
+        "billing_reason" => "subscription_update",
+        "amount_paid" => 5000,
+        "description" => "Membership Update",
+        "number" => "INV-003",
+        "charge" => nil,
+        "metadata" => %{}
+      }
+
+      event = build_stripe_event("invoice.payment_succeeded", invoice_data)
+      assert :ok = WebhookHandler.handle_event(event)
+
+      assert_email_sent(
+        subject: "Your YSC Membership Has Been Renewed! 🎉",
+        to: {nil, user.email}
+      )
     end
   end
 

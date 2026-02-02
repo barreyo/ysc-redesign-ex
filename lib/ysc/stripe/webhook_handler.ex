@@ -696,31 +696,40 @@ defmodule Ysc.Stripe.WebhookHandler do
                   entity_id: entity_id
                 )
 
-                # Check if this is a renewal and send success email
+                # Send appropriate email: renewal success or first-time payment confirmation
                 billing_reason = invoice[:billing_reason] || invoice["billing_reason"]
 
                 is_renewal =
                   billing_reason == "subscription_cycle" ||
                     billing_reason == "subscription_update"
 
+                membership_type = get_membership_type_from_subscription_id(subscription_id)
+
+                payment_date =
+                  case payment.payment_date do
+                    %Date{} = date -> date
+                    %DateTime{} = datetime -> DateTime.to_date(datetime)
+                    _ -> Date.utc_today()
+                  end
+
                 if is_renewal do
-                  # Get membership type from subscription
-                  membership_type = get_membership_type_from_subscription_id(subscription_id)
-
-                  # Get renewal date (payment date - convert DateTime to Date if needed)
-                  renewal_date =
-                    case payment.payment_date do
-                      %Date{} = date -> date
-                      %DateTime{} = datetime -> DateTime.to_date(datetime)
-                      _ -> Date.utc_today()
-                    end
-
-                  # Send renewal success email
                   send_membership_renewal_success_email(
                     user,
                     membership_type,
                     payment.amount,
-                    renewal_date
+                    payment_date
+                  )
+                else
+                  # First-time membership payment: send confirmation that payment was received and membership is active
+                  # paid_elsewhere: true when no payment method (e.g. cash/check via Stripe paid_out_of_band)
+                  paid_elsewhere = is_nil(payment.payment_method_id)
+
+                  YscWeb.Emails.Notifier.deliver_membership_payment_confirmation(
+                    user,
+                    membership_type,
+                    payment.amount,
+                    payment_date,
+                    paid_elsewhere: paid_elsewhere
                   )
                 end
 

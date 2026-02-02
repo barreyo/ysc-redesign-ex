@@ -38,6 +38,7 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
     VolunteerConfirmation,
     VolunteerBoardNotification,
     OutageNotification,
+    MembershipPaymentConfirmation,
     MembershipPaymentFailure,
     MembershipRenewalSuccess,
     MembershipPaymentReminder7Day,
@@ -641,6 +642,23 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
       assert MembershipPaymentFailure.get_template_name() == "membership_payment_failure"
     end
 
+    test "MembershipPaymentConfirmation renders", %{user: user} do
+      assigns = %{
+        first_name: user.first_name,
+        membership_type: "Single",
+        payment_date: "Dec 1, 2024",
+        amount: "$50.00",
+        paid_elsewhere: false
+      }
+
+      html = MembershipPaymentConfirmation.render(assigns)
+      assert is_binary(html)
+      assert String.length(html) > 0
+
+      assert MembershipPaymentConfirmation.get_template_name() ==
+               "membership_payment_confirmation"
+    end
+
     test "MembershipRenewalSuccess renders", %{user: user} do
       assigns = %{
         first_name: user.first_name,
@@ -800,6 +818,7 @@ defmodule YscWeb.Emails.AllEmailTemplatesTest do
         "volunteer_confirmation" => VolunteerConfirmation,
         "volunteer_board_notification" => VolunteerBoardNotification,
         "outage_notification" => OutageNotification,
+        "membership_payment_confirmation" => MembershipPaymentConfirmation,
         "membership_payment_failure" => MembershipPaymentFailure,
         "membership_renewal_success" => MembershipRenewalSuccess,
         "membership_payment_reminder_7day" => MembershipPaymentReminder7Day,

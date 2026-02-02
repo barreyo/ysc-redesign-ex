@@ -847,6 +847,180 @@ defmodule Ysc.Subscriptions do
   end
 
   @doc """
+  Creates a membership subscription that is already paid (e.g. cash, check).
+
+  Use this when a user pays for membership outside Stripe. Creates the subscription
+  in Stripe with an open first invoice, then marks that invoice as paid out of band.
+  The subscription becomes active and our webhooks (or immediate sync) create the
+  local subscription and payment record.
+
+  ## Options
+
+  - `:plan_id` - Required. Plan atom, e.g. `:single` or `:family` (not `:lifetime`).
+
+  ## Examples
+
+      iex> create_subscription_paid_out_of_band(user, :single)
+      {:ok, %Subscription{}}
+
+      iex> create_subscription_paid_out_of_band(user, :family)
+      {:ok, %Subscription{}}
+
+      iex> create_subscription_paid_out_of_band(sub_account_user, :single)
+      {:error, :sub_accounts_cannot_create_subscriptions}
+  """
+  def create_subscription_paid_out_of_band(%Ysc.Accounts.User{} = user, plan_id)
+      when plan_id in [:single, :family] do
+    require Logger
+
+    if Ysc.Accounts.sub_account?(user) do
+      {:error, :sub_accounts_cannot_create_subscriptions}
+    else
+      membership_plans = Application.get_env(:ysc, :membership_plans, [])
+      plan = Enum.find(membership_plans, &(&1.id == plan_id))
+
+      cond do
+        is_nil(plan) or is_nil(plan.stripe_price_id) ->
+          {:error, :invalid_plan}
+
+        get_active_subscription(user) != nil ->
+          {:error, :user_already_has_active_subscription}
+
+        true ->
+          user = ensure_user_has_stripe_id(user)
+
+          if is_nil(user.stripe_id) do
+            {:error, :could_not_create_stripe_customer}
+          else
+            do_create_subscription_paid_out_of_band(user, plan)
+          end
+      end
+    end
+  end
+
+  def create_subscription_paid_out_of_band(_user, _plan_id), do: {:error, :invalid_plan}
+
+  defp ensure_user_has_stripe_id(%{stripe_id: nil} = user) do
+    case Ysc.Customers.create_stripe_customer(user) do
+      {:ok, _} -> Ysc.Accounts.get_user!(user.id)
+      {:error, _} -> user
+    end
+  end
+
+  defp ensure_user_has_stripe_id(user), do: user
+
+  defp do_create_subscription_paid_out_of_band(user, plan) do
+    require Logger
+
+    # Optional callback for tests to inject a fake Stripe subscription without calling Stripe API
+    case Application.get_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback) do
+      nil ->
+        do_create_subscription_paid_out_of_band_stripe(user, plan)
+
+      callback when is_function(callback, 2) ->
+        case callback.(user, plan) do
+          {:ok, stripe_subscription} ->
+            case create_subscription_from_stripe(user, stripe_subscription) do
+              {:ok, subscription} ->
+                subscription = Repo.preload(subscription, :subscription_items)
+                send_membership_confirmation_email_for_paid_elsewhere(user, plan)
+                {:ok, subscription}
+
+              err ->
+                err
+            end
+
+          {:error, _} = err ->
+            err
+        end
+    end
+  end
+
+  defp do_create_subscription_paid_out_of_band_stripe(user, plan) do
+    require Logger
+
+    stripe_params = %{
+      customer: user.stripe_id,
+      items: [%{price: plan.stripe_price_id, quantity: 1}],
+      payment_behavior: "default_incomplete",
+      expand: ["latest_invoice"],
+      metadata: %{user_id: user.id}
+    }
+
+    case Stripe.Subscription.create(stripe_params) do
+      {:ok, stripe_subscription} ->
+        latest_invoice = stripe_subscription.latest_invoice
+        invoice_id = invoice_id_from_expand(latest_invoice)
+
+        case Stripe.Invoice.pay(invoice_id, %{paid_out_of_band: true}) do
+          {:ok, _paid_invoice} ->
+            stripe_subscription =
+              case Stripe.Subscription.retrieve(stripe_subscription.id,
+                     expand: ["items.data.price"]
+                   ) do
+                {:ok, sub} -> sub
+                {:error, _} -> stripe_subscription
+              end
+
+            case create_subscription_from_stripe(user, stripe_subscription) do
+              {:ok, subscription} ->
+                subscription = Repo.preload(subscription, :subscription_items)
+                send_membership_confirmation_email_for_paid_elsewhere(user, plan)
+                {:ok, subscription}
+
+              err ->
+                Logger.error("Failed to create local subscription after paid-out-of-band",
+                  user_id: user.id,
+                  stripe_subscription_id: stripe_subscription.id,
+                  error: inspect(err)
+                )
+
+                err
+            end
+
+          {:error, err} ->
+            Logger.error("Failed to mark invoice as paid out of band",
+              user_id: user.id,
+              invoice_id: invoice_id,
+              error: inspect(err)
+            )
+
+            {:error, err}
+        end
+
+      {:error, err} ->
+        {:error, err}
+    end
+  end
+
+  defp invoice_id_from_expand(id) when is_binary(id), do: id
+  defp invoice_id_from_expand(%{id: id}), do: id
+
+  defp send_membership_confirmation_email_for_paid_elsewhere(user, plan) do
+    require Logger
+
+    try do
+      amount = Money.new(plan.amount, :USD)
+      payment_date = Date.utc_today()
+
+      YscWeb.Emails.Notifier.deliver_membership_payment_confirmation(
+        user,
+        plan.id,
+        amount,
+        payment_date,
+        paid_elsewhere: true
+      )
+    rescue
+      error ->
+        Logger.warning(
+          "Failed to send membership confirmation email for paid-elsewhere subscription",
+          user_id: user.id,
+          error: Exception.message(error)
+        )
+    end
+  end
+
+  @doc """
   Creates a local subscription from a Stripe subscription.
   This is used as a backup when webhooks might not be reliable.
   """

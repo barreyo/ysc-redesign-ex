@@ -4,6 +4,8 @@ defmodule Ysc.SubscriptionsTest do
   """
   use Ysc.DataCase, async: true
 
+  alias Ysc.Accounts.User
+  alias Ysc.Repo
   alias Ysc.Subscriptions
   alias Ysc.Subscriptions.Subscription
   import Ysc.AccountsFixtures
@@ -382,5 +384,157 @@ defmodule Ysc.SubscriptionsTest do
       found = Subscriptions.get_active_subscription(user)
       assert found.id == active_sub.id
     end
+  end
+
+  describe "create_subscription_paid_out_of_band/2" do
+    test "returns {:error, :invalid_plan} for :lifetime plan" do
+      user = user_fixture()
+
+      assert Subscriptions.create_subscription_paid_out_of_band(user, :lifetime) ==
+               {:error, :invalid_plan}
+    end
+
+    test "returns {:error, :invalid_plan} for unknown plan id" do
+      user = user_fixture()
+
+      assert Subscriptions.create_subscription_paid_out_of_band(user, :unknown_plan) ==
+               {:error, :invalid_plan}
+    end
+
+    test "returns {:error, :sub_accounts_cannot_create_subscriptions} for sub-account" do
+      primary = user_fixture()
+
+      sub_account =
+        %User{}
+        |> User.sub_account_registration_changeset(
+          %{
+            email: unique_user_email(),
+            password: valid_user_password(),
+            first_name: "Sub",
+            last_name: "User",
+            phone_number: "+14159098268",
+            date_of_birth: ~D[1990-01-01]
+          },
+          primary.id,
+          hash_password: true,
+          validate_email: true
+        )
+        |> Repo.insert!()
+
+      assert Subscriptions.create_subscription_paid_out_of_band(sub_account, :single) ==
+               {:error, :sub_accounts_cannot_create_subscriptions}
+    end
+
+    test "returns {:error, :user_already_has_active_subscription} when user has active subscription" do
+      user = user_fixture()
+
+      {:ok, _existing_sub} =
+        Subscriptions.create_subscription(%{
+          user_id: user.id,
+          stripe_id: "sub_existing_#{System.unique_integer()}",
+          stripe_status: "active",
+          name: "Existing",
+          current_period_end: DateTime.add(DateTime.utc_now(), 30, :day)
+        })
+
+      assert Subscriptions.create_subscription_paid_out_of_band(user, :single) ==
+               {:error, :user_already_has_active_subscription}
+    end
+
+    test "creates subscription and returns {:ok, subscription} when callback returns fake Stripe subscription" do
+      user = user_fixture()
+      membership_plans = Application.get_env(:ysc, :membership_plans, [])
+      single_plan = Enum.find(membership_plans, &(&1.id == :single))
+      assert single_plan != nil
+
+      now_unix = System.system_time(:second)
+      fake_stripe_sub = build_fake_stripe_subscription(single_plan, now_unix)
+
+      callback = fn _user, _plan -> {:ok, fake_stripe_sub} end
+
+      try do
+        Application.put_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback, callback)
+
+        assert {:ok, %Subscription{} = subscription} =
+                 Subscriptions.create_subscription_paid_out_of_band(user, :single)
+
+        assert subscription.user_id == user.id
+        assert subscription.stripe_id == fake_stripe_sub.id
+        assert subscription.stripe_status == "active"
+        assert subscription.name == "Membership Subscription"
+        assert subscription.current_period_end != nil
+        assert Ecto.assoc_loaded?(subscription.subscription_items)
+        assert length(subscription.subscription_items) == 1
+        assert hd(subscription.subscription_items).stripe_price_id == single_plan.stripe_price_id
+      after
+        Application.delete_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback)
+      end
+    end
+
+    test "creates family subscription when callback returns fake Stripe subscription for family plan" do
+      user = user_fixture()
+      membership_plans = Application.get_env(:ysc, :membership_plans, [])
+      family_plan = Enum.find(membership_plans, &(&1.id == :family))
+      assert family_plan != nil
+
+      now_unix = System.system_time(:second)
+      fake_stripe_sub = build_fake_stripe_subscription(family_plan, now_unix)
+
+      callback = fn _user, _plan -> {:ok, fake_stripe_sub} end
+
+      try do
+        Application.put_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback, callback)
+
+        assert {:ok, %Subscription{} = subscription} =
+                 Subscriptions.create_subscription_paid_out_of_band(user, :family)
+
+        assert subscription.user_id == user.id
+        assert subscription.stripe_status == "active"
+        assert length(subscription.subscription_items) == 1
+        assert hd(subscription.subscription_items).stripe_price_id == family_plan.stripe_price_id
+      after
+        Application.delete_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback)
+      end
+    end
+
+    test "returns callback error when callback returns {:error, reason}" do
+      user = user_fixture(%{stripe_id: "cus_test"})
+      callback = fn _user, _plan -> {:error, :stripe_api_error} end
+
+      try do
+        Application.put_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback, callback)
+
+        assert Subscriptions.create_subscription_paid_out_of_band(user, :single) ==
+                 {:error, :stripe_api_error}
+      after
+        Application.delete_env(:ysc, :create_subscription_paid_out_of_band_stripe_callback)
+      end
+    end
+  end
+
+  defp build_fake_stripe_subscription(plan, now_unix) do
+    period_end = now_unix + 365 * 24 * 60 * 60
+
+    %Stripe.Subscription{
+      id: "sub_fake_#{System.unique_integer()}",
+      status: "active",
+      start_date: now_unix,
+      current_period_start: now_unix,
+      current_period_end: period_end,
+      trial_end: nil,
+      ended_at: nil,
+      items: %Stripe.List{
+        data: [
+          %{
+            id: "si_fake_#{System.unique_integer()}",
+            price: %{id: plan.stripe_price_id, product: "prod_fake"},
+            quantity: 1
+          }
+        ],
+        has_more: false,
+        object: "list",
+        url: "/v1/subscription_items"
+      }
+    }
   end
 end

@@ -678,12 +678,41 @@ defmodule YscWeb.AdminUserDetailsLive do
               </div>
             </div>
 
-            <div
-              :if={@active_subscription == nil && !@has_lifetime_membership}
-              class="bg-zinc-50 border border-zinc-200 rounded-lg p-4"
-            >
-              <p class="text-sm text-zinc-800">No active membership subscription found</p>
-              <p class="text-xs text-zinc-600 mt-2">You can award lifetime membership below.</p>
+            <div :if={@active_subscription == nil && !@has_lifetime_membership} class="space-y-4">
+              <div class="bg-zinc-50 border border-zinc-200 rounded-lg p-4">
+                <p class="text-sm text-zinc-800">No active membership subscription found</p>
+                <p class="text-xs text-zinc-600 mt-2">
+                  Create a subscription paid elsewhere (e.g. cash) or award lifetime membership below.
+                </p>
+              </div>
+              <div class="border border-zinc-200 rounded-lg p-4 bg-white">
+                <h3 class="text-lg font-semibold text-zinc-800 mb-2">
+                  Create membership (paid elsewhere)
+                </h3>
+                <p class="text-sm text-zinc-600 mb-4">
+                  Creates a membership subscription in Stripe and marks the first invoice as paid (e.g. cash, check).
+                  The user will have an active membership for one billing period.
+                </p>
+                <.simple_form
+                  for={@create_paid_membership_form}
+                  id="create-paid-membership-form"
+                  phx-change="validate_create_paid_membership"
+                  phx-submit="create_paid_membership"
+                >
+                  <.input
+                    field={@create_paid_membership_form[:plan_id]}
+                    type="select"
+                    label="Membership plan"
+                    options={get_membership_type_options_for_create()}
+                  />
+                  <div class="flex flex-row justify-end w-full pt-4">
+                    <.button phx-disable-with="Creating..." type="submit">
+                      <.icon name="hero-banknotes" class="w-5 h-5 mb-0.5 me-1" />
+                      Create membership (paid elsewhere)
+                    </.button>
+                  </div>
+                </.simple_form>
+              </div>
             </div>
 
             <div :if={@active_subscription != nil} class="space-y-6">
@@ -1483,6 +1512,10 @@ defmodule YscWeb.AdminUserDetailsLive do
       }
       |> membership_type_changeset()
 
+    create_paid_membership_changeset =
+      %{plan_id: "single"}
+      |> create_paid_membership_changeset()
+
     {:ok,
      socket
      |> assign(:user_id, id)
@@ -1499,6 +1532,10 @@ defmodule YscWeb.AdminUserDetailsLive do
      |> assign(:membership_form, to_form(membership_changeset, as: "membership"))
      |> assign(:membership_type_form, to_form(membership_type_changeset, as: "membership_type"))
      |> assign(:lifetime_form, to_form(lifetime_changeset, as: "lifetime"))
+     |> assign(
+       :create_paid_membership_form,
+       to_form(create_paid_membership_changeset, as: "create_paid_membership")
+     )
      |> assign(:ticket_orders_meta, nil)
      |> assign(:bookings_meta, nil)
      |> assign(:notifications, [])
@@ -1726,6 +1763,83 @@ defmodule YscWeb.AdminUserDetailsLive do
     changeset = membership_type_params |> membership_type_changeset()
 
     {:noreply, assign(socket, membership_type_form: to_form(changeset, as: "membership_type"))}
+  end
+
+  def handle_event(
+        "validate_create_paid_membership",
+        %{"create_paid_membership" => params},
+        socket
+      ) do
+    changeset = params |> create_paid_membership_changeset()
+
+    {:noreply,
+     assign(socket, create_paid_membership_form: to_form(changeset, as: "create_paid_membership"))}
+  end
+
+  def handle_event("create_paid_membership", %{"create_paid_membership" => params}, socket) do
+    selected_user = socket.assigns[:selected_user]
+    plan_id_str = params["plan_id"]
+
+    if is_nil(plan_id_str) or plan_id_str == "" do
+      {:noreply, socket |> put_flash(:error, "Please select a membership plan")}
+    else
+      plan_id = String.to_existing_atom(plan_id_str)
+
+      case Subscriptions.create_subscription_paid_out_of_band(selected_user, plan_id) do
+        {:ok, subscription} ->
+          subscription = Repo.preload(subscription, :subscription_items)
+          subscription_payments = Ledgers.get_payments_for_subscription(subscription.id)
+
+          membership_changeset =
+            %{period_end_date: subscription.current_period_end}
+            |> membership_changeset()
+
+          current_membership_type = get_current_membership_type_from_subscription(subscription)
+
+          membership_type_changeset =
+            %{membership_type: current_membership_type}
+            |> membership_type_changeset()
+
+          create_paid_membership_changeset =
+            %{plan_id: plan_id_str}
+            |> create_paid_membership_changeset()
+
+          {:noreply,
+           socket
+           |> assign(:active_subscription, subscription)
+           |> assign(:subscription_payments, subscription_payments)
+           |> assign(:membership_form, to_form(membership_changeset, as: "membership"))
+           |> assign(
+             :membership_type_form,
+             to_form(membership_type_changeset, as: "membership_type")
+           )
+           |> assign(
+             :create_paid_membership_form,
+             to_form(create_paid_membership_changeset, as: "create_paid_membership")
+           )
+           |> put_flash(:info, "Membership subscription created (paid elsewhere).")}
+
+        {:error, :sub_accounts_cannot_create_subscriptions} ->
+          {:noreply,
+           socket |> put_flash(:error, "Sub-accounts cannot have their own subscriptions.")}
+
+        {:error, :user_already_has_active_subscription} ->
+          {:noreply, socket |> put_flash(:error, "User already has an active subscription.")}
+
+        {:error, :invalid_plan} ->
+          {:noreply, socket |> put_flash(:error, "Invalid membership plan selected.")}
+
+        {:error, :could_not_create_stripe_customer} ->
+          {:noreply,
+           socket |> put_flash(:error, "Could not create or link Stripe customer for user.")}
+
+        {:error, err} ->
+          message =
+            if is_binary(err), do: err, else: "Failed to create subscription: #{inspect(err)}"
+
+          {:noreply, socket |> put_flash(:error, message)}
+      end
+    end
   end
 
   def handle_event(
@@ -2076,6 +2190,15 @@ defmodule YscWeb.AdminUserDetailsLive do
     |> Ecto.Changeset.validate_required([:membership_type])
   end
 
+  defp create_paid_membership_changeset(params) do
+    types = %{plan_id: :string}
+
+    {%{}, types}
+    |> Ecto.Changeset.cast(params, [:plan_id])
+    |> Ecto.Changeset.validate_required([:plan_id])
+    |> Ecto.Changeset.validate_inclusion(:plan_id, ["single", "family"])
+  end
+
   defp get_current_membership_type_from_subscription(subscription),
     do: YscWeb.UserAuth.get_membership_plan_type(subscription)
 
@@ -2084,6 +2207,18 @@ defmodule YscWeb.AdminUserDetailsLive do
 
     # Filter out lifetime membership (it's handled separately)
     available_plans = Enum.filter(membership_plans, &(&1.id != :lifetime))
+
+    Enum.map(available_plans, fn plan ->
+      label = "#{plan.name} - $#{plan.amount}/year"
+      value = Atom.to_string(plan.id)
+      {label, value}
+    end)
+  end
+
+  defp get_membership_type_options_for_create do
+    membership_plans = Application.get_env(:ysc, :membership_plans, [])
+
+    available_plans = Enum.filter(membership_plans, &(&1.id in [:single, :family]))
 
     Enum.map(available_plans, fn plan ->
       label = "#{plan.name} - $#{plan.amount}/year"

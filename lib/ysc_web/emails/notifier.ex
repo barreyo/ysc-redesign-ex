@@ -38,6 +38,7 @@ defmodule YscWeb.Emails.Notifier do
     "contact_form_board_notification" => YscWeb.Emails.ContactFormBoardNotification,
     "outage_notification" => YscWeb.Emails.OutageNotification,
     "membership_payment_failure" => YscWeb.Emails.MembershipPaymentFailure,
+    "membership_payment_confirmation" => YscWeb.Emails.MembershipPaymentConfirmation,
     "membership_renewal_success" => YscWeb.Emails.MembershipRenewalSuccess,
     "membership_payment_reminder_7day" => YscWeb.Emails.MembershipPaymentReminder7Day,
     "membership_payment_reminder_30day" => YscWeb.Emails.MembershipPaymentReminder30Day,
@@ -216,6 +217,48 @@ defmodule YscWeb.Emails.Notifier do
       variables,
       "",
       nil
+    )
+  end
+
+  @doc """
+  Schedules the membership payment confirmation email.
+
+  Used when a membership payment is recorded (e.g. Stripe webhook or admin-created
+  cash-paid membership). Use `paid_elsewhere: true` when the payment was received
+  in person (cash, check, etc.) so the email copy reflects that.
+  """
+  def deliver_membership_payment_confirmation(
+        user,
+        membership_type,
+        amount,
+        payment_date,
+        opts \\ []
+      ) do
+    email_module = YscWeb.Emails.MembershipPaymentConfirmation
+
+    email_data =
+      email_module.prepare_email_data(user, membership_type, amount, payment_date, opts)
+
+    subject = email_module.get_subject()
+    template_name = email_module.get_template_name()
+
+    payment_date_for_key =
+      case payment_date do
+        %Date{} = d -> Date.to_iso8601(d)
+        %DateTime{} = dt -> DateTime.to_date(dt) |> Date.to_iso8601()
+        _ -> Date.utc_today() |> Date.to_iso8601()
+      end
+
+    idempotency_key = "membership_payment_confirmation_#{user.id}_#{payment_date_for_key}"
+
+    schedule_email(
+      user.email,
+      idempotency_key,
+      subject,
+      template_name,
+      email_data,
+      "",
+      user.id
     )
   end
 
