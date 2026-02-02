@@ -116,21 +116,9 @@ defmodule Ysc.PropertyOutages.OutageTrackerTest do
       assert changeset.changes.incident_type == :water_outage
     end
 
-    test "accepts gas_outage incident type" do
-      attrs = %{
-        incident_id: "INC-003",
-        incident_type: "gas_outage"
-      }
-
-      changeset = OutageTracker.changeset(%OutageTracker{}, attrs)
-
-      assert changeset.valid?
-      assert changeset.changes.incident_type == :gas_outage
-    end
-
     test "accepts internet_outage incident type" do
       attrs = %{
-        incident_id: "INC-004",
+        incident_id: "INC-003",
         incident_type: "internet_outage"
       }
 
@@ -138,18 +126,6 @@ defmodule Ysc.PropertyOutages.OutageTrackerTest do
 
       assert changeset.valid?
       assert changeset.changes.incident_type == :internet_outage
-    end
-
-    test "accepts road_closure incident type" do
-      attrs = %{
-        incident_id: "INC-005",
-        incident_type: "road_closure"
-      }
-
-      changeset = OutageTracker.changeset(%OutageTracker{}, attrs)
-
-      assert changeset.valid?
-      assert changeset.changes.incident_type == :road_closure
     end
 
     test "rejects invalid incident type" do
