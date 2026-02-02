@@ -49,7 +49,11 @@ defmodule Ysc.PropertyOutages.OutageTrackerTest do
       assert changeset.changes.company_name == "Truckee Water Department"
       assert changeset.changes.incident_date == ~D[2024-12-15]
       assert changeset.changes.property == :tahoe
-      assert changeset.changes.raw_response == %{"status" => "active", "eta" => "2024-12-15 18:00"}
+
+      assert changeset.changes.raw_response == %{
+               "status" => "active",
+               "eta" => "2024-12-15 18:00"
+             }
     end
 
     test "requires incident_id" do

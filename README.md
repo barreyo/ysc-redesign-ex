@@ -1,5 +1,7 @@
 # Ysc
 
+This is the central repository for the YSC web application, a comprehensive platform for managing club activities, memberships, events, and finances. Built with Elixir and the Phoenix framework, it provides a robust and scalable solution for the club's needs.
+
 ## Getting Started
 
 ### Prerequisites
@@ -11,9 +13,9 @@
 
 ### Initial Setup
 
-1. **Set up environment variables** (see Environment Variables section below) - either export them or create a `.env` file
+### 1. Set Up Environment Variables
 
-2. **Set up local development environment**:
+### 2. Install Dependencies and Set Up the Database
 
    ```bash
    make dev-setup
@@ -26,18 +28,89 @@
    - Run database migrations
    - Seed the database with initial data
 
-3. **Start the development server**:
+### 3. Start the Development Server
    ```bash
    make dev
    ```
 
 Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.
 
-## Development Workflow
+## Deployment & Environments
 
-### Local Development
+The application is configured to run in three main environments: development, sandbox, and production.
 
-The development server runs with hot-reloading enabled. Changes to Elixir files will automatically reload the application.
+### Development
+
+The development environment is configured for local development. You can set it up and run it using the `make dev-setup` and `make dev` commands. It runs with hot-reloading enabled.
+
+### Sandbox (Fly.io)
+
+The project includes a sandbox environment deployed on Fly.io for testing integrations in a production-like environment.
+
+#### Sandbox Configuration
+
+-   **URL**: https://ysc-sandbox.fly.dev
+-   **Environment**: Sandbox (auto-shuts down after 10 minutes of inactivity)
+-   **QuickBooks**: Uses QuickBooks Sandbox API
+-   **Stripe**: Uses Stripe test mode
+
+#### Deploying to Sandbox
+
+To deploy changes to the sandbox environment:
+
+```bash
+make deploy-sandbox
+```
+
+### Production
+
+The production environment is hosted on Fly.io. For detailed deployment instructions, please refer to the official Phoenix deployment guides.
+
+## Architecture
+
+This is a web application built with the Phoenix framework, written in Elixir. It follows the standard Phoenix project structure:
+
+*   **Core Business Logic (`lib/ysc`)**: This layer encapsulates the core functionalities of the application, such as user accounts, payments, bookings, and integrations with third-party services like Stripe and QuickBooks. It is decoupled from the web interface.
+*   **Web Interface (`lib/ysc_web`)**: This is the Phoenix web application that provides the user interface. It uses Phoenix LiveView for rich, real-time user experiences, and traditional controllers for handling HTTP requests. It's responsible for rendering templates, handling user input, and communicating with the core business logic.
+*   **Database**: The application uses a PostgreSQL database, managed by Ecto, Elixir's database wrapper and query language.
+*   **Background Jobs**: Asynchronous tasks, like sending emails or syncing with QuickBooks, are managed by Oban, a robust background job processing library for Elixir.
+*   **Third-Party Integrations**:
+    *   **Stripe**: For payment processing.
+    *   **QuickBooks**: For accounting and financial management.
+    *   **AWS S3**: For file storage.
+    *   **Flowroute**: For SMS services.
+
+## Features
+
+The application provides a comprehensive set of features for managing a club or organization:
+
+*   **User Management**: User accounts, authentication, and authorization.
+*   **Membership Management**: Handling memberships, subscriptions, and renewals.
+*   **Event Management**: Creating and managing events, including ticketing and registration.
+*   **Bookings**: A system for booking resources or facilities.
+*   **Content Management**: Creating and publishing posts and announcements.
+*   **Financial Management**:
+    *   Processing payments with Stripe.
+    *   Generating expense reports.
+    *   Syncing financial data with QuickBooks.
+    *   Maintaining ledgers and financial records.
+*   **Communication**: Sending emails and SMS messages to users.
+*   **Support**: A ticketing system for handling user inquiries.
+*   **File Management**: Uploading and managing files with AWS S3.
+*   **Search**: A comprehensive search functionality.
+
+## Contributing
+
+Contributions to this project are managed by the web tech group. Here's the general workflow for making changes:
+
+1.  **Create a branch**: Create a new branch from `main` for your feature or bug fix. Use a descriptive name (e.g., `feature/add-dark-mode` or `fix/login-bug`).
+2.  **Make your changes**: Implement your changes, following the project's coding style and conventions.
+3.  **Write tests**: Add tests to cover any new functionality or bug fixes.
+4.  **Run tests**: Make sure the entire test suite passes by running `make test`.
+5.  **Lint your code**: Ensure your code is well-formatted and free of linting errors by running `make lint`.
+6.  **Submit a pull request**: Open a pull request from your branch to the `main` branch. Provide a clear description of your changes and why they are needed.
+
+A team member will review your pull request. Thank you for your contribution!
 
 ### Testing QuickBooks Integration
 
@@ -84,7 +157,7 @@ To test QuickBooks integration locally, you'll need to configure QuickBooks sand
 
 **Note:** QuickBooks sync jobs run asynchronously via Oban. You can monitor job status in the admin settings page.
 
-### Useful Make Targets
+### Development Commands
 
 The project includes several useful make targets for development:
 
@@ -126,59 +199,6 @@ The project includes several useful make targets for development:
 
 - **`make help`** - Display all available make targets with descriptions
 
-### Sandbox Environment (Fly.io)
-
-The project includes a sandbox environment deployed on Fly.io for testing integrations in a production-like environment.
-
-#### Sandbox Configuration
-
-- **URL**: https://ysc-sandbox.fly.dev
-- **Environment**: Sandbox (auto-shuts down after 10 minutes of inactivity)
-- **QuickBooks**: Uses QuickBooks Sandbox API
-- **Stripe**: Uses Stripe test mode
-
-#### Sandbox Environment Variables
-
-The sandbox is pre-configured with the following (see `etc/fly/fly-sandbox.toml`):
-
-- QuickBooks Sandbox API endpoint
-- Pre-configured QuickBooks account and item IDs
-- Test Stripe price IDs
-- Sandbox-specific email addresses (all emails use `+sandbox@ysc.org` suffix)
-
-#### Deploying to Sandbox
-
-To deploy changes to the sandbox environment:
-
-```bash
-make deploy-sandbox
-```
-
-Or manually:
-
-```bash
-# Get the version from git
-VERSION=$(git describe --first-parent --abbrev=10 --long --tags --dirty)
-
-# Deploy with BUILD_VERSION build arg
-fly deploy --dockerfile etc/docker/Dockerfile -a ysc-sandbox -c etc/fly/fly-sandbox.toml --build-arg BUILD_VERSION=$VERSION
-```
-
-**Note:** The sandbox environment automatically shuts down after 10 minutes of inactivity to save resources. It will automatically start when accessed.
-
-#### Accessing Sandbox
-
-1. Visit https://ysc-sandbox.fly.dev
-2. The first request may take a moment as the app starts up
-3. Use test credentials to log in (check with your team for sandbox credentials)
-
-#### Sandbox Features
-
-- Full application functionality in a production-like environment
-- QuickBooks Sandbox integration (test transactions only)
-- Stripe test mode (no real charges)
-- Auto-shutdown to save resources
-- Separate database from production
 
 ## Environment Variables
 
@@ -269,12 +289,3 @@ RADAR_PUBLIC_KEY=prj_live_pk_...  # Optional, defaults to test key
 
 **Security Note:** Never commit your `.env` file to version control. It's already included in `.gitignore`.
 
-Ready to run in production? Please [check our deployment guides](https://hexdocs.pm/phoenix/deployment.html).
-
-## Learn more
-
-- Official website: https://www.phoenixframework.org/
-- Guides: https://hexdocs.pm/phoenix/overview.html
-- Docs: https://hexdocs.pm/phoenix
-- Forum: https://elixirforum.com/c/phoenix-forum
-- Source: https://github.com/phoenixframework/phoenix
