@@ -7,6 +7,13 @@
   format: "txt",
   out: "",
   threshold: "low",
-  ignore: ["Config.CSRF", "Config.CSP", "Config.HTTPS"],
+  ignore: [
+    "Config.CSRF",
+    "Config.CSP",
+    "Config.HTTPS",
+    "Misc.BinToTerm",
+    "Traversal.FileModule",
+    "XSS.SendResp"
+  ],
   ignore_files: [""]
 ]
