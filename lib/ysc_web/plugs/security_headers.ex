@@ -10,7 +10,7 @@ defmodule YscWeb.Plugs.SecurityHeaders do
 
   def call(conn, _opts) do
     # Skip CSP for LiveDashboard routes - it has its own CSP handling
-    if is_live_dashboard_route?(conn) do
+    if live_dashboard_route?(conn) do
       conn
       |> put_non_csp_security_headers()
     else
@@ -35,7 +35,7 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     end
   end
 
-  defp is_live_dashboard_route?(conn) do
+  defp live_dashboard_route?(conn) do
     # Check if the request path starts with /admin/dashboard
     case conn.request_path do
       "/admin/dashboard" <> _ -> true
