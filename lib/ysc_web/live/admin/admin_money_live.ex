@@ -43,13 +43,10 @@ defmodule YscWeb.AdminMoneyLive do
       |> assign(:selected_payment, nil)
       |> assign(:selected_user, nil)
       |> assign(:selected_webhook, nil)
-      |> assign(:selected_entry, nil)
       |> assign(:selected_payout, nil)
       |> assign(:ticket_order, nil)
       |> assign(:refund_form, to_form(%{}, as: :refund))
       |> assign(:credit_form, to_form(%{}, as: :credit))
-      |> assign(:entry_form, to_form(%{}, as: :entry))
-      |> assign(:show_entry_modal, false)
       |> assign(:show_payment_modal, false)
       |> assign(:payment_refunds, [])
       |> assign(:payment_ledger_entries, [])
@@ -404,35 +401,6 @@ defmodule YscWeb.AdminMoneyLive do
   end
 
   @impl true
-  def handle_event("show_entry_modal", %{"entry_id" => entry_id}, socket) do
-    entry = Ledgers.get_entry(entry_id)
-
-    entry_changeset =
-      %{
-        account_id: entry.account_id,
-        amount: Money.to_string!(entry.amount),
-        description: entry.description,
-        debit_credit: entry.debit_credit
-      }
-      |> entry_changeset()
-
-    {:noreply,
-     socket
-     |> assign(:show_entry_modal, true)
-     |> assign(:selected_entry, entry)
-     |> assign(:entry_form, to_form(entry_changeset, as: :entry))}
-  end
-
-  @impl true
-  def handle_event("close_entry_modal", _params, socket) do
-    {:noreply,
-     socket
-     |> assign(:show_entry_modal, false)
-     |> assign(:selected_entry, nil)
-     |> assign(:entry_form, to_form(%{}, as: :entry))}
-  end
-
-  @impl true
   def handle_event("show_payment_modal", %{"payment_id" => payment_id}, socket) do
     path = build_money_path(socket, "/payments/#{payment_id}")
     {:noreply, push_navigate(socket, to: path)}
@@ -441,69 +409,6 @@ defmodule YscWeb.AdminMoneyLive do
   @impl true
   def handle_event("close_payment_modal", _params, socket) do
     {:noreply, push_navigate(socket, to: build_money_path(socket))}
-  end
-
-  @impl true
-  def handle_event("validate_entry", %{"entry" => entry_params}, socket) do
-    changeset = entry_params |> entry_changeset() |> Map.put(:action, :validate)
-
-    {:noreply, assign(socket, :entry_form, to_form(changeset, as: :entry))}
-  end
-
-  @impl true
-  def handle_event("update_entry", %{"entry" => entry_params}, socket) do
-    %{selected_entry: entry} = socket.assigns
-
-    # Parse amount
-    case parse_amount_string(entry_params["amount"]) do
-      {:ok, amount} ->
-        attrs = %{
-          account_id: entry_params["account_id"],
-          amount: amount,
-          description: entry_params["description"],
-          debit_credit: entry_params["debit_credit"]
-        }
-
-        case Ledgers.update_entry_with_balance(entry.id, attrs) do
-          {:ok, _updated_entry} ->
-            {:noreply,
-             socket
-             |> put_flash(
-               :info,
-               "Ledger entry updated successfully (corresponding entry also updated)"
-             )
-             |> assign(:show_entry_modal, false)
-             |> assign(:selected_entry, nil)
-             |> assign(:ledger_entries_page, 1)
-             |> paginate_ledger_entries(1)
-             |> assign(:entry_form, to_form(%{}, as: :entry))}
-
-          {:error, reason} ->
-            error_message =
-              case reason do
-                {:error, changeset} when is_map(changeset) ->
-                  "Validation errors: #{inspect(changeset.errors)}"
-
-                {:error, :not_found} ->
-                  "Entry not found"
-
-                {:error, {:corresponding_entry_update_failed, changeset}} ->
-                  "Failed to update corresponding entry: #{inspect(changeset.errors)}"
-
-                _ ->
-                  "Failed to update entry: #{inspect(reason)}"
-              end
-
-            {:noreply,
-             socket
-             |> put_flash(:error, error_message)}
-        end
-
-      {:error, _} ->
-        {:noreply,
-         socket
-         |> put_flash(:error, "Invalid amount format")}
-    end
   end
 
   @impl true
@@ -1078,7 +983,7 @@ defmodule YscWeb.AdminMoneyLive do
 
     ledger_entries =
       from(e in Ysc.Ledgers.LedgerEntry,
-        preload: [:account, :payment],
+        preload: [:account, :payment, :refund],
         where: e.inserted_at >= ^start_date,
         where: e.inserted_at <= ^end_date,
         order_by: [desc: e.inserted_at],
@@ -1461,10 +1366,10 @@ defmodule YscWeb.AdminMoneyLive do
                   Payment
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                  Entity
+                  Refund
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                  Actions
+                  Entity
                 </th>
               </tr>
             </thead>
@@ -1506,6 +1411,15 @@ defmodule YscWeb.AdminMoneyLive do
                   <% end %>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-600">
+                  <%= if entry.refund do %>
+                    <span class="font-mono text-xs">
+                      <%= entry.refund.reference_id %>
+                    </span>
+                  <% else %>
+                    <span class="text-zinc-400">—</span>
+                  <% end %>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-600">
                   <%= if entry.related_entity_type do %>
                     <div class="flex flex-col">
                       <span class="text-xs font-medium text-zinc-700">
@@ -1520,15 +1434,6 @@ defmodule YscWeb.AdminMoneyLive do
                   <% else %>
                     <span class="text-zinc-400">—</span>
                   <% end %>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <.button
-                    phx-click="show_entry_modal"
-                    phx-value-entry_id={entry.id}
-                    class="bg-yellow-600 hover:bg-yellow-700 text-xs"
-                  >
-                    Edit
-                  </.button>
                 </td>
               </tr>
               <tr :if={Enum.empty?(@ledger_entries)}>
@@ -2722,111 +2627,6 @@ defmodule YscWeb.AdminMoneyLive do
           </.button>
         </div>
       </.modal>
-      <!-- Edit Ledger Entry Modal -->
-      <.modal :if={@show_entry_modal && @selected_entry} id="entry-modal" show>
-        <div class="mb-4">
-          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-            <p class="text-sm text-yellow-800 font-semibold">
-              ⚠️ Development Tool: Editing ledger entries
-            </p>
-            <p class="text-xs text-yellow-700 mt-1">
-              This will update the corresponding entry to maintain double-entry balance. Use with caution.
-            </p>
-          </div>
-          <h3 class="text-lg font-medium text-zinc-900 mb-4">Edit Ledger Entry</h3>
-          <div class="mb-4 space-y-2 text-sm text-zinc-600">
-            <p>
-              <strong>Entry ID:</strong>
-              <span class="font-mono text-xs ml-2">
-                <%= String.slice(to_string(@selected_entry.id), 0..12) %>...
-              </span>
-            </p>
-            <p>
-              <strong>Payment:</strong>
-              <%= if @selected_entry.payment do %>
-                <span class="font-mono text-xs ml-2">
-                  <%= @selected_entry.payment.reference_id %>
-                </span>
-              <% else %>
-                <span class="text-zinc-400 ml-2">None</span>
-              <% end %>
-            </p>
-            <p>
-              <strong>Current Type:</strong>
-              <span class="ml-2 capitalize">
-                <%= @selected_entry.debit_credit %>
-              </span>
-            </p>
-          </div>
-        </div>
-
-        <.form
-          for={@entry_form}
-          phx-submit="update_entry"
-          phx-change="validate_entry"
-        >
-          <div class="mb-4">
-            <.input
-              field={@entry_form[:account_id]}
-              type="select"
-              label="Account"
-              options={
-                Enum.map(@ledger_accounts, fn account ->
-                  {account.name, account.id}
-                end)
-              }
-              required
-            />
-          </div>
-
-          <div class="mb-4">
-            <.input
-              field={@entry_form[:amount]}
-              type="text"
-              label="Amount"
-              placeholder="e.g., 100.00"
-              required
-            />
-          </div>
-
-          <div class="mb-4">
-            <.input
-              field={@entry_form[:description]}
-              type="textarea"
-              label="Description"
-              placeholder="Enter description..."
-              required
-            />
-          </div>
-
-          <div class="mb-4">
-            <.input
-              field={@entry_form[:debit_credit]}
-              type="select"
-              label="Debit/Credit"
-              options={[{"Debit", "debit"}, {"Credit", "credit"}]}
-              required
-            />
-          </div>
-
-          <div class="flex justify-end gap-2">
-            <.button
-              type="button"
-              phx-click="close_entry_modal"
-              class="bg-zinc-500 hover:bg-zinc-600"
-            >
-              Cancel
-            </.button>
-            <.button
-              type="submit"
-              phx-disable-with="Updating..."
-              class="bg-yellow-600 hover:bg-yellow-700"
-            >
-              Update Entry
-            </.button>
-          </div>
-        </.form>
-      </.modal>
       <!-- Expense Report Details Modal -->
       <.modal
         :if={@show_expense_report_modal && @selected_expense_report}
@@ -3382,52 +3182,6 @@ defmodule YscWeb.AdminMoneyLive do
       "failed" -> "bg-red-100 text-red-800"
       "canceled" -> "bg-zinc-100 text-zinc-800"
       _ -> "bg-zinc-100 text-zinc-800"
-    end
-  end
-
-  defp entry_changeset(params) do
-    types = %{
-      account_id: :string,
-      amount: :string,
-      description: :string,
-      debit_credit: :string
-    }
-
-    {%{}, types}
-    |> Ecto.Changeset.cast(params, Map.keys(types))
-    |> Ecto.Changeset.validate_required([
-      :account_id,
-      :amount,
-      :description,
-      :debit_credit
-    ])
-    |> Ecto.Changeset.validate_length(:description, min: 1, max: 1000)
-    |> Ecto.Changeset.validate_inclusion(:debit_credit, ["debit", "credit"])
-    |> validate_entry_amount()
-  end
-
-  defp validate_entry_amount(changeset) do
-    case Ecto.Changeset.get_field(changeset, :amount) do
-      nil ->
-        changeset
-
-      amount_str ->
-        # Use MoneyHelper.parse_money or try Money.new with string
-        case parse_amount_string(amount_str) do
-          {:ok, money} ->
-            if Money.positive?(money) do
-              changeset
-            else
-              Ecto.Changeset.add_error(changeset, :amount, "must be positive")
-            end
-
-          {:error, _} ->
-            Ecto.Changeset.add_error(
-              changeset,
-              :amount,
-              "invalid amount format"
-            )
-        end
     end
   end
 

@@ -547,12 +547,14 @@ defmodule Ysc.Ledgers.Reconciliation do
       end
 
     # Get all membership payments from payment records (debit entries to stripe_account)
+    # Exclude refund entries by checking that refund_id is null
     payments_total =
       from(e in LedgerEntry,
         join: p in Payment,
         on: e.payment_id == p.id,
         where: e.related_entity_type == :membership,
         where: e.debit_credit == "debit",
+        where: is_nil(e.refund_id),
         select: sum(fragment("(?.amount).amount", e))
       )
       |> Repo.one()
@@ -580,12 +582,14 @@ defmodule Ysc.Ledgers.Reconciliation do
     {:ok, total} = Money.add(ledger_totals.tahoe, ledger_totals.clear_lake)
 
     # Get booking payments (debit entries to stripe_account)
+    # Exclude refund entries by checking that refund_id is null
     payments_total =
       from(e in LedgerEntry,
         join: p in Payment,
         on: e.payment_id == p.id,
         where: e.related_entity_type == :booking,
         where: e.debit_credit == "debit",
+        where: is_nil(e.refund_id),
         select: sum(fragment("(?.amount).amount", e))
       )
       |> Repo.one()
@@ -607,12 +611,14 @@ defmodule Ysc.Ledgers.Reconciliation do
     ledger_total = get_revenue_total("event_revenue")
 
     # Get event payments (debit entries to stripe_account)
+    # Exclude refund entries by checking that refund_id is null
     payments_total =
       from(e in LedgerEntry,
         join: p in Payment,
         on: e.payment_id == p.id,
         where: e.related_entity_type == :event,
         where: e.debit_credit == "debit",
+        where: is_nil(e.refund_id),
         select: sum(fragment("(?.amount).amount", e))
       )
       |> Repo.one()

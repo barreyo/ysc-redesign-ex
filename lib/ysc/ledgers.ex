@@ -1514,8 +1514,8 @@ defmodule Ysc.Ledgers do
         amount: refund_amount,
         debit_credit: :debit,
         description: "Revenue reversal for refund: #{reason}",
-        related_entity_type: :administration,
-        related_entity_id: payment.id
+        related_entity_type: revenue_entry.related_entity_type,
+        related_entity_id: revenue_entry.related_entity_id
       })
 
     # Entry 2: Credit stripe_account (reduces receivable)
@@ -1527,8 +1527,8 @@ defmodule Ysc.Ledgers do
         amount: refund_amount,
         debit_credit: :credit,
         description: "Stripe account reduction for refund: #{reason}",
-        related_entity_type: :administration,
-        related_entity_id: payment.id
+        related_entity_type: revenue_entry.related_entity_type,
+        related_entity_id: revenue_entry.related_entity_id
       })
 
     [revenue_reversal_entry, stripe_credit_entry]
