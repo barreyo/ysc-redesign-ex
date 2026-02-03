@@ -77,7 +77,7 @@ defmodule Ysc.MixProject do
       {:dns_cluster, "~> 0.2"},
       {:ecto_enum, "~> 1.4"},
       {:ecto_psql_extras, "~> 0.6"},
-      {:ecto_sql, "~> 3.11"},
+      {:ecto_sql, "~> 3.13"},
       {:ecto_ulid, "~> 0.3"},
       {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
       {:excoveralls, "~> 0.18", only: :test, runtime: false},

@@ -850,7 +850,7 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       # Manually insert an orphaned transaction with the deleted payment's ID
       Ecto.Adapters.SQL.query!(
         Repo,
-        "INSERT INTO ledger_transactions (id, type, payment_id, total_amount, status, inserted_at, updated_at) VALUES (gen_random_uuid(), 'payment', $1, ROW('USD', 10_000), 'completed', NOW(), NOW())",
+        "INSERT INTO ledger_transactions (id, type, payment_id, total_amount, status, inserted_at, updated_at) VALUES (gen_random_uuid(), 'payment', $1, ROW('USD', 10000), 'completed', NOW(), NOW())",
         [payment_uuid]
       )
 
