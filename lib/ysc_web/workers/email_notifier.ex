@@ -273,7 +273,11 @@ defmodule YscWeb.Workers.EmailNotifier do
           ArgumentError ->
             # Log warning and keep as string to prevent atom exhaustion
             require Logger
-            Logger.warning("Attempted to atomize unknown key, keeping as string: #{key}")
+
+            Logger.warning(
+              "Attempted to atomize unknown key, keeping as string: #{key}"
+            )
+
             key
         end
 

@@ -836,8 +836,14 @@ defmodule YscWeb.OrderConfirmationLive do
             end
 
           case payment_method_type do
-            nil -> "Credit Card (Stripe)"
-            type -> format_alternative_payment_method(normalize_payment_type(type), nil)
+            nil ->
+              "Credit Card (Stripe)"
+
+            type ->
+              format_alternative_payment_method(
+                normalize_payment_type(type),
+                nil
+              )
           end
 
         {:error, _} ->

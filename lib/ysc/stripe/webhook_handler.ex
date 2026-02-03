@@ -82,13 +82,16 @@ defmodule Ysc.Stripe.WebhookHandler do
   defp normalize_currency("cad"), do: :CAD
   defp normalize_currency("aud"), do: :AUD
   defp normalize_currency("jpy"), do: :JPY
+
   defp normalize_currency(currency) when is_binary(currency) do
     # For unknown currencies, try to use existing atom
     # This will raise if the atom doesn't exist, which is safer than creating new atoms
     String.to_existing_atom(String.upcase(currency))
   rescue
-    ArgumentError -> :USD  # Default to USD if currency atom doesn't exist
+    # Default to USD if currency atom doesn't exist
+    ArgumentError -> :USD
   end
+
   defp normalize_currency(_), do: :USD
 
   # Check if webhook is within acceptable age

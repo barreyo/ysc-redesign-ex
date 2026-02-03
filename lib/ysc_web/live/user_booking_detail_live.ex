@@ -678,12 +678,14 @@ defmodule YscWeb.UserBookingDetailLive do
   defp normalize_currency("CAD"), do: :CAD
   defp normalize_currency("AUD"), do: :AUD
   defp normalize_currency("JPY"), do: :JPY
+
   defp normalize_currency(currency) when is_binary(currency) do
     # Try to use existing atom, fallback to USD if not found
     String.to_existing_atom(currency)
   rescue
     ArgumentError -> :USD
   end
+
   defp normalize_currency(_), do: :USD
 
   defp format_money_from_map(money_map) when is_map(money_map) do

@@ -663,7 +663,9 @@ defmodule YscWeb.AdminMoneyLive do
           amount: amount,
           reason: credit_params["reason"],
           entity_type:
-            normalize_entity_type(credit_params["entity_type"] || "administration"),
+            normalize_entity_type(
+              credit_params["entity_type"] || "administration"
+            ),
           entity_id: credit_params["entity_id"]
         }
 
