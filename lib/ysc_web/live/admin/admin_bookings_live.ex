@@ -503,111 +503,190 @@ defmodule YscWeb.AdminBookingsLive do
         show
       >
         <.header>
-          Booking Details
+          <div class="flex items-start justify-between w-full">
+            <div>
+              <div class="flex items-center gap-3">
+                <span>Booking Details</span>
+                <% badge_type =
+                  case @booking.status do
+                    :complete -> "green"
+                    :canceled -> "red"
+                    :refunded -> "yellow"
+                    :hold -> "sky"
+                    :draft -> "dark"
+                    _ -> "dark"
+                  end %>
+                <.badge type={badge_type}>
+                  <%= String.upcase(to_string(@booking.status)) %>
+                </.badge>
+              </div>
+              <div :if={@booking.inserted_at} class="mt-1 text-xs text-zinc-500">
+                Booked <%= format_datetime(@booking.inserted_at, @timezone) %>
+              </div>
+            </div>
+          </div>
         </.header>
 
-        <div :if={@booking} class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">
-                Guest
+        <div :if={@booking} class="mt-6 space-y-6">
+          <div class="grid grid-cols-3 gap-x-4 gap-y-5">
+            <div class="col-span-2">
+              <label class="block text-sm font-semibold text-zinc-700 mb-2">
+                Guest Details
               </label>
-              <p class="text-sm text-zinc-900">
-                <%= if @booking.user do
-                  if @booking.user.first_name && @booking.user.last_name do
-                    "#{@booking.user.first_name} #{@booking.user.last_name}"
+              <div class="flex items-center gap-3">
+                <% user_initials =
+                  if @booking.user && @booking.user.first_name &&
+                       @booking.user.last_name do
+                    "#{String.first(@booking.user.first_name)}#{String.first(@booking.user.last_name)}"
                   else
-                    @booking.user.email || "Unknown User"
-                  end
-                else
-                  "Unknown User"
-                end %>
-              </p>
-              <p
-                :if={@booking.user && @booking.user.email}
-                class="text-xs text-zinc-500 mt-1"
+                    "?"
+                  end %>
+                <div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold text-sm">
+                  <%= user_initials %>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-zinc-900 truncate">
+                    <%= if @booking.user do
+                      if @booking.user.first_name && @booking.user.last_name do
+                        "#{@booking.user.first_name} #{@booking.user.last_name}"
+                      else
+                        @booking.user.email || "Unknown User"
+                      end
+                    else
+                      "Unknown User"
+                    end %>
+                  </p>
+                  <p
+                    :if={@booking.user && @booking.user.email}
+                    class="text-xs text-zinc-500 truncate"
+                  >
+                    <%= @booking.user.email %>
+                  </p>
+                </div>
+              </div>
+              <div class="mt-3 flex items-center gap-4 text-xs">
+                <div class="flex items-center gap-1.5">
+                  <span class="font-semibold text-zinc-700">
+                    <%= @booking.guests_count %>
+                  </span>
+                  <span class="text-zinc-600">
+                    <%= if @booking.guests_count == 1, do: "Adult", else: "Adults" %>
+                  </span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="font-semibold text-zinc-700">
+                    <%= @booking.children_count || 0 %>
+                  </span>
+                  <span class="text-zinc-600">
+                    <%= if (@booking.children_count || 0) == 1,
+                      do: "Child",
+                      else: "Children" %>
+                  </span>
+                </div>
+              </div>
+              <div
+                :if={
+                  Ecto.assoc_loaded?(@booking.booking_guests) &&
+                    length(@booking.booking_guests) > 0
+                }
+                class="my-3 pt-3 border-t border-zinc-200"
               >
-                <%= @booking.user.email %>
-              </p>
+                <p class="text-xs font-semibold text-zinc-600 mb-2">
+                  All Guests (<%= length(@booking.booking_guests) %>)
+                </p>
+                <div class="space-y-1.5">
+                  <%= for guest <- Enum.sort_by(@booking.booking_guests, & &1.order_index) do %>
+                    <div class="flex items-center gap-2 text-xs">
+                      <div class="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-100 text-zinc-600 flex items-center justify-center font-medium text-[10px]">
+                        <%= "#{String.first(guest.first_name)}#{String.first(guest.last_name)}" %>
+                      </div>
+                      <span class="text-zinc-900">
+                        <%= "#{guest.first_name} #{guest.last_name}" %>
+                      </span>
+                      <span :if={guest.is_child} class="text-zinc-500">
+                        (Child)
+                      </span>
+                      <span
+                        :if={guest.is_booking_user}
+                        class="text-blue-600 font-medium"
+                      >
+                        (Booker)
+                      </span>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">
-                Property
-              </label>
-              <p class="text-sm text-zinc-900">
-                <%= atom_to_readable(@booking.property) %>
-              </p>
+            <div class="bg-zinc-50/50 rounded-lg p-3 border border-zinc-200 space-y-4">
+              <div>
+                <label class="block text-sm font-semibold text-zinc-700 mb-2">
+                  Property
+                </label>
+                <p class="text-base font-bold text-zinc-900">
+                  <%= atom_to_readable(@booking.property) %>
+                </p>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-zinc-700 mb-2">
+                  Booking Mode
+                </label>
+                <.badge type="default">
+                  <%= atom_to_readable(@booking.booking_mode) %>
+                </.badge>
+              </div>
             </div>
 
-            <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">
-                Check-in Date
-              </label>
-              <p class="text-sm text-zinc-900">
-                <%= Calendar.strftime(@booking.checkin_date, "%B %d, %Y") %>
-              </p>
+            <div class="col-span-2 bg-zinc-50 rounded-lg p-3 border border-zinc-200 mt-3">
+              <div class="grid grid-cols-3 gap-4">
+                <div>
+                  <label class="block text-xs font-semibold text-zinc-600 mb-1">
+                    Check-in
+                  </label>
+                  <p class="text-sm text-zinc-900">
+                    <%= Calendar.strftime(@booking.checkin_date, "%B %d, %Y") %>
+                  </p>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-zinc-600 mb-1">
+                    Check-out
+                  </label>
+                  <p class="text-sm text-zinc-900">
+                    <%= Calendar.strftime(@booking.checkout_date, "%B %d, %Y") %>
+                  </p>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-zinc-600 mb-1">
+                    Nights
+                  </label>
+                  <p class="text-sm text-zinc-900">
+                    <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
+                  </p>
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">
-                Check-out Date
-              </label>
-              <p class="text-sm text-zinc-900">
-                <%= Calendar.strftime(@booking.checkout_date, "%B %d, %Y") %>
-              </p>
-            </div>
+            <div class="col-span-1"></div>
 
-            <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">
-                Number of Nights
-              </label>
-              <p class="text-sm text-zinc-900">
-                <%= Date.diff(@booking.checkout_date, @booking.checkin_date) %>
-              </p>
-            </div>
-
-            <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">
-                Guests
-              </label>
-              <p class="text-sm text-zinc-900">
-                <%= @booking.guests_count %>
-              </p>
-            </div>
-
-            <div>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">
-                Booking Mode
-              </label>
-              <p class="text-sm text-zinc-900">
-                <%= atom_to_readable(@booking.booking_mode) %>
-              </p>
-            </div>
-
-            <div :if={@booking.inserted_at}>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">
-                Date Booked
-              </label>
-              <p class="text-sm text-zinc-900">
-                <%= format_datetime(@booking.inserted_at, @timezone) %>
-              </p>
-            </div>
-
-            <div :if={
-              Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0
-            }>
-              <label class="block text-sm font-semibold text-zinc-700 mb-1">
+            <div
+              :if={Ecto.assoc_loaded?(@booking.rooms) && length(@booking.rooms) > 0}
+              class="col-span-2 mt-3"
+            >
+              <label class="block text-sm font-semibold text-zinc-700 mb-2">
                 <%= if length(@booking.rooms) == 1, do: "Room", else: "Rooms" %>
               </label>
-              <div class="text-sm text-zinc-900 space-y-1">
+              <div class="flex flex-wrap gap-2">
                 <%= for room <- @booking.rooms do %>
-                  <p>
-                    <%= room.name %>
-                    <span :if={room.room_category} class="text-zinc-500">
-                      (<%= atom_to_readable(room.room_category.name) %>)
+                  <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-100 border border-zinc-200">
+                    <span class="text-sm font-semibold text-zinc-900">
+                      <%= room.name %>
                     </span>
-                  </p>
+                    <span :if={room.room_category} class="text-xs text-zinc-600">
+                      <%= atom_to_readable(room.room_category.name) %>
+                    </span>
+                  </div>
                 <% end %>
               </div>
             </div>
@@ -615,44 +694,69 @@ defmodule YscWeb.AdminBookingsLive do
           <!-- Payments Section -->
           <div class="pt-4 border-t border-zinc-200">
             <h3 class="text-sm font-semibold text-zinc-700 mb-3">Payments</h3>
-            <div :if={length(@booking_payments) > 0} class="space-y-2">
+            <div :if={length(@booking_payments) > 0} class="space-y-3">
               <%= for payment <- @booking_payments do %>
-                <% status_class =
+                <% payment_status_type =
                   case payment.status do
-                    :completed -> "bg-green-100 text-green-800"
-                    :pending -> "bg-yellow-100 text-yellow-800"
-                    :failed -> "bg-red-100 text-red-800"
-                    _ -> "bg-zinc-100 text-zinc-800"
+                    :completed -> "green"
+                    :pending -> "yellow"
+                    :failed -> "red"
+                    _ -> "dark"
                   end %>
                 <div class="bg-zinc-50 rounded-lg p-3 border border-zinc-200">
                   <div class="flex justify-between items-start">
-                    <div class="flex-1">
-                      <div class="flex items-center gap-2 mb-1">
-                        <span class="text-sm font-medium text-zinc-900">
+                    <div class="flex-1 space-y-2">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-zinc-900 font-mono">
                           <%= payment.reference_id %>
                         </span>
-                        <span class={"text-xs px-2 py-0.5 rounded-full #{status_class}"}>
+                        <button
+                          type="button"
+                          phx-hook="ClipboardCopy"
+                          id={"copy-payment-ref-#{payment.id}"}
+                          data-copy={payment.reference_id}
+                          class="text-zinc-400 hover:text-zinc-600 transition-colors"
+                          title="Copy reference ID"
+                        >
+                          <.icon name="hero-clipboard" class="w-4 h-4 -mt-1" />
+                        </button>
+                        <.badge type={payment_status_type}>
                           <%= String.capitalize(to_string(payment.status)) %>
-                        </span>
+                        </.badge>
                       </div>
-                      <p class="text-sm text-zinc-600">
+                      <p class="text-sm font-semibold text-zinc-900">
                         <%= MoneyHelper.format_money!(payment.amount) %>
                       </p>
-                      <p
-                        :if={payment.payment_date}
-                        class="text-xs text-zinc-500 mt-1"
-                      >
+                      <p :if={payment.payment_date} class="text-xs text-zinc-500">
                         <%= format_datetime(payment.payment_date, @timezone) %>
                       </p>
-                      <p
+                      <div
                         :if={payment.external_payment_id}
-                        class="text-xs text-zinc-500 mt-1"
+                        class="flex items-center gap-2"
                       >
-                        Stripe: <%= String.slice(payment.external_payment_id, 0, 20) %>...
-                      </p>
+                        <a
+                          href={"https://dashboard.stripe.com/payments/#{payment.external_payment_id}"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="text-xs text-zinc-400 hover:text-blue-600 font-mono transition-colors underline decoration-dotted"
+                          title="View in Stripe Dashboard"
+                        >
+                          <%= payment.external_payment_id %>
+                        </a>
+                        <button
+                          type="button"
+                          phx-hook="ClipboardCopy"
+                          id={"copy-stripe-payment-#{payment.id}"}
+                          data-copy={payment.external_payment_id}
+                          class="text-zinc-400 hover:text-zinc-600 transition-colors"
+                          title="Copy Stripe ID"
+                        >
+                          <.icon name="hero-clipboard" class="w-4 h-4 -mt-1" />
+                        </button>
+                      </div>
                       <p
                         :if={payment.quickbooks_sales_receipt_id}
-                        class="text-xs text-green-600 mt-1"
+                        class="text-xs text-green-600"
                       >
                         QuickBooks: <%= payment.quickbooks_sales_receipt_id %>
                       </p>
@@ -661,51 +765,84 @@ defmodule YscWeb.AdminBookingsLive do
                 </div>
               <% end %>
             </div>
-            <p :if={length(@booking_payments) == 0} class="text-sm text-zinc-500">
-              No payments found for this booking.
-            </p>
+            <div
+              :if={length(@booking_payments) == 0}
+              class="rounded-lg border-2 border-dashed border-zinc-300 p-4 text-center"
+            >
+              <p class="text-sm text-zinc-500">
+                No payments found for this booking.
+              </p>
+            </div>
           </div>
           <!-- Refunds Section -->
           <div class="pt-4 border-t border-zinc-200">
             <h3 class="text-sm font-semibold text-zinc-700 mb-3">Refunds</h3>
-            <div :if={length(@booking_refunds) > 0} class="space-y-2">
+            <div :if={length(@booking_refunds) > 0} class="space-y-3">
               <%= for refund <- @booking_refunds do %>
-                <% status_class =
+                <% refund_status_type =
                   case refund.status do
-                    :completed -> "bg-green-100 text-green-800"
-                    :pending -> "bg-yellow-100 text-yellow-800"
-                    :failed -> "bg-red-100 text-red-800"
-                    _ -> "bg-zinc-100 text-zinc-800"
+                    :completed -> "green"
+                    :pending -> "yellow"
+                    :failed -> "red"
+                    _ -> "dark"
                   end %>
                 <div class="bg-zinc-50 rounded-lg p-3 border border-zinc-200">
                   <div class="flex justify-between items-start">
-                    <div class="flex-1">
-                      <div class="flex items-center gap-2 mb-1">
-                        <span class="text-sm font-medium text-zinc-900">
+                    <div class="flex-1 space-y-2">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-zinc-900 font-mono">
                           <%= refund.reference_id %>
                         </span>
-                        <span class={"text-xs px-2 py-0.5 rounded-full #{status_class}"}>
+                        <button
+                          type="button"
+                          phx-hook="ClipboardCopy"
+                          id={"copy-refund-ref-#{refund.id}"}
+                          data-copy={refund.reference_id}
+                          class="text-zinc-400 hover:text-zinc-600 transition-colors"
+                          title="Copy reference ID"
+                        >
+                          <.icon name="hero-clipboard" class="w-4 h-4 -mt-1" />
+                        </button>
+                        <.badge type={refund_status_type}>
                           <%= String.capitalize(to_string(refund.status)) %>
-                        </span>
+                        </.badge>
                       </div>
-                      <p class="text-sm text-zinc-600">
+                      <p class="text-sm font-semibold text-zinc-900">
                         <%= MoneyHelper.format_money!(refund.amount) %>
                       </p>
-                      <p :if={refund.reason} class="text-xs text-zinc-600 mt-1">
+                      <p :if={refund.reason} class="text-xs text-zinc-600">
                         Reason: <%= refund.reason %>
                       </p>
-                      <p :if={refund.inserted_at} class="text-xs text-zinc-500 mt-1">
+                      <p :if={refund.inserted_at} class="text-xs text-zinc-500">
                         <%= format_datetime(refund.inserted_at, @timezone) %>
                       </p>
-                      <p
+                      <div
                         :if={refund.external_refund_id}
-                        class="text-xs text-zinc-500 mt-1"
+                        class="flex items-center gap-2"
                       >
-                        Stripe: <%= String.slice(refund.external_refund_id, 0, 20) %>...
-                      </p>
+                        <a
+                          href={"https://dashboard.stripe.com/refunds/#{refund.external_refund_id}"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="text-xs text-zinc-400 hover:text-blue-600 font-mono transition-colors underline decoration-dotted"
+                          title="View in Stripe Dashboard"
+                        >
+                          <%= refund.external_refund_id %>
+                        </a>
+                        <button
+                          type="button"
+                          phx-hook="ClipboardCopy"
+                          id={"copy-stripe-refund-#{refund.id}"}
+                          data-copy={refund.external_refund_id}
+                          class="text-zinc-400 hover:text-zinc-600 transition-colors"
+                          title="Copy Stripe refund ID"
+                        >
+                          <.icon name="hero-clipboard" class="w-4.0 h-4.0 -mt-1" />
+                        </button>
+                      </div>
                       <p
                         :if={refund.quickbooks_sales_receipt_id}
-                        class="text-xs text-green-600 mt-1"
+                        class="text-xs text-green-600"
                       >
                         QuickBooks: <%= refund.quickbooks_sales_receipt_id %>
                       </p>
@@ -714,9 +851,14 @@ defmodule YscWeb.AdminBookingsLive do
                 </div>
               <% end %>
             </div>
-            <p :if={length(@booking_refunds) == 0} class="text-sm text-zinc-500">
-              No refunds found for this booking.
-            </p>
+            <div
+              :if={length(@booking_refunds) == 0}
+              class="rounded-lg border-2 border-dashed border-zinc-300 p-4 text-center"
+            >
+              <p class="text-sm text-zinc-500">
+                No refunds found for this booking.
+              </p>
+            </div>
           </div>
           <!-- Check-in Section -->
           <div class="pt-4 border-t border-zinc-200">
@@ -771,15 +913,17 @@ defmodule YscWeb.AdminBookingsLive do
                 </div>
               <% end %>
             </div>
-            <p
+            <div
               :if={
                 !Ecto.assoc_loaded?(@booking.check_ins) ||
                   length(@booking.check_ins) == 0
               }
-              class="text-sm text-zinc-500"
+              class="rounded-lg border-2 border-dashed border-zinc-300 p-4 text-center"
             >
-              No check-in recorded for this booking.
-            </p>
+              <p class="text-sm text-zinc-500">
+                No check-in recorded for this booking.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -789,6 +933,7 @@ defmodule YscWeb.AdminBookingsLive do
               :if={@primary_payment && length(@booking_refunds) == 0}
               phx-click="show-booking-refund-modal"
               phx-disable-with="Loading..."
+              data-confirm="Are you sure you want to process a refund for this booking? This action will initiate a refund through Stripe."
               class="bg-red-600 hover:bg-red-700 text-white"
             >
               <.icon name="hero-arrow-uturn-left" class="w-4 h-4 -mt-0.5" />
@@ -812,20 +957,25 @@ defmodule YscWeb.AdminBookingsLive do
               <.icon name="hero-pencil" class="w-4 h-4 -mt-0.5" />
               <span class="ms-1">Edit</span>
             </.button>
-            <.button phx-click={
-              query_params =
-                build_booking_modal_close_params(
-                  @selected_property,
-                  @calendar_start_date,
-                  @calendar_end_date,
-                  @current_section,
-                  @reservation_params
-                )
+            <.button
+              variant="outline"
+              color="zinc"
+              phx-click={
+                query_params =
+                  build_booking_modal_close_params(
+                    @selected_property,
+                    @calendar_start_date,
+                    @calendar_end_date,
+                    @current_section,
+                    @reservation_params
+                  )
 
-              query_string = URI.encode_query(flatten_query_params(query_params))
-              JS.navigate("/admin/bookings?#{query_string}")
-            }>
-              Close
+                query_string = URI.encode_query(flatten_query_params(query_params))
+                JS.navigate("/admin/bookings?#{query_string}")
+              }
+            >
+              <.icon name="hero-x-mark" class="w-4 h-4 -mt-0.5" />
+              <span class="ms-1">Done</span>
             </.button>
           </div>
         </div>
@@ -3708,6 +3858,7 @@ defmodule YscWeb.AdminBookingsLive do
     booking =
       Ysc.Repo.preload(booking, [
         :user,
+        :booking_guests,
         rooms: :room_category,
         check_ins: :check_in_vehicles
       ])

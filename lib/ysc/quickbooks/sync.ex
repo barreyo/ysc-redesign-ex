@@ -377,7 +377,9 @@ defmodule Ysc.Quickbooks.Sync do
       payout_id: payout.id
     )
 
-    # Reload payout with payments and refunds to ensure we have the latest data
+    # Reload payout fresh from database first, then preload associations
+    # This ensures we don't have stale struct with empty associations
+    payout = Repo.get!(Payout, payout.id)
     payout = Repo.preload(payout, [:payments, :refunds])
 
     Logger.info("[QB Sync] do_sync_payout: Loaded payout data",
@@ -919,7 +921,8 @@ defmodule Ysc.Quickbooks.Sync do
             join: a in assoc(e, :account),
             where: e.payment_id == ^payment.id,
             where:
-              a.name in ["tahoe_booking_revenue", "clear_lake_booking_revenue"]
+              a.name in ["tahoe_booking_revenue", "clear_lake_booking_revenue"],
+            preload: [account: a]
           )
           |> Repo.all()
 
@@ -1056,7 +1059,7 @@ defmodule Ysc.Quickbooks.Sync do
 
     income_account_ref = query_income_account(income_account_name)
 
-    case Quickbooks.Client.get_or_create_item(item_name,
+    case client_module().get_or_create_item(item_name,
            income_account_ref: income_account_ref
          ) do
       {:ok, item_id} ->
@@ -2395,7 +2398,7 @@ defmodule Ysc.Quickbooks.Sync do
               end
           end
 
-        Quickbooks.Client.get_or_create_item("Stripe Fees",
+        client_module().get_or_create_item("Stripe Fees",
           income_account_ref: income_account_ref
         )
 

@@ -155,7 +155,7 @@ defmodule YscWeb.Workers.MembershipRenewalPaymentMethodCheckerWorkerTest do
     |> Repo.insert!()
   end
 
-  defp insert_payment_method(user, opts \\ []) do
+  defp insert_payment_method(user, opts) do
     is_default = Keyword.get(opts, :is_default, true)
 
     %PaymentMethod{

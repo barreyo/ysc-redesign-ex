@@ -40,6 +40,15 @@ defmodule Ysc.Quickbooks.ClientBehaviour do
               {:ok, map()} | {:error, atom() | String.t()}
 
   @doc """
+  Gets or creates an item in QuickBooks.
+  """
+  @callback get_or_create_item(String.t()) ::
+              {:ok, String.t()} | {:error, atom() | String.t()}
+
+  @callback get_or_create_item(String.t(), keyword()) ::
+              {:ok, String.t()} | {:error, atom() | String.t()}
+
+  @doc """
   Queries for an account by name in QuickBooks.
   """
   @callback query_account_by_name(String.t()) ::
