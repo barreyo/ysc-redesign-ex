@@ -100,7 +100,8 @@ config :ysc, Oban,
        {"0 0 * * *", Ysc.Ledgers.BalanceCheckWorker},
        {"0 1 * * *", Ysc.Ledgers.ReconciliationWorker},
        {"0 3 * * *", YscWeb.Workers.QuickbooksSyncRetryWorker},
-       {"0 */6 * * *", YscWeb.Workers.QuickbooksSyncExpenseReportBackupWorker}
+       {"0 */6 * * *", YscWeb.Workers.QuickbooksSyncExpenseReportBackupWorker},
+       {"0 9 * * *", YscWeb.Workers.MembershipRenewalPaymentMethodCheckerWorker}
      ]}
   ]
 
