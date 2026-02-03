@@ -173,6 +173,55 @@ defmodule YscWeb.Telemetry do
       # A module, function and arguments to be invoked periodically.
       # This function must call :telemetry.execute/3 and a metric must be added above.
       # {YscWeb, :count_users, []}
+
+      # VM Memory measurements - collected every 10 seconds
+      {__MODULE__, :emit_vm_memory_measurements, []},
+
+      # VM System measurements - collected every 10 seconds
+      {__MODULE__, :emit_vm_system_measurements, []}
     ]
+  end
+
+  @doc false
+  def emit_vm_memory_measurements do
+    # Get all memory metrics from the VM
+    memory = :erlang.memory()
+
+    # Emit individual memory measurements for the metrics defined above
+    :telemetry.execute([:vm, :memory, :total], %{total: memory[:total]}, %{})
+
+    :telemetry.execute(
+      [:vm, :memory, :processes_used],
+      %{processes_used: memory[:processes_used]},
+      %{}
+    )
+
+    :telemetry.execute(
+      [:vm, :memory, :processes],
+      %{processes: memory[:processes]},
+      %{}
+    )
+  end
+
+  @doc false
+  def emit_vm_system_measurements do
+    # Get system info
+    total_run_queue_lengths = :erlang.statistics(:total_run_queue_lengths)
+
+    {total, cpu, io} =
+      case total_run_queue_lengths do
+        {total_val, cpu_val, io_val} -> {total_val, cpu_val, io_val}
+        total_val when is_integer(total_val) -> {total_val, 0, 0}
+      end
+
+    :telemetry.execute(
+      [:vm, :total_run_queue_lengths],
+      %{
+        total: total,
+        cpu: cpu,
+        io: io
+      },
+      %{}
+    )
   end
 end

@@ -1151,8 +1151,24 @@ defmodule Ysc.Bookings.BookingLocker do
     Repo.transaction(fn ->
       booking = Repo.get!(Booking, booking_id) |> Repo.preload(:rooms)
 
-      if booking.status != :hold do
-        Repo.rollback({:error, :invalid_status})
+      # Make this function idempotent - if booking is already confirmed, return success
+      # This handles the race condition where multiple processes (redirect + webhook/polling)
+      # might try to confirm the same booking after payment succeeds
+      if booking.status == :complete do
+        Logger.info(
+          "Booking already confirmed, returning existing booking (idempotent)",
+          booking_id: booking.id
+        )
+
+        # Return the already-confirmed booking
+        booking
+      else
+        # Booking must be in :hold status to proceed with confirmation
+        if booking.status != :hold do
+          Repo.rollback({:error, :invalid_status})
+        end
+
+        # Continue with normal confirmation flow below
       end
 
       case booking.booking_mode do

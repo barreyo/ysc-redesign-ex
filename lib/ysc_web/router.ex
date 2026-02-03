@@ -292,7 +292,7 @@ defmodule YscWeb.Router do
   scope "/admin", YscWeb do
     pipe_through [:admin_browser, :require_authenticated_user, :require_admin]
 
-    live_dashboard "/dashboard", metrics: YscWeb.Telemetry
+    live_dashboard "/dashboard", metrics: {YscWeb.Telemetry, :metrics}
 
     # Handle uploads from editors
     post "/trix-uploads", TrixUploadsController, :create

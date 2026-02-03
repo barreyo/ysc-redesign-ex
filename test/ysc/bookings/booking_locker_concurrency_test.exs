@@ -200,4 +200,101 @@ defmodule Ysc.Bookings.BookingLockerConcurrencyTest do
       assert failed == 2
     end
   end
+
+  describe "concurrent booking confirmation (race condition)" do
+    test "handles concurrent confirmation attempts idempotently (CashApp redirect race)",
+         %{
+           users: [user | _],
+           tahoe_room1: room,
+           checkin_date: checkin_date,
+           checkout_date: checkout_date,
+           sandbox_owner: owner
+         } do
+      # Create a booking in :hold status (simulating a booking waiting for payment)
+      {:ok, booking} =
+        BookingLocker.create_room_booking(
+          user.id,
+          [room.id],
+          checkin_date,
+          checkout_date,
+          2
+        )
+
+      assert booking.status == :hold
+
+      # Simulate the race condition where both the CashApp redirect window
+      # AND the original payment window try to confirm the booking simultaneously
+      results =
+        1..2
+        |> Task.async_stream(
+          fn _attempt ->
+            Ysc.DataCase.allow_sandbox(self(), owner)
+
+            # Both processes try to confirm the same booking
+            BookingLocker.confirm_booking(booking.id)
+          end,
+          max_concurrency: 2,
+          timeout: 5_000
+        )
+        |> Enum.to_list()
+
+      # Both attempts should succeed (idempotent behavior)
+      successful = Enum.count(results, &match?({:ok, {:ok, _}}, &1))
+
+      assert successful == 2,
+             "Both confirmation attempts should succeed (idempotent)"
+
+      # Verify the booking is in :complete status
+      final_booking = Repo.get!(Ysc.Bookings.Booking, booking.id)
+      assert final_booking.status == :complete
+
+      # Verify only one set of inventory was booked (not double-booked)
+      room_inventory_count =
+        Repo.aggregate(
+          from(ri in Ysc.Bookings.RoomInventory,
+            where:
+              ri.room_id == ^room.id and
+                ri.day >= ^checkin_date and
+                ri.day < ^checkout_date and
+                ri.booked == true
+          ),
+          :count
+        )
+
+      expected_nights = Date.diff(checkout_date, checkin_date)
+
+      assert room_inventory_count == expected_nights,
+             "Inventory should only be booked once, not double-booked"
+    end
+
+    test "second confirmation returns existing booking without errors", %{
+      users: [user | _],
+      tahoe_room1: room,
+      checkin_date: checkin_date,
+      checkout_date: checkout_date
+    } do
+      # Create and confirm a booking
+      {:ok, booking} =
+        BookingLocker.create_room_booking(
+          user.id,
+          [room.id],
+          checkin_date,
+          checkout_date,
+          2
+        )
+
+      {:ok, confirmed_booking} = BookingLocker.confirm_booking(booking.id)
+      assert confirmed_booking.status == :complete
+
+      # Try to confirm again (simulating late-arriving webhook or redirect)
+      {:ok, second_confirmation} = BookingLocker.confirm_booking(booking.id)
+
+      # Should return the same confirmed booking
+      assert second_confirmation.id == confirmed_booking.id
+      assert second_confirmation.status == :complete
+
+      assert second_confirmation.updated_at == confirmed_booking.updated_at,
+             "Booking should not be modified on second confirmation"
+    end
+  end
 end

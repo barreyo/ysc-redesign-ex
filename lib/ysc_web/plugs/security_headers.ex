@@ -9,23 +9,44 @@ defmodule YscWeb.Plugs.SecurityHeaders do
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    nonce = conn.assigns[:csp_nonce] || ""
+    # Skip CSP for LiveDashboard routes - it has its own CSP handling
+    if is_live_dashboard_route?(conn) do
+      conn
+      |> put_non_csp_security_headers()
+    else
+      nonce = conn.assigns[:csp_nonce] || ""
 
-    # Check if we're in development mode
+      # Check if we're in development mode
+      is_dev = Ysc.Env.dev?()
+
+      # Get S3 storage URLs for image sources
+      s3_image_sources = get_s3_image_sources()
+
+      # Get S3 storage URLs for connect sources (for uploads)
+      s3_connect_sources = get_s3_connect_sources()
+
+      # Build CSP policy with nonce
+      csp_policy =
+        build_csp_policy(nonce, is_dev, s3_image_sources, s3_connect_sources)
+
+      conn
+      |> put_resp_header("content-security-policy", csp_policy)
+      |> put_non_csp_security_headers()
+    end
+  end
+
+  defp is_live_dashboard_route?(conn) do
+    # Check if the request path starts with /admin/dashboard
+    case conn.request_path do
+      "/admin/dashboard" <> _ -> true
+      _ -> false
+    end
+  end
+
+  defp put_non_csp_security_headers(conn) do
     is_dev = Ysc.Env.dev?()
 
-    # Get S3 storage URLs for image sources
-    s3_image_sources = get_s3_image_sources()
-
-    # Get S3 storage URLs for connect sources (for uploads)
-    s3_connect_sources = get_s3_connect_sources()
-
-    # Build CSP policy with nonce
-    csp_policy =
-      build_csp_policy(nonce, is_dev, s3_image_sources, s3_connect_sources)
-
     conn
-    |> put_resp_header("content-security-policy", csp_policy)
     |> put_resp_header(
       "permissions-policy",
       # Allow payment for Stripe, block other features
