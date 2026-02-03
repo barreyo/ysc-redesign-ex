@@ -142,14 +142,7 @@ defmodule Ysc.S3Config do
   end
 
   defp default_base_url do
-    env_string = Ysc.Env.current()
-
-    env =
-      case env_string do
-        "dev" -> :dev
-        "test" -> :test
-        _ -> :prod
-      end
+    env = Ysc.Env.current()
 
     case env do
       :dev ->

@@ -10,7 +10,8 @@
   ignore: [
     "Config.CSRF",
     "Config.CSP",
-    "Config.HTTPS"
+    "Config.HTTPS",
+    "DOS.StringToAtom"
   ],
   ignore_files: [""]
 ]

@@ -21,13 +21,25 @@ defmodule Ysc.Env do
   """
 
   @doc """
-  Returns the current environment as a string.
+  Returns the current environment as an atom.
 
-  Falls back to "prod" if not configured.
+  Falls back to :prod if not configured.
+  Handles both atom and string values from configuration.
+
+  ## Security Note
+  Uses `String.to_atom/1` which is safe here because:
+  - Input comes from application configuration (`:ysc, :environment`), not user input
+  - Values are set at deployment/compile time by maintainers
+  - Limited to known environment values: :dev, :test, :prod, :sandbox
+  - This usage is explicitly ignored in `.sobelow-conf`
   """
-  @spec current() :: String.t()
+  @spec current() :: atom()
   def current do
-    Application.get_env(:ysc, :environment, "prod")
+    case Application.get_env(:ysc, :environment, :prod) do
+      env when is_atom(env) -> env
+      # Safe: converts config string to atom (not user input)
+      env when is_binary(env) -> String.to_atom(env)
+    end
   end
 
   @doc """
@@ -35,7 +47,7 @@ defmodule Ysc.Env do
   """
   @spec test?() :: boolean()
   def test? do
-    current() == "test"
+    current() == :test
   end
 
   @doc """
@@ -43,7 +55,7 @@ defmodule Ysc.Env do
   """
   @spec dev?() :: boolean()
   def dev? do
-    current() == "dev"
+    current() == :dev
   end
 
   @doc """
@@ -51,7 +63,7 @@ defmodule Ysc.Env do
   """
   @spec prod?() :: boolean()
   def prod? do
-    current() == "prod"
+    current() == :prod
   end
 
   @doc """
@@ -59,7 +71,7 @@ defmodule Ysc.Env do
   """
   @spec sandbox?() :: boolean()
   def sandbox? do
-    current() == "sandbox"
+    current() == :sandbox
   end
 
   @doc """
@@ -69,6 +81,6 @@ defmodule Ysc.Env do
   """
   @spec non_prod?() :: boolean()
   def non_prod? do
-    current() in ["dev", "test", "sandbox"]
+    current() in [:dev, :test, :sandbox]
   end
 end

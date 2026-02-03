@@ -431,7 +431,7 @@ defmodule Ysc.Flowroute.Client do
 
       _ ->
         env = get_environment()
-        String.downcase(env) in ["dev", "test", "sandbox", "development"]
+        env in [:dev, :test, :sandbox, :development]
     end
   end
 

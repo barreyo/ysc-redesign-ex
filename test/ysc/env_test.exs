@@ -2,8 +2,30 @@ defmodule Ysc.EnvTest do
   use ExUnit.Case, async: true
 
   describe "current/0" do
-    test "returns the configured environment" do
-      assert Ysc.Env.current() == "test"
+    test "returns the configured environment as an atom" do
+      assert Ysc.Env.current() == :test
+    end
+
+    test "handles string environment configuration" do
+      original = Application.get_env(:ysc, :environment)
+
+      try do
+        Application.put_env(:ysc, :environment, "dev")
+        assert Ysc.Env.current() == :dev
+      after
+        Application.put_env(:ysc, :environment, original)
+      end
+    end
+
+    test "handles atom environment configuration" do
+      original = Application.get_env(:ysc, :environment)
+
+      try do
+        Application.put_env(:ysc, :environment, :dev)
+        assert Ysc.Env.current() == :dev
+      after
+        Application.put_env(:ysc, :environment, original)
+      end
     end
   end
 

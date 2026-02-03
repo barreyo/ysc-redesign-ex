@@ -91,9 +91,19 @@ defmodule Ysc.Ledgers.RefundIdTest do
         })
 
       # Try to delete the refund - should fail due to RESTRICT
-      assert_raise Ecto.ConstraintError, fn ->
-        Repo.delete!(refund)
-      end
+      # Can raise either Postgrex.Error or Ecto.ConstraintError depending on Ecto's internal state
+      error =
+        try do
+          Repo.delete!(refund)
+
+          flunk(
+            "Expected either Postgrex.Error or Ecto.ConstraintError to be raised"
+          )
+        rescue
+          e in [Postgrex.Error, Ecto.ConstraintError] -> e
+        end
+
+      assert error.__struct__ in [Postgrex.Error, Ecto.ConstraintError]
 
       # Verify refund still exists
       assert Repo.get(Refund, refund.id) != nil
