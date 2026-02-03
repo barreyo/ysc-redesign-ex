@@ -142,9 +142,14 @@ defmodule Ysc.S3Config do
   end
 
   defp default_base_url do
+    env_string = Ysc.Env.current()
+
     env =
-      Application.get_env(:ysc, :env) ||
-        if function_exported?(Mix, :env, 0), do: Mix.env(), else: :prod
+      case env_string do
+        "dev" -> :dev
+        "test" -> :test
+        _ -> :prod
+      end
 
     case env do
       :dev ->

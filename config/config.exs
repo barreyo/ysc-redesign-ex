@@ -12,6 +12,9 @@ config :ysc,
   ecto_repos: [Ysc.Repo],
   environment: "dev"
 
+# Configure Elixir's Calendar to use Timex timezone database
+config :elixir, :time_zone_database, Timex.Timezone.Database
+
 config :ysc, Ysc.Repo,
   migration_timestamps: [type: :utc_datetime],
   pool_size: 8,

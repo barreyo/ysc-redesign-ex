@@ -354,21 +354,9 @@ defmodule Ysc.Ledgers.Reconciliation do
         issues
       end
 
-    # Check if refund has ledger entries (via payment_id)
-    # Note: LedgerEntry doesn't have refund_id or transaction_id fields,
-    # so we check for entries with "refund" or "reversal" in the description.
-    # This is fragile but reflects the current schema design.
-    # TODO: Add refund_id to LedgerEntry schema for proper relationship tracking
-    entries = Ledgers.get_entries_by_payment(refund.payment_id)
-
-    refund_entries =
-      Enum.filter(entries, fn entry ->
-        # Case-insensitive matching for refund-related descriptions
-        description_lower = String.downcase(entry.description || "")
-
-        String.contains?(description_lower, "refund") ||
-          String.contains?(description_lower, "reversal")
-      end)
+    # Check if refund has ledger entries
+    # Query entries directly by refund_id for accurate relationship tracking
+    refund_entries = Ledgers.get_entries_by_refund(refund.id)
 
     issues =
       if Enum.empty?(refund_entries) do
@@ -469,17 +457,14 @@ defmodule Ysc.Ledgers.Reconciliation do
   end
 
   defp calculate_refund_total_from_ledger do
-    # Sum all revenue reversal entries for refunds
-    # Refunds are now processed as revenue reversals (debit to revenue accounts)
-    # We identify them by looking for debit entries to revenue accounts
-    # associated with refund transactions
+    # Sum all revenue reversal entries for refunds using the refund_id column
+    # With the refund_id foreign key, we can directly identify refund entries
+    # and sum only the debit side (revenue reversals) to match the refund amounts
     query =
       from(e in LedgerEntry,
         join: a in assoc(e, :account),
-        join: t in LedgerTransaction,
-        on: t.payment_id == e.payment_id,
+        where: not is_nil(e.refund_id),
         where: a.account_type == "revenue",
-        where: t.type == :refund,
         where: e.debit_credit == "debit",
         select: sum(fragment("(?.amount).amount", e))
       )

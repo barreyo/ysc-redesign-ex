@@ -3647,7 +3647,7 @@ defmodule Ysc.Bookings do
          payment_intent_id,
          amount_cents
        ) do
-    if Code.ensure_loaded?(Mix) && Mix.env() == :test do
+    if Ysc.Env.test?() do
       refund = %Stripe.Refund{id: "re_test_#{payment_intent_id}"}
 
       Logger.info("Stripe refund created successfully (test stub)",

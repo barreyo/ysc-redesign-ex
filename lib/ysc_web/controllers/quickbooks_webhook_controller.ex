@@ -48,7 +48,7 @@ defmodule YscWeb.QuickbooksWebhookController do
             # Process the webhook event asynchronously
             # The handler will enqueue a worker to process the BillPayment
             # In test mode, run synchronously to avoid database connection issues
-            if Application.get_env(:ysc, :environment) == "test" do
+            if Ysc.Env.test?() do
               QuickbooksWebhookHandler.handle_webhook_event(webhook_event)
             else
               Task.start(fn ->

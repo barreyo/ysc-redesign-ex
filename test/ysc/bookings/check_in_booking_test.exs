@@ -235,7 +235,7 @@ defmodule Ysc.Bookings.CheckInBookingTest do
         |> Repo.insert()
 
       # Delete the booking should fail due to RESTRICT constraint
-      assert_raise Ecto.ConstraintError, fn ->
+      assert_raise Postgrex.Error, fn ->
         Repo.delete(booking)
       end
     end

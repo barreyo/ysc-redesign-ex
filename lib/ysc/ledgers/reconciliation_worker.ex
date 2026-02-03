@@ -37,10 +37,11 @@ defmodule Ysc.Ledgers.ReconciliationWorker do
     # even when discrepancies are found. Discrepancies are indicated via
     # report.overall_status == :error, not as an error tuple.
     #
-    # TODO: Consider changing run_full_reconciliation/0 to return {:error, reason}
-    # for system failures (DB errors, timeouts) vs {:ok, report} for successful
-    # execution (even with discrepancies). This would enable Oban retry logic
-    # for transient system issues.
+    # Future enhancement: Consider distinguishing between:
+    # - {:error, reason} for system failures (DB errors, timeouts) that should retry
+    # - {:ok, report} for successful execution (even with discrepancies found)
+    # This would enable Oban retry logic for transient system issues while
+    # still handling data discrepancies as successful report generation.
     {:ok, report} = Reconciliation.run_full_reconciliation()
     handle_reconciliation_results(report)
   end

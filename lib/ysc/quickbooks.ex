@@ -43,7 +43,7 @@ defmodule Ysc.Quickbooks do
   alias Ysc.Accounts.User
 
   defp client_module do
-    if Mix.env() == :test do
+    if Ysc.Env.test?() do
       Ysc.Quickbooks.ClientMock
     else
       Application.get_env(:ysc, :quickbooks_client, Ysc.Quickbooks.Client)

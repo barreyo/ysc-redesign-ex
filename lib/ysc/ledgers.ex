@@ -1151,6 +1151,7 @@ defmodule Ysc.Ledgers do
       entries =
         create_refund_entries(%{
           payment: payment,
+          refund: refund,
           transaction: refund_transaction,
           refund_amount: refund_amount,
           reason: reason
@@ -1478,6 +1479,7 @@ defmodule Ysc.Ledgers do
   def create_refund_entries(attrs) do
     %{
       payment: payment,
+      refund: refund,
       refund_amount: refund_amount,
       reason: reason
     } = attrs
@@ -1508,6 +1510,7 @@ defmodule Ysc.Ledgers do
       create_entry(%{
         account_id: revenue_entry.account_id,
         payment_id: payment.id,
+        refund_id: refund.id,
         amount: refund_amount,
         debit_credit: :debit,
         description: "Revenue reversal for refund: #{reason}",
@@ -1520,6 +1523,7 @@ defmodule Ysc.Ledgers do
       create_entry(%{
         account_id: stripe_account.id,
         payment_id: payment.id,
+        refund_id: refund.id,
         amount: refund_amount,
         debit_credit: :credit,
         description: "Stripe account reduction for refund: #{reason}",
@@ -1989,6 +1993,17 @@ defmodule Ysc.Ledgers do
   def get_entries_by_payment(payment_id) do
     from(e in LedgerEntry,
       where: e.payment_id == ^payment_id,
+      preload: [:account]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets all ledger entries for a specific refund.
+  """
+  def get_entries_by_refund(refund_id) do
+    from(e in LedgerEntry,
+      where: e.refund_id == ^refund_id,
       preload: [:account]
     )
     |> Repo.all()

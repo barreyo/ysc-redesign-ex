@@ -54,8 +54,8 @@ jobs:
       - name: Check format
         run: mix format --check-formatted
 
-      # - name: Credo
-      #   run: mix credo --strict
+      - name: Credo
+        run: mix credo --strict
 
       - name: Sobelow (security)
         run: mix sobelow --skip --exit

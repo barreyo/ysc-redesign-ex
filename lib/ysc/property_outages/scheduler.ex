@@ -25,7 +25,7 @@ defmodule Ysc.PropertyOutages.Scheduler do
       "Outage scraper scheduler initialized - recurring jobs handled by Oban.Cron (every 30 minutes)"
     )
 
-    if Mix.env() != :test do
+    if !Ysc.Env.test?() do
       schedule_immediate_scrape()
     end
 

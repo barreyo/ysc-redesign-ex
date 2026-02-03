@@ -146,10 +146,7 @@ defmodule Ysc.Accounts.FamilyInvites do
 
               # Create Stripe customer asynchronously
               Task.start(fn ->
-                is_test =
-                  if Code.ensure_loaded?(Mix),
-                    do: Mix.env() == :test,
-                    else: false
+                is_test = Ysc.Env.test?()
 
                 if is_test do
                   owner =

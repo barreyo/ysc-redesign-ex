@@ -294,19 +294,11 @@ defmodule Ysc.Alerts.Discord do
 
   defp get_environment do
     # Try to get environment from runtime config first (set in runtime.exs)
-    config_env = Application.get_env(:ysc, :environment)
+    config_env = Ysc.Env.current()
 
     # Fallback to Mix.env() if available
     env =
-      if config_env do
-        config_env
-      else
-        if Code.ensure_loaded?(Mix) do
-          Mix.env()
-        else
-          :unknown
-        end
-      end
+      config_env || :unknown
 
     # Format environment name
     env

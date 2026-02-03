@@ -53,7 +53,7 @@ defmodule Ysc.MixProject do
   def application do
     [
       mod: {Ysc.Application, []},
-      extra_applications: [:logger, :runtime_tools, :os_mon]
+      extra_applications: [:logger, :runtime_tools, :os_mon, :tzdata]
     ]
   end
 

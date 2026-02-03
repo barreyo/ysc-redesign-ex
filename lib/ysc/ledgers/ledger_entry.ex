@@ -23,6 +23,10 @@ defmodule Ysc.Ledgers.LedgerEntry do
       foreign_key: :payment_id,
       references: :id
 
+    belongs_to :refund, Ysc.Ledgers.Refund,
+      foreign_key: :refund_id,
+      references: :id
+
     field :description, :string
     field :amount, Money.Ecto.Composite.Type, default_currency: :USD
     field :debit_credit, LedgerEntryDebitCredit
@@ -37,6 +41,7 @@ defmodule Ysc.Ledgers.LedgerEntry do
       :related_entity_type,
       :related_entity_id,
       :payment_id,
+      :refund_id,
       :description,
       :amount,
       :debit_credit
@@ -46,6 +51,7 @@ defmodule Ysc.Ledgers.LedgerEntry do
     |> validate_amount()
     |> foreign_key_constraint(:account_id)
     |> foreign_key_constraint(:payment_id)
+    |> foreign_key_constraint(:refund_id)
   end
 
   # Validates that the amount is positive and in USD

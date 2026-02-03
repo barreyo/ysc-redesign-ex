@@ -14,6 +14,25 @@ defmodule Ysc.Ledgers.ReconciliationTest do
     binary
   end
 
+  # Helper to temporarily disable the append-only trigger for testing orphan scenarios
+  # This should ONLY be used in tests that deliberately create invalid data states
+  # to test reconciliation detection logic
+  defp with_trigger_disabled(func) do
+    Ecto.Adapters.SQL.query!(
+      Repo,
+      "ALTER TABLE ledger_entries DISABLE TRIGGER ledger_entries_append_only_trigger"
+    )
+
+    try do
+      func.()
+    after
+      Ecto.Adapters.SQL.query!(
+        Repo,
+        "ALTER TABLE ledger_entries ENABLE TRIGGER ledger_entries_append_only_trigger"
+      )
+    end
+  end
+
   setup do
     # Ensure basic accounts exist for all tests
     Ledgers.ensure_basic_accounts()
@@ -494,13 +513,15 @@ defmodule Ysc.Ledgers.ReconciliationTest do
         )
       end
 
-      # Delete refund entries
+      # Delete refund entries (disable trigger for this test scenario)
       unless Enum.empty?(refund_ids) do
-        Ecto.Adapters.SQL.query!(
-          Repo,
-          "DELETE FROM ledger_entries WHERE payment_id = $1 AND description LIKE '%efund%'",
-          [payment_uuid]
-        )
+        with_trigger_disabled(fn ->
+          Ecto.Adapters.SQL.query!(
+            Repo,
+            "DELETE FROM ledger_entries WHERE payment_id = $1 AND description LIKE '%efund%'",
+            [payment_uuid]
+          )
+        end)
       end
 
       # Now delete refunds (they reference the payment)
@@ -511,11 +532,14 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       )
 
       # Delete payment transactions and entries
-      Ecto.Adapters.SQL.query!(
-        Repo,
-        "DELETE FROM ledger_entries WHERE payment_id = $1",
-        [payment_uuid]
-      )
+      # (disable trigger for this test scenario)
+      with_trigger_disabled(fn ->
+        Ecto.Adapters.SQL.query!(
+          Repo,
+          "DELETE FROM ledger_entries WHERE payment_id = $1",
+          [payment_uuid]
+        )
+      end)
 
       Ecto.Adapters.SQL.query!(
         Repo,
@@ -746,11 +770,14 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       payment_uuid = to_uuid(orphaned_payment_id)
 
       # Delete transactions and entries first to avoid FK violations
-      Ecto.Adapters.SQL.query!(
-        Repo,
-        "DELETE FROM ledger_entries WHERE payment_id = $1",
-        [payment_uuid]
-      )
+      # (disable trigger for this test scenario)
+      with_trigger_disabled(fn ->
+        Ecto.Adapters.SQL.query!(
+          Repo,
+          "DELETE FROM ledger_entries WHERE payment_id = $1",
+          [payment_uuid]
+        )
+      end)
 
       Ecto.Adapters.SQL.query!(
         Repo,
@@ -822,11 +849,14 @@ defmodule Ysc.Ledgers.ReconciliationTest do
       payment_uuid = to_uuid(orphaned_payment_id)
 
       # Delete transactions and entries first to avoid FK violations
-      Ecto.Adapters.SQL.query!(
-        Repo,
-        "DELETE FROM ledger_entries WHERE payment_id = $1",
-        [payment_uuid]
-      )
+      # (disable trigger for this test scenario)
+      with_trigger_disabled(fn ->
+        Ecto.Adapters.SQL.query!(
+          Repo,
+          "DELETE FROM ledger_entries WHERE payment_id = $1",
+          [payment_uuid]
+        )
+      end)
 
       Ecto.Adapters.SQL.query!(
         Repo,
@@ -903,8 +933,10 @@ defmodule Ysc.Ledgers.ReconciliationTest do
 
       orphaned_refund_id = refund.id
 
-      # Delete the ledger entries first
-      Enum.each(entries, &Repo.delete!/1)
+      # Delete the ledger entries first (disable trigger for this test scenario)
+      with_trigger_disabled(fn ->
+        Enum.each(entries, &Repo.delete!/1)
+      end)
 
       # Delete the transaction that references the refund
       Repo.delete!(transaction)

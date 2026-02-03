@@ -2158,7 +2158,7 @@ defmodule Ysc.Quickbooks.Client do
   end
 
   defp get_access_token do
-    if Mix.env() == :test do
+    if Ysc.Env.test?() do
       {:ok, "test_access_token"}
     else
       # Step 1: Check cache for access token first

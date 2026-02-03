@@ -12,16 +12,7 @@ defmodule YscWeb.Plugs.SecurityHeaders do
     nonce = conn.assigns[:csp_nonce] || ""
 
     # Check if we're in development mode
-    # In production, Mix.env() is not available, so we check the application env
-    is_dev =
-      case Application.get_env(:ysc, :environment) do
-        :dev ->
-          true
-
-        _ ->
-          # Fallback: check if code_reloading is enabled (dev only)
-          Application.get_env(:ysc, YscWeb.Endpoint)[:code_reloader] == true
-      end
+    is_dev = Ysc.Env.dev?()
 
     # Get S3 storage URLs for image sources
     s3_image_sources = get_s3_image_sources()

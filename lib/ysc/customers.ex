@@ -19,7 +19,7 @@ defmodule Ysc.Customers do
 
   """
   def create_stripe_customer(%User{} = user) do
-    if Code.ensure_loaded?(Mix) && Mix.env() == :test do
+    if Ysc.Env.test?() do
       # In tests we avoid calling the real Stripe API. We still persist a deterministic
       # stripe_id so downstream code that relies on it behaves normally.
       stripe_customer = %Stripe.Customer{id: "cus_test_#{user.id}"}
@@ -127,7 +127,7 @@ defmodule Ysc.Customers do
   """
   def update_stripe_customer(%User{} = user) do
     if user.stripe_id do
-      if Code.ensure_loaded?(Mix) && Mix.env() == :test do
+      if Ysc.Env.test?() do
         # Avoid Stripe API in tests; behave as if update succeeded.
         {:ok, %Stripe.Customer{id: user.stripe_id}}
       else

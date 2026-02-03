@@ -464,8 +464,7 @@ defmodule Ysc.Accounts do
     end)
     |> case do
       {:ok, user} ->
-        is_test =
-          if Code.ensure_loaded?(Mix), do: Mix.env() == :test, else: false
+        is_test = Ysc.Env.test?()
 
         # In tests, avoid spawning background tasks that touch the DB inside the SQL sandbox,
         # as they can produce noisy DBConnection ownership/disconnect logs.
@@ -2261,7 +2260,6 @@ defmodule Ysc.Accounts do
 
   # Helper function to check if we're in dev/sandbox mode
   defp dev_or_sandbox? do
-    env = Application.get_env(:ysc, :environment, "dev")
-    env in ["dev", "test", "sandbox"]
+    Ysc.Env.non_prod?()
   end
 end

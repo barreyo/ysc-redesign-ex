@@ -3691,8 +3691,7 @@ defmodule YscWeb.UserSettingsLive do
 
   # Helper function to check if we're in dev/sandbox mode
   defp dev_or_sandbox? do
-    env = Application.get_env(:ysc, :environment, "dev")
-    env in ["dev", "test", "sandbox"]
+    Ysc.Env.non_prod?()
   end
 
   # Helper function to normalize verification code from OTP array/map or string format

@@ -436,12 +436,7 @@ defmodule Ysc.Flowroute.Client do
   end
 
   defp get_environment do
-    Application.get_env(:ysc, :environment) ||
-      if function_exported?(Mix, :env, 0) do
-        Mix.env() |> to_string()
-      else
-        "unknown"
-      end
+    Ysc.Env.current()
   end
 
   defp generate_fake_id do
