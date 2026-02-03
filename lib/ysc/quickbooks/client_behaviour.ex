@@ -9,10 +9,16 @@ defmodule Ysc.Quickbooks.ClientBehaviour do
   @callback create_sales_receipt(map()) ::
               {:ok, map()} | {:error, atom() | String.t()}
 
+  @callback create_sales_receipt(map(), keyword()) ::
+              {:ok, map()} | {:error, atom() | String.t()}
+
   @doc """
   Creates a Deposit in QuickBooks.
   """
   @callback create_deposit(map()) ::
+              {:ok, map()} | {:error, atom() | String.t()}
+
+  @callback create_deposit(map(), keyword()) ::
               {:ok, map()} | {:error, atom() | String.t()}
 
   @doc """
@@ -21,10 +27,16 @@ defmodule Ysc.Quickbooks.ClientBehaviour do
   @callback create_customer(map()) ::
               {:ok, map()} | {:error, atom() | String.t()}
 
+  @callback create_customer(map(), keyword()) ::
+              {:ok, map()} | {:error, atom() | String.t()}
+
   @doc """
   Creates a RefundReceipt in QuickBooks.
   """
   @callback create_refund_receipt(map()) ::
+              {:ok, map()} | {:error, atom() | String.t()}
+
+  @callback create_refund_receipt(map(), keyword()) ::
               {:ok, map()} | {:error, atom() | String.t()}
 
   @doc """
@@ -45,10 +57,16 @@ defmodule Ysc.Quickbooks.ClientBehaviour do
   @callback query_vendor_by_display_name(String.t()) ::
               {:ok, String.t()} | {:error, atom()}
 
+  @callback query_vendor_by_display_name(String.t(), keyword()) ::
+              {:ok, String.t()} | {:error, atom()}
+
   @doc """
   Creates a vendor in QuickBooks.
   """
   @callback create_vendor(map()) :: {:ok, map()} | {:error, atom() | String.t()}
+
+  @callback create_vendor(map(), keyword()) ::
+              {:ok, map()} | {:error, atom() | String.t()}
 
   @doc """
   Gets or creates a vendor in QuickBooks.
@@ -61,10 +79,16 @@ defmodule Ysc.Quickbooks.ClientBehaviour do
   """
   @callback create_bill(map()) :: {:ok, map()} | {:error, atom() | String.t()}
 
+  @callback create_bill(map(), keyword()) ::
+              {:ok, map()} | {:error, atom() | String.t()}
+
   @doc """
   Uploads an attachment to QuickBooks.
   """
   @callback upload_attachment(String.t(), String.t(), String.t()) ::
+              {:ok, String.t()} | {:error, atom() | String.t()}
+
+  @callback upload_attachment(String.t(), String.t(), String.t(), keyword()) ::
               {:ok, String.t()} | {:error, atom() | String.t()}
 
   @doc """

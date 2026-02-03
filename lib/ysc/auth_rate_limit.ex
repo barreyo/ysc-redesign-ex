@@ -43,7 +43,7 @@ defmodule Ysc.AuthRateLimit do
         :ok
 
       {:deny, retry_after_ms} ->
-        {:error, :rate_limited, div(retry_after_ms, 1000)}
+        {:error, :rate_limited, max(1, div(retry_after_ms, 1000))}
     end
   end
 
@@ -61,7 +61,7 @@ defmodule Ysc.AuthRateLimit do
         :ok
 
       {:deny, retry_after_ms} ->
-        {:error, :rate_limited, div(retry_after_ms, 1000)}
+        {:error, :rate_limited, max(1, div(retry_after_ms, 1000))}
     end
   end
 

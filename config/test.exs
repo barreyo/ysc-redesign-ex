@@ -2,6 +2,15 @@ import Config
 
 config :ysc, :quickbooks_client, Ysc.Quickbooks.ClientMock
 
+# Configure Stripe mocks for testing
+config :ysc,
+  stripe_payment_method_module: Stripe.PaymentMethodMock,
+  stripe_setup_intent_module: Stripe.SetupIntentMock,
+  stripe_payment_intent_module: Stripe.PaymentIntentMock,
+  stripe_customer_module: Stripe.CustomerMock,
+  customers_module: Ysc.CustomersMock,
+  payments_module: Ysc.PaymentsMock
+
 # In tests run with low complexity for speed
 config :argon2_elixir,
   t_cost: 1,
