@@ -1291,39 +1291,45 @@ defmodule Ysc.Quickbooks.SyncTest do
         # Verify line items reference the correct SalesReceipts
         assert length(params.line) == 2
 
-        line1 = Enum.at(params.line, 0)
+        # Find lines by amount instead of assuming order
+        line_10000 =
+          Enum.find(params.line, fn line ->
+            line.amount == Decimal.new("10000.00")
+          end)
 
-        # Payment amount is $10,000.00 (Money.new(10_000, :USD) when stored as dollars)
-        # Money.to_decimal returns dollars, so 10_000 becomes "10000.00"
-        assert line1.amount == Decimal.new("10000.00")
-        # Verify linked_txn references the correct SalesReceipt
-        assert line1.linked_txn != nil
-        linked_txn1 = Enum.at(line1.linked_txn, 0)
+        line_5000 =
+          Enum.find(params.line, fn line ->
+            line.amount == Decimal.new("5000.00")
+          end)
+
+        # Verify both lines exist
+        assert line_10000 != nil, "Expected line with amount 10000.00"
+        assert line_5000 != nil, "Expected line with amount 5000.00"
+
+        # Verify $10,000 line references the correct SalesReceipt
+        assert line_10000.linked_txn != nil
+        linked_txn1 = Enum.at(line_10000.linked_txn, 0)
         assert linked_txn1.txn_id == "qb_sr_1"
         assert linked_txn1.txn_type == "SalesReceipt"
 
         # CRITICAL: Verify class_ref is present in deposit line items (ALL QuickBooks exports must have a class)
-        assert get_in(line1, [:deposit_line_detail, :class_ref]) != nil
+        assert get_in(line_10000, [:deposit_line_detail, :class_ref]) != nil
 
         assert Map.has_key?(
-                 get_in(line1, [:deposit_line_detail, :class_ref]),
+                 get_in(line_10000, [:deposit_line_detail, :class_ref]),
                  :value
                )
 
-        line2 = Enum.at(params.line, 1)
-
-        # Payment amount is $5,000.00 (Money.new(5_000, :USD) when stored as dollars)
-        assert line2.amount == Decimal.new("5000.00")
-        # Verify linked_txn references the correct SalesReceipt
-        assert line2.linked_txn != nil
-        linked_txn2 = Enum.at(line2.linked_txn, 0)
+        # Verify $5,000 line references the correct SalesReceipt
+        assert line_5000.linked_txn != nil
+        linked_txn2 = Enum.at(line_5000.linked_txn, 0)
         assert linked_txn2.txn_id == "qb_sr_2"
         assert linked_txn2.txn_type == "SalesReceipt"
         # CRITICAL: Verify class_ref is present in deposit line items
-        assert get_in(line2, [:deposit_line_detail, :class_ref]) != nil
+        assert get_in(line_5000, [:deposit_line_detail, :class_ref]) != nil
 
         assert Map.has_key?(
-                 get_in(line2, [:deposit_line_detail, :class_ref]),
+                 get_in(line_5000, [:deposit_line_detail, :class_ref]),
                  :value
                )
 
