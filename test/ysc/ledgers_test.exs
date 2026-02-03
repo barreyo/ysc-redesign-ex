@@ -278,34 +278,33 @@ defmodule Ysc.LedgersTest do
       assert refund_transaction.refund_id == refund.id
       assert refund_transaction.payment_id == payment.id
 
-      # Check entries were created
-      # Should have at least: refund expense debit, stripe account credit
-      # If revenue entry found, also creates: revenue reversal debit, stripe account credit (for revenue reversal)
-      # So total can be 2 (no revenue entry) or 4 (with revenue entry)
-      assert length(entries) >= 2
-      assert length(entries) <= 4
+      # Check entries were created using revenue reversal approach
+      # Should have exactly 2 entries:
+      # 1. Revenue reversal (debit)
+      # 2. Stripe account credit
+      assert length(entries) == 2
 
       # Verify all entries have the correct payment_id
       Enum.each(entries, fn entry ->
         assert entry.payment_id == payment.id
       end)
 
-      # Verify we have a refund expense entry (debit - positive amount, debit_credit: :debit)
-      refund_expense_entry =
+      # Verify we have a revenue reversal entry (debit - positive amount, debit_credit: :debit)
+      revenue_reversal_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Refund issued" &&
+          e.description =~ "Revenue reversal" &&
             e.debit_credit == :debit &&
             Money.positive?(e.amount)
         end)
 
-      assert refund_expense_entry != nil
-      assert refund_expense_entry.amount == refund_amount
-      assert refund_expense_entry.debit_credit == :debit
+      assert revenue_reversal_entry != nil
+      assert revenue_reversal_entry.amount == refund_amount
+      assert revenue_reversal_entry.debit_credit == :debit
 
       # Verify we have a stripe account credit entry (credit - positive amount, debit_credit: :credit)
       stripe_credit_entry =
         Enum.find(entries, fn e ->
-          e.description =~ "Refund processed through Stripe" &&
+          e.description =~ "Stripe account reduction" &&
             e.debit_credit == :credit &&
             Money.positive?(e.amount)
         end)

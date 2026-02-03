@@ -33,8 +33,36 @@ defmodule Ysc.Ledgers.ReconciliationWorker do
   def perform(%Oban.Job{}) do
     Logger.info("Starting scheduled financial reconciliation")
 
-    {:ok, report} = Reconciliation.run_full_reconciliation()
-    handle_reconciliation_results(report)
+    case Reconciliation.run_full_reconciliation() do
+      {:ok, report} ->
+        handle_reconciliation_results(report)
+
+      {:error, reason} ->
+        Logger.error("Reconciliation failed to run", error: inspect(reason))
+
+        # Send failure alert to Discord
+        Discord.send_message("""
+        🚨 **CRITICAL: Reconciliation Failed to Execute**
+
+        The scheduled financial reconciliation failed with an error:
+
+        **Error:** #{inspect(reason)}
+
+        **Time:** #{DateTime.utc_now() |> DateTime.to_iso8601()}
+
+        This requires immediate investigation.
+        """)
+
+        # Report to Sentry
+        Sentry.capture_message("Reconciliation execution failed",
+          level: :error,
+          extra: %{error: inspect(reason)},
+          tags: %{component: "reconciliation_worker"}
+        )
+
+        # Return error to let Oban retry
+        {:error, reason}
+    end
   end
 
   @doc """
@@ -43,10 +71,16 @@ defmodule Ysc.Ledgers.ReconciliationWorker do
   def run_now do
     Logger.info("Manually triggering reconciliation")
 
-    {:ok, report} = Reconciliation.run_full_reconciliation()
-    # Print formatted report to console
-    IO.puts(Reconciliation.format_report(report))
-    handle_reconciliation_results(report)
+    case Reconciliation.run_full_reconciliation() do
+      {:ok, report} ->
+        # Print formatted report to console
+        Logger.info(Reconciliation.format_report(report))
+        handle_reconciliation_results(report)
+
+      {:error, reason} ->
+        Logger.error("Reconciliation failed to run", error: inspect(reason))
+        {:error, reason}
+    end
   end
 
   @doc """

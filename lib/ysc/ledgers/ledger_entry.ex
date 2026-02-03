@@ -43,7 +43,31 @@ defmodule Ysc.Ledgers.LedgerEntry do
     ])
     |> validate_required([:account_id, :amount, :debit_credit])
     |> validate_length(:description, max: 1000)
+    |> validate_amount()
     |> foreign_key_constraint(:account_id)
     |> foreign_key_constraint(:payment_id)
+  end
+
+  # Validates that the amount is positive and in USD
+  defp validate_amount(changeset) do
+    amount = get_field(changeset, :amount)
+
+    cond do
+      is_nil(amount) ->
+        # Already validated as required
+        changeset
+
+      not is_struct(amount, Money) ->
+        add_error(changeset, :amount, "must be a Money value")
+
+      Money.negative?(amount) ->
+        add_error(changeset, :amount, "must be positive")
+
+      amount.currency != :USD ->
+        add_error(changeset, :amount, "must be in USD currency")
+
+      true ->
+        changeset
+    end
   end
 end

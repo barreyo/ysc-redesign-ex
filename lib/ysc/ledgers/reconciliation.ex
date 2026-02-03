@@ -355,11 +355,19 @@ defmodule Ysc.Ledgers.Reconciliation do
       end
 
     # Check if refund has ledger entries (via payment_id)
+    # Note: LedgerEntry doesn't have refund_id or transaction_id fields,
+    # so we check for entries with "refund" or "reversal" in the description.
+    # This is fragile but reflects the current schema design.
+    # TODO: Add refund_id to LedgerEntry schema for proper relationship tracking
     entries = Ledgers.get_entries_by_payment(refund.payment_id)
 
     refund_entries =
       Enum.filter(entries, fn entry ->
-        entry.description =~ "Refund" || entry.description =~ "refund"
+        # Case-insensitive matching for refund-related descriptions
+        description_lower = String.downcase(entry.description || "")
+
+        String.contains?(description_lower, "refund") ||
+          String.contains?(description_lower, "reversal")
       end)
 
     issues =
@@ -395,6 +403,8 @@ defmodule Ysc.Ledgers.Reconciliation do
   end
 
   defp calculate_entries_total(entries) do
+    require Logger
+
     Enum.reduce(entries, Money.new(0, :USD), fn entry, acc ->
       # Handle both atom and string values for debit_credit (EctoEnum)
       debit_credit =
@@ -413,7 +423,26 @@ defmodule Ysc.Ledgers.Reconciliation do
           {:ok, sum} = Money.sub(acc, entry.amount)
           sum
 
-        _ ->
+        other ->
+          Logger.error("Invalid debit_credit value in ledger entry",
+            entry_id: entry.id,
+            value: inspect(other),
+            account_id: entry.account_id,
+            payment_id: entry.payment_id
+          )
+
+          # Report to Sentry
+          Sentry.capture_message("Invalid debit_credit in reconciliation",
+            level: :error,
+            extra: %{
+              entry_id: entry.id,
+              debit_credit: inspect(other),
+              account_id: entry.account_id,
+              payment_id: entry.payment_id
+            },
+            tags: %{component: "reconciliation"}
+          )
+
           acc
       end
     end)
@@ -440,13 +469,16 @@ defmodule Ysc.Ledgers.Reconciliation do
   end
 
   defp calculate_refund_total_from_ledger do
-    # Sum all refund expense entries (debit entries)
+    # Sum all revenue reversal entries for refunds
+    # Refunds are now processed as revenue reversals (debit to revenue accounts)
+    # We identify them by looking for debit entries to revenue accounts
+    # associated with refund transactions
     query =
       from(e in LedgerEntry,
         join: a in assoc(e, :account),
         join: t in LedgerTransaction,
         on: t.payment_id == e.payment_id,
-        where: a.name == "refund_expense",
+        where: a.account_type == "revenue",
         where: t.type == :refund,
         where: e.debit_credit == "debit",
         select: sum(fragment("(?.amount).amount", e))
@@ -454,7 +486,7 @@ defmodule Ysc.Ledgers.Reconciliation do
 
     case Repo.one(query) do
       nil -> Money.new(0, :USD)
-      amount -> Money.new(amount, :USD)
+      amount -> Money.new(0, :USD) |> Money.add!(Money.new(amount, :USD))
     end
   end
 

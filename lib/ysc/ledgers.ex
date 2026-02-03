@@ -67,21 +67,22 @@ defmodule Ysc.Ledgers do
   @doc """
   Ensures all basic ledger accounts exist in the system.
   Creates accounts if they don't exist.
+
+  Uses INSERT ON CONFLICT DO NOTHING to avoid race conditions
+  when multiple processes try to initialize accounts concurrently.
   """
   def ensure_basic_accounts do
     Enum.each(@basic_accounts, fn {name, type, normal_balance, description} ->
-      case get_account_by_name(name) do
-        nil ->
-          create_account(%{
-            name: name,
-            account_type: type,
-            normal_balance: normal_balance,
-            description: description
-          })
-
-        _account ->
-          :ok
-      end
+      # Use INSERT ON CONFLICT to avoid race condition
+      # Unique constraint is on [:account_type, :name]
+      %LedgerAccount{}
+      |> LedgerAccount.changeset(%{
+        name: name,
+        account_type: type,
+        normal_balance: normal_balance,
+        description: description
+      })
+      |> Repo.insert(on_conflict: :nothing, conflict_target: [:account_type, :name])
     end)
   end
 
@@ -578,6 +579,9 @@ defmodule Ysc.Ledgers do
 
   @doc """
   Creates double-entry ledger entries for a payment.
+
+  NOTE: This function should be called within a Repo.transaction block
+  to ensure atomicity of all entry creations.
   """
   def create_payment_entries(attrs) do
     %{
@@ -589,8 +593,6 @@ defmodule Ysc.Ledgers do
       description: description,
       property: property
     } = attrs
-
-    entries = []
 
     # Determine revenue account based on entity type and property
     revenue_account_name =
@@ -647,7 +649,16 @@ defmodule Ysc.Ledgers do
       end
 
     revenue_account = get_account_by_name(revenue_account_name)
+
+    unless revenue_account do
+      raise "Revenue account '#{revenue_account_name}' not found"
+    end
+
     stripe_receivable_account = get_account_by_name("stripe_account")
+
+    unless stripe_receivable_account do
+      raise "Stripe account not found"
+    end
 
     # Entry 1: Debit Stripe Receivable (Asset) - money owed to us by Stripe
     {:ok, stripe_receivable_entry} =
@@ -661,8 +672,6 @@ defmodule Ysc.Ledgers do
         related_entity_id: entity_id
       })
 
-    entries = [stripe_receivable_entry | entries]
-
     # Entry 2: Credit Revenue (explicit credit with positive amount)
     {:ok, revenue_entry} =
       create_entry(%{
@@ -675,13 +684,20 @@ defmodule Ysc.Ledgers do
         related_entity_id: entity_id
       })
 
-    entries = [revenue_entry | entries]
-
     # Entry 3: If there's a Stripe fee, track the flow through Stripe account
     entries =
       if stripe_fee && Money.positive?(stripe_fee) do
         stripe_fee_account = get_account_by_name("stripe_fees")
+
+        unless stripe_fee_account do
+          raise "Stripe fees account not found"
+        end
+
         stripe_account = get_account_by_name("stripe_account")
+
+        unless stripe_account do
+          raise "Stripe account not found"
+        end
 
         # Entry 3a: Debit Stripe Fee Expense
         {:ok, fee_expense_entry} =
@@ -709,9 +725,9 @@ defmodule Ysc.Ledgers do
             related_entity_id: payment.id
           })
 
-        [fee_expense_entry, stripe_fee_deduction_entry | entries]
+        [stripe_receivable_entry, revenue_entry, fee_expense_entry, stripe_fee_deduction_entry]
       else
-        entries
+        [stripe_receivable_entry, revenue_entry]
       end
 
     entries
@@ -722,6 +738,9 @@ defmodule Ysc.Ledgers do
 
   This handles ticket orders that contain both regular tickets and donation tickets.
   Creates separate revenue entries for each type while maintaining double-entry balance.
+
+  NOTE: This function should be called within a Repo.transaction block
+  to ensure atomicity of all entry creations.
   """
   def create_mixed_event_donation_entries(attrs) do
     %{
@@ -737,8 +756,22 @@ defmodule Ysc.Ledgers do
     entries = []
 
     stripe_receivable_account = get_account_by_name("stripe_account")
+
+    unless stripe_receivable_account do
+      raise "Stripe account not found"
+    end
+
     event_revenue_account = get_account_by_name("event_revenue")
+
+    unless event_revenue_account do
+      raise "Event revenue account not found"
+    end
+
     donation_revenue_account = get_account_by_name("donation_revenue")
+
+    unless donation_revenue_account do
+      raise "Donation revenue account not found"
+    end
 
     # Entry 1: Debit Stripe Receivable (Asset) - money owed to us by Stripe
     {:ok, stripe_receivable_entry} =
@@ -797,7 +830,16 @@ defmodule Ysc.Ledgers do
     entries =
       if stripe_fee && Money.positive?(stripe_fee) do
         stripe_fee_account = get_account_by_name("stripe_fees")
+
+        unless stripe_fee_account do
+          raise "Stripe fees account not found"
+        end
+
         stripe_account = get_account_by_name("stripe_account")
+
+        unless stripe_account do
+          raise "Stripe account not found"
+        end
 
         # Entry 3a: Debit Stripe Fee Expense
         {:ok, fee_expense_entry} =
@@ -849,9 +891,28 @@ defmodule Ysc.Ledgers do
     entries = []
 
     stripe_receivable_account = get_account_by_name("stripe_account")
+
+    unless stripe_receivable_account do
+      raise "Stripe account not found"
+    end
+
     event_revenue_account = get_account_by_name("event_revenue")
+
+    unless event_revenue_account do
+      raise "Event revenue account not found"
+    end
+
     donation_revenue_account = get_account_by_name("donation_revenue")
+
+    unless donation_revenue_account do
+      raise "Donation revenue account not found"
+    end
+
     discount_expense_account = get_account_by_name("discount_expense")
+
+    unless discount_expense_account do
+      raise "Discount expense account not found"
+    end
 
     # Entry 1: Debit Stripe Receivable (Asset) - money owed to us by Stripe (net amount received)
     {:ok, stripe_receivable_entry} =
@@ -949,7 +1010,16 @@ defmodule Ysc.Ledgers do
     entries =
       if stripe_fee && Money.positive?(stripe_fee) do
         stripe_fee_account = get_account_by_name("stripe_fees")
+
+        unless stripe_fee_account do
+          raise "Stripe fees account not found"
+        end
+
         stripe_account = get_account_by_name("stripe_account")
+
+        unless stripe_account do
+          raise "Stripe account not found"
+        end
 
         # Entry 6a: Debit Stripe Fee Expense
         {:ok, fee_expense_entry} =
@@ -1386,6 +1456,16 @@ defmodule Ysc.Ledgers do
 
   @doc """
   Creates double-entry ledger entries for a refund.
+
+  Uses revenue reversal approach: reverses the original payment entries
+  by debiting revenue and crediting the stripe account.
+
+  For a $100 refund:
+  - DR: Revenue $100 (reverses original revenue recognition)
+  - CR: Stripe Account $100 (reduces receivable)
+
+  NOTE: This function should be called within a Repo.transaction block
+  to ensure atomicity of all entry creations.
   """
   def create_refund_entries(attrs) do
     %{
@@ -1394,10 +1474,9 @@ defmodule Ysc.Ledgers do
       reason: reason
     } = attrs
 
-    entries = []
-
     # Determine original revenue account
     original_entries = get_entries_by_payment(payment.id)
+
     # Find the revenue entry (should be a credit entry)
     revenue_entry =
       Enum.find(original_entries, fn entry ->
@@ -1406,76 +1485,41 @@ defmodule Ysc.Ledgers do
           to_string(entry.debit_credit) == "credit"
       end)
 
-    stripe_account = get_account_by_name("stripe_account")
-    refund_expense_account = get_account_by_name("refund_expense")
+    unless revenue_entry do
+      raise "Cannot process refund: no revenue entry found for payment #{payment.id}"
+    end
 
-    # Entry 1: Debit Refund Expense
-    {:ok, refund_expense_entry} =
+    stripe_account = get_account_by_name("stripe_account")
+
+    unless stripe_account do
+      raise "Cannot process refund: stripe_account not found"
+    end
+
+    # Entry 1: Debit revenue account (reverses original revenue)
+    {:ok, revenue_reversal_entry} =
       create_entry(%{
-        account_id: refund_expense_account.id,
+        account_id: revenue_entry.account_id,
         payment_id: payment.id,
         amount: refund_amount,
         debit_credit: :debit,
-        description: "Refund issued: #{reason}",
+        description: "Revenue reversal for refund: #{reason}",
         related_entity_type: :administration,
         related_entity_id: payment.id
       })
 
-    entries = [refund_expense_entry | entries]
-
-    # Entry 2: Credit Stripe Account (we owe Stripe for the refund, reducing receivable)
+    # Entry 2: Credit stripe_account (reduces receivable)
     {:ok, stripe_credit_entry} =
       create_entry(%{
         account_id: stripe_account.id,
         payment_id: payment.id,
         amount: refund_amount,
         debit_credit: :credit,
-        description: "Refund processed through Stripe: #{reason}",
+        description: "Stripe account reduction for refund: #{reason}",
         related_entity_type: :administration,
         related_entity_id: payment.id
       })
 
-    entries = [stripe_credit_entry | entries]
-
-    # Entry 3: Reverse the original revenue (if we found the revenue entry)
-    # To reverse revenue, we debit the revenue account (decreases revenue)
-    # and credit stripe_account to balance (further reducing the receivable)
-    # This is correct: we credit stripe_account twice - once for the refund expense,
-    # and once for the revenue reversal, because we're reducing both the expense
-    # and the revenue recognition
-    entries =
-      if revenue_entry do
-        # Debit revenue account (decreases revenue, which is a credit account)
-        {:ok, revenue_reversal_entry} =
-          create_entry(%{
-            account_id: revenue_entry.account_id,
-            payment_id: payment.id,
-            amount: refund_amount,
-            debit_credit: :debit,
-            description: "Revenue reversal for refund: #{reason}",
-            related_entity_type: :administration,
-            related_entity_id: payment.id
-          })
-
-        # Credit stripe_account to balance the revenue debit (further reduces receivable)
-        {:ok, stripe_revenue_reversal_entry} =
-          create_entry(%{
-            account_id: stripe_account.id,
-            payment_id: payment.id,
-            amount: refund_amount,
-            debit_credit: :credit,
-            description:
-              "Revenue reversal - stripe account adjustment: #{reason}",
-            related_entity_type: :administration,
-            related_entity_id: payment.id
-          })
-
-        [revenue_reversal_entry, stripe_revenue_reversal_entry | entries]
-      else
-        entries
-      end
-
-    entries
+    [revenue_reversal_entry, stripe_credit_entry]
   end
 
   ## Stripe Payout Management
