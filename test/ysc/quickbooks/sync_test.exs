@@ -4350,8 +4350,7 @@ defmodule Ysc.Quickbooks.SyncTest do
         assert params.customer_ref != nil
         assert params.customer_ref.value != nil
         assert params.deposit_to_account_ref.value == "undeposited_funds_123"
-        assert is_list(params.line)
-        assert length(params.line) > 0
+        assert params.line != []
 
         # Verify line item structure
         line = List.first(params.line)
