@@ -67,11 +67,11 @@ defmodule YscWeb.FamilyInviteAcceptanceLiveTest do
       {invite, _primary_user} = create_family_invite()
 
       # Manually set expires_at to past date
-      expired_at = DateTime.add(DateTime.utc_now(), -31, :day) |> DateTime.truncate(:second)
+      expired_at =
+        DateTime.add(DateTime.utc_now(), -31, :day)
+        |> DateTime.truncate(:second)
 
-      Repo.update!(
-        Ecto.Changeset.change(invite, expires_at: expired_at)
-      )
+      Repo.update!(Ecto.Changeset.change(invite, expires_at: expired_at))
 
       assert {:error, {:redirect, %{to: "/", flash: flash}}} =
                live(conn, ~p"/family-invite/#{invite.token}/accept")
@@ -88,9 +88,7 @@ defmodule YscWeb.FamilyInviteAcceptanceLiveTest do
       # Mark invite as accepted
       accepted_at = DateTime.truncate(DateTime.utc_now(), :second)
 
-      Repo.update!(
-        Ecto.Changeset.change(invite, accepted_at: accepted_at)
-      )
+      Repo.update!(Ecto.Changeset.change(invite, accepted_at: accepted_at))
 
       assert {:error, {:redirect, %{to: "/", flash: flash}}} =
                live(conn, ~p"/family-invite/#{invite.token}/accept")
@@ -165,7 +163,8 @@ defmodule YscWeb.FamilyInviteAcceptanceLiveTest do
 
       invite = Repo.preload(invite, [:primary_user, :created_by_user])
 
-      {:ok, _view, _html} = live(conn, ~p"/family-invite/#{invite.token}/accept")
+      {:ok, _view, _html} =
+        live(conn, ~p"/family-invite/#{invite.token}/accept")
 
       # Form renders successfully even without most_connected_country
       # No assertion needed beyond successful mount
@@ -222,7 +221,8 @@ defmodule YscWeb.FamilyInviteAcceptanceLiveTest do
         |> render_change()
 
       # Should show validation errors
-      assert html =~ "must have the @ sign and no spaces" or html =~ "can&#39;t be blank"
+      assert html =~ "must have the @ sign and no spaces" or
+               html =~ "can&#39;t be blank"
     end
   end
 
@@ -281,11 +281,11 @@ defmodule YscWeb.FamilyInviteAcceptanceLiveTest do
       {:ok, view, _html} = live(conn, ~p"/family-invite/#{invite.token}/accept")
 
       # Expire the invite
-      expired_at = DateTime.add(DateTime.utc_now(), -31, :day) |> DateTime.truncate(:second)
+      expired_at =
+        DateTime.add(DateTime.utc_now(), -31, :day)
+        |> DateTime.truncate(:second)
 
-      Repo.update!(
-        Ecto.Changeset.change(invite, expires_at: expired_at)
-      )
+      Repo.update!(Ecto.Changeset.change(invite, expires_at: expired_at))
 
       view
       |> form("#accept-invite-form",
@@ -324,7 +324,8 @@ defmodule YscWeb.FamilyInviteAcceptanceLiveTest do
       # Form should show error and not redirect
       # Check for password confirmation error (various possible wordings)
       assert html =~ "password" and
-               (html =~ "does not match" or html =~ "must match" or html =~ "confirmation")
+               (html =~ "does not match" or html =~ "must match" or
+                  html =~ "confirmation")
 
       assert has_element?(view, "form#accept-invite-form")
     end
@@ -347,7 +348,9 @@ defmodule YscWeb.FamilyInviteAcceptanceLiveTest do
         |> render_submit()
 
       # Form should show errors (check for blank/required errors)
-      assert html =~ "can&#39;t be blank" or html =~ "can't be blank" or html =~ "required"
+      assert html =~ "can&#39;t be blank" or html =~ "can't be blank" or
+               html =~ "required"
+
       assert has_element?(view, "form#accept-invite-form")
     end
   end

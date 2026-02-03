@@ -42,7 +42,8 @@ defmodule YscWeb.PaymentSuccessLiveTest do
           defmodule :"TestStripeClient#{System.unique_integer()}" do
             @behaviour Ysc.StripeBehaviour
 
-            def create_payment_intent(_params, _opts), do: {:error, :not_implemented}
+            def create_payment_intent(_params, _opts),
+              do: {:error, :not_implemented}
 
             def retrieve_payment_intent(id, _opts) do
               metadata = Process.get(:test_metadata, %{})
@@ -56,7 +57,9 @@ defmodule YscWeb.PaymentSuccessLiveTest do
               {:ok, payment_intent}
             end
 
-            def cancel_payment_intent(_id, _opts), do: {:error, :not_implemented}
+            def cancel_payment_intent(_id, _opts),
+              do: {:error, :not_implemented}
+
             def create_customer(_params), do: {:error, :not_implemented}
             def update_customer(_id, _params), do: {:error, :not_implemented}
             def retrieve_payment_method(_id), do: {:error, :not_implemented}
@@ -67,7 +70,12 @@ defmodule YscWeb.PaymentSuccessLiveTest do
 
       conn = log_in_user(conn, user)
 
-      %{conn: conn, user: user, booking: booking, test_stripe_client: test_stripe_client}
+      %{
+        conn: conn,
+        user: user,
+        booking: booking,
+        test_stripe_client: test_stripe_client
+      }
     end
 
     test "redirects to booking receipt with confetti", %{
@@ -76,7 +84,9 @@ defmodule YscWeb.PaymentSuccessLiveTest do
       test_stripe_client: test_stripe_client
     } do
       payment_intent_id = "pi_test_123"
-      client_module = test_stripe_client.(payment_intent_id, %{"booking_id" => booking.id})
+
+      client_module =
+        test_stripe_client.(payment_intent_id, %{"booking_id" => booking.id})
 
       # Set test data in process dictionary for the test client
       Process.put(:test_metadata, %{"booking_id" => booking.id})
@@ -106,7 +116,9 @@ defmodule YscWeb.PaymentSuccessLiveTest do
     } do
       payment_intent_id = "pi_test_456"
       client_secret = "#{payment_intent_id}_secret_abc123"
-      client_module = test_stripe_client.(payment_intent_id, %{"booking_id" => booking.id})
+
+      client_module =
+        test_stripe_client.(payment_intent_id, %{"booking_id" => booking.id})
 
       Process.put(:test_metadata, %{"booking_id" => booking.id})
       original_client = Application.get_env(:ysc, :stripe_client)
@@ -140,7 +152,8 @@ defmodule YscWeb.PaymentSuccessLiveTest do
         defmodule :"TestStripeClient#{System.unique_integer()}" do
           @behaviour Ysc.StripeBehaviour
 
-          def create_payment_intent(_params, _opts), do: {:error, :not_implemented}
+          def create_payment_intent(_params, _opts),
+            do: {:error, :not_implemented}
 
           def retrieve_payment_intent(id, _opts) do
             {:ok,
@@ -186,7 +199,8 @@ defmodule YscWeb.PaymentSuccessLiveTest do
         defmodule :"TestStripeClient#{System.unique_integer()}" do
           @behaviour Ysc.StripeBehaviour
 
-          def create_payment_intent(_params, _opts), do: {:error, :not_implemented}
+          def create_payment_intent(_params, _opts),
+            do: {:error, :not_implemented}
 
           def retrieve_payment_intent(id, _opts) do
             {:ok,
@@ -285,7 +299,8 @@ defmodule YscWeb.PaymentSuccessLiveTest do
                |> log_in_user(user)
                |> live(~p"/payment/success?payment_intent=pi_test")
 
-      assert flash["error"] == "Payment status is unclear. Please check your booking or order status."
+      assert flash["error"] ==
+               "Payment status is unclear. Please check your booking or order status."
     end
   end
 

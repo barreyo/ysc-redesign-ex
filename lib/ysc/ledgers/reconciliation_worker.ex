@@ -33,36 +33,16 @@ defmodule Ysc.Ledgers.ReconciliationWorker do
   def perform(%Oban.Job{}) do
     Logger.info("Starting scheduled financial reconciliation")
 
-    case Reconciliation.run_full_reconciliation() do
-      {:ok, report} ->
-        handle_reconciliation_results(report)
-
-      {:error, reason} ->
-        Logger.error("Reconciliation failed to run", error: inspect(reason))
-
-        # Send failure alert to Discord
-        Discord.send_message("""
-        🚨 **CRITICAL: Reconciliation Failed to Execute**
-
-        The scheduled financial reconciliation failed with an error:
-
-        **Error:** #{inspect(reason)}
-
-        **Time:** #{DateTime.utc_now() |> DateTime.to_iso8601()}
-
-        This requires immediate investigation.
-        """)
-
-        # Report to Sentry
-        Sentry.capture_message("Reconciliation execution failed",
-          level: :error,
-          extra: %{error: inspect(reason)},
-          tags: %{component: "reconciliation_worker"}
-        )
-
-        # Return error to let Oban retry
-        {:error, reason}
-    end
+    # Note: run_full_reconciliation/0 currently always returns {:ok, report}
+    # even when discrepancies are found. Discrepancies are indicated via
+    # report.overall_status == :error, not as an error tuple.
+    #
+    # TODO: Consider changing run_full_reconciliation/0 to return {:error, reason}
+    # for system failures (DB errors, timeouts) vs {:ok, report} for successful
+    # execution (even with discrepancies). This would enable Oban retry logic
+    # for transient system issues.
+    {:ok, report} = Reconciliation.run_full_reconciliation()
+    handle_reconciliation_results(report)
   end
 
   @doc """
@@ -71,16 +51,10 @@ defmodule Ysc.Ledgers.ReconciliationWorker do
   def run_now do
     Logger.info("Manually triggering reconciliation")
 
-    case Reconciliation.run_full_reconciliation() do
-      {:ok, report} ->
-        # Print formatted report to console
-        Logger.info(Reconciliation.format_report(report))
-        handle_reconciliation_results(report)
-
-      {:error, reason} ->
-        Logger.error("Reconciliation failed to run", error: inspect(reason))
-        {:error, reason}
-    end
+    {:ok, report} = Reconciliation.run_full_reconciliation()
+    # Print formatted report to console
+    Logger.info(Reconciliation.format_report(report))
+    handle_reconciliation_results(report)
   end
 
   @doc """

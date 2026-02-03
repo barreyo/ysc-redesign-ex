@@ -32,7 +32,8 @@ defmodule Ysc.Ledgers.ReconciliationWorkerTest do
   4. Memory concerns with large datasets (loads all payments/refunds) ⚠️
   5. Fragile refund detection via string matching ⚠️
   """
-  use Ysc.DataCase, async: false  # async: false due to Oban inline mode
+  # async: false due to Oban inline mode
+  use Ysc.DataCase, async: false
 
   import ExUnit.CaptureLog
   require Logger
@@ -135,7 +136,9 @@ defmodule Ysc.Ledgers.ReconciliationWorkerTest do
     end
 
     test "schedules with custom delay" do
-      assert {:ok, job} = ReconciliationWorker.schedule_reconciliation(schedule_in: 3600)
+      assert {:ok, job} =
+               ReconciliationWorker.schedule_reconciliation(schedule_in: 3600)
+
       assert job.worker == "Ysc.Ledgers.ReconciliationWorker"
       # Verify schedule_in was applied (exact time check is fragile)
       assert job.scheduled_at != nil
@@ -182,5 +185,4 @@ defmodule Ysc.Ledgers.ReconciliationWorkerTest do
       assert Code.ensure_loaded?(ReconciliationWorker)
     end
   end
-
 end

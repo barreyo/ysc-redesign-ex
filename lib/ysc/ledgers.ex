@@ -82,7 +82,10 @@ defmodule Ysc.Ledgers do
         normal_balance: normal_balance,
         description: description
       })
-      |> Repo.insert(on_conflict: :nothing, conflict_target: [:account_type, :name])
+      |> Repo.insert(
+        on_conflict: :nothing,
+        conflict_target: [:account_type, :name]
+      )
     end)
   end
 
@@ -725,7 +728,12 @@ defmodule Ysc.Ledgers do
             related_entity_id: payment.id
           })
 
-        [stripe_receivable_entry, revenue_entry, fee_expense_entry, stripe_fee_deduction_entry]
+        [
+          stripe_receivable_entry,
+          revenue_entry,
+          fee_expense_entry,
+          stripe_fee_deduction_entry
+        ]
       else
         [stripe_receivable_entry, revenue_entry]
       end
