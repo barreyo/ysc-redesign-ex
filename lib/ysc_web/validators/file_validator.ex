@@ -27,6 +27,7 @@ defmodule YscWeb.Validators.FileValidator do
       iex> validate_file("/tmp/malicious.exe", ["image/jpeg"], [".jpg"])
       {:error, "File type application/x-msdownload not allowed. Allowed types: image/jpeg"}
   """
+  # sobelow_skip ["Traversal.FileModule"]
   def validate_file(file_path, allowed_mime_types, allowed_extensions \\ []) do
     with {:ok, file} <- File.open(file_path, [:read, :binary]),
          result <-

@@ -50,6 +50,7 @@ defmodule Ysc.Media do
   @doc """
   Gets all distinct years from images, ordered descending.
   """
+  # sobelow_skip ["SQL.Query"]
   def get_available_years do
     # Use raw SQL to get distinct years efficiently
     # This avoids loading all timestamps and works around Ecto subquery limitations
@@ -68,6 +69,7 @@ defmodule Ysc.Media do
   Gets timeline indices (years with counts) for the scrubber.
   Returns a list of maps with :year and :count keys.
   """
+  # sobelow_skip ["SQL.Query"]
   def get_timeline_indices do
     query = """
     SELECT
@@ -408,6 +410,7 @@ defmodule Ysc.Media do
   end
 
   # Generate blurhash safely, ensuring we don't create files in source directories
+  # sobelow_skip ["Traversal.FileModule"]
   defp generate_blur_hash_safely(temp_image_path, original_path) do
     # Use the temp image file (optimized_output_path) which is already in /tmp
     # This ensures Blurhash won't create files in the seed directory

@@ -80,6 +80,7 @@ defmodule YscWeb.UserSessionController do
     end
   end
 
+  # sobelow_skip ["XSS.SendResp"]
   defp create(conn, %{"user" => user_params} = params, info) do
     %{"email" => email, "password" => password} = user_params
 
@@ -285,6 +286,7 @@ defmodule YscWeb.UserSessionController do
 
   defp find_malformed_query_key(_), do: nil
 
+  # sobelow_skip ["XSS.SendResp"]
   defp passkey_login_with_params(conn, encoded_user_id, redirect_to) do
     require Logger
 

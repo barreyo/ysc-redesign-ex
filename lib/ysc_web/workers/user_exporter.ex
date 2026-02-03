@@ -48,6 +48,7 @@ defmodule YscWeb.Workers.UserExporter do
     end
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp build_csv(fields, only_subscribed) do
     job_pid = self()
     Logger.info("UserExporter: Starting build_csv")
@@ -366,6 +367,7 @@ defmodule YscWeb.Workers.UserExporter do
     end
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp generate_output_path() do
     ulid = Ecto.ULID.generate()
     time_now = Timex.now()

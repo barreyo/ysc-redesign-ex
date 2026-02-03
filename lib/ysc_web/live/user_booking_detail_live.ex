@@ -671,10 +671,25 @@ defmodule YscWeb.UserBookingDetailLive do
     end
   end
 
+  # Normalizes currency strings to atoms safely
+  defp normalize_currency("USD"), do: :USD
+  defp normalize_currency("EUR"), do: :EUR
+  defp normalize_currency("GBP"), do: :GBP
+  defp normalize_currency("CAD"), do: :CAD
+  defp normalize_currency("AUD"), do: :AUD
+  defp normalize_currency("JPY"), do: :JPY
+  defp normalize_currency(currency) when is_binary(currency) do
+    # Try to use existing atom, fallback to USD if not found
+    String.to_existing_atom(currency)
+  rescue
+    ArgumentError -> :USD
+  end
+  defp normalize_currency(_), do: :USD
+
   defp format_money_from_map(money_map) when is_map(money_map) do
     amount = Map.get(money_map, "amount", "0")
     currency = Map.get(money_map, "currency", "USD")
-    MoneyHelper.format_money!(Money.new(String.to_atom(currency), amount))
+    MoneyHelper.format_money!(Money.new(normalize_currency(currency), amount))
   end
 
   defp format_money_from_map(_), do: "N/A"

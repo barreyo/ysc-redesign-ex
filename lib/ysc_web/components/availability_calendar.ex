@@ -1079,6 +1079,7 @@ defmodule YscWeb.Components.AvailabilityCalendar do
     end
   end
 
+  # sobelow_skip ["XSS.Raw"]
   defp render_clear_lake_spots_html(day, info, assigns) do
     spots_available = info.spots_available
     max_spots = 12

@@ -5147,7 +5147,14 @@ defmodule YscWeb.EventDetailsLive do
           [_, ticket_id_str, field_str] ->
             # Group by ticket_id
             ticket_data = Map.get(acc, ticket_id_str, %{})
-            field_atom = String.to_atom(field_str)
+            # Convert known field names to atoms (regex already validates these)
+            field_atom =
+              case field_str do
+                "first_name" -> :first_name
+                "last_name" -> :last_name
+                "email" -> :email
+              end
+
             ticket_data = Map.put(ticket_data, field_atom, val || "")
             Map.put(acc, ticket_id_str, ticket_data)
 

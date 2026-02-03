@@ -681,6 +681,7 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
     end
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp upload_receipt_to_quickbooks(s3_path, bill_id) do
     Logger.info(
       "[QB Expense Sync] upload_receipt_to_quickbooks: Starting receipt upload",
@@ -773,6 +774,7 @@ defmodule Ysc.ExpenseReports.QuickbooksSync do
     end
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp download_from_s3_to_temp(s3_path) do
     # Parse S3 path to get bucket and key
     # S3 paths can be in different formats:

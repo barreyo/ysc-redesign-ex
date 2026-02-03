@@ -3676,6 +3676,7 @@ defmodule Ysc.Quickbooks.Client do
     end
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp build_upload_request(
          file_path,
          file_name,

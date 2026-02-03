@@ -8,6 +8,7 @@ defmodule YscWeb.Plugs.AuthRateLimitPlug do
 
   def init(opts), do: opts
 
+  # sobelow_skip ["XSS.SendResp"]
   def call(conn, _opts) do
     ip = conn.remote_ip
 

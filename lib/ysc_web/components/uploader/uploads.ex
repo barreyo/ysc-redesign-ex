@@ -207,6 +207,7 @@ defmodule YscWeb.Uploads do
     YscWeb.Router.Helpers.static_path(YscWeb.Endpoint, "/uploads/#{file}")
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp make_temp_dir(path) do
     File.mkdir(path)
   end

@@ -137,11 +137,13 @@ defmodule YscWeb.Workers.ImageProcessor do
   end
 
   # Clean up a file if it exists
+  # sobelow_skip ["Traversal.FileModule"]
   defp cleanup_file(path) do
     if File.exists?(path), do: File.rm(path)
   end
 
   # Clean up file with any possible extension
+  # sobelow_skip ["Traversal.FileModule"]
   defp cleanup_file_with_extensions(base_path) do
     extensions = [".jpg", ".jpeg", ".png", ".webp"]
 
@@ -151,6 +153,7 @@ defmodule YscWeb.Workers.ImageProcessor do
     end)
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp make_temp_dir(path) do
     File.mkdir(path)
   end

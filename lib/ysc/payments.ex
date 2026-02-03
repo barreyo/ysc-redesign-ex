@@ -448,7 +448,15 @@ defmodule Ysc.Payments do
   defp map_stripe_type_to_payment_method_type("us_bank_account"),
     do: :bank_account
 
-  defp map_stripe_type_to_payment_method_type(type), do: String.to_atom(type)
+  defp map_stripe_type_to_payment_method_type("sepa_debit"), do: :sepa_debit
+  defp map_stripe_type_to_payment_method_type("link"), do: :link
+  defp map_stripe_type_to_payment_method_type("paypal"), do: :paypal
+  defp map_stripe_type_to_payment_method_type("affirm"), do: :affirm
+  defp map_stripe_type_to_payment_method_type("klarna"), do: :klarna
+  defp map_stripe_type_to_payment_method_type("cashapp"), do: :cashapp
+
+  # Return :other for unknown payment types to prevent atom exhaustion
+  defp map_stripe_type_to_payment_method_type(_unknown), do: :other
 
   defp get_last_four(%{card: %{last4: last4}}), do: last4
   defp get_last_four(%{us_bank_account: %{last4: last4}}), do: last4

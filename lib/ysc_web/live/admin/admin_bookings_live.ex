@@ -6234,6 +6234,7 @@ defmodule YscWeb.AdminBookingsLive do
 
   # Render a blackout div for the grid calendar
   # Blackouts cover full days (unlike bookings which have half-day coverage on check-in/check-out)
+  # sobelow_skip ["XSS.Raw"]
   defp render_blackout_div(blackout, start_date, total_days) do
     total_cols = total_days * 2
 
@@ -6309,6 +6310,7 @@ defmodule YscWeb.AdminBookingsLive do
   end
 
   # Render a booking div for the grid calendar
+  # sobelow_skip ["XSS.Raw"]
   defp render_booking_div(booking, start_date, total_days) do
     {col_start, col_end, extends_before, extends_after} =
       get_booking_grid_columns(

@@ -73,6 +73,7 @@ defmodule Ysc.Accounts.UserPasskey do
   Uses the `:safe` option to avoid deserializing unsafe terms (funs, pids, refs).
   COSE keys are plain maps and are safe to deserialize.
   """
+  # sobelow_skip ["Misc.BinToTerm"]
   def decode_public_key(binary_key) when is_binary(binary_key) do
     :erlang.binary_to_term(binary_key, [:safe])
   end

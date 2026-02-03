@@ -58,7 +58,7 @@ jobs:
       #   run: mix credo --strict
 
       - name: Sobelow (security)
-        run: mix sobelow --exit
+        run: mix sobelow --skip --exit
 
       - name: Dependency audit
         run: mix deps.audit

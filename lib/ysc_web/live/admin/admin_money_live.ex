@@ -162,6 +162,14 @@ defmodule YscWeb.AdminMoneyLive do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
 
+  # Normalizes entity type strings to atoms safely
+  defp normalize_entity_type("administration"), do: :administration
+  defp normalize_entity_type("booking"), do: :booking
+  defp normalize_entity_type("donation"), do: :donation
+  defp normalize_entity_type("event"), do: :event
+  defp normalize_entity_type("membership"), do: :membership
+  defp normalize_entity_type(_unknown), do: :administration
+
   defp apply_action(socket, :index, _params) do
     socket
     |> assign(:page_title, "Money")
@@ -655,7 +663,7 @@ defmodule YscWeb.AdminMoneyLive do
           amount: amount,
           reason: credit_params["reason"],
           entity_type:
-            String.to_atom(credit_params["entity_type"] || "administration"),
+            normalize_entity_type(credit_params["entity_type"] || "administration"),
           entity_id: credit_params["entity_id"]
         }
 

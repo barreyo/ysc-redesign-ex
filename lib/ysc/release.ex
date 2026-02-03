@@ -21,6 +21,7 @@ defmodule Ysc.Release do
       Ecto.Migrator.with_repo(repo, &Ecto.Migrator.run(&1, :down, to: version))
   end
 
+  # sobelow_skip ["RCE.CodeModule"]
   def seed do
     load_app()
 

@@ -35,6 +35,7 @@ defmodule YscWeb.Workers.FileExportCleanUp do
     :ok
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   def maybe_delete_file(f, create_date) do
     if Timex.before?(create_date, Timex.shift(Timex.now(), hours: -1)) do
       Logger.info("Deleting #{f}")

@@ -112,7 +112,8 @@ defmodule Ysc.Keila.Client do
 
         case Req.get(url, headers: headers, params: [id_type: "email"]) do
           {:ok, %{status: 200, body: %{"data" => contact}}} ->
-            {:ok, String.to_atom(contact["status"] || "active")}
+            status = normalize_keila_status(contact["status"])
+            {:ok, status}
 
           {:ok, %{status: 404}} ->
             {:ok, :not_found}
@@ -125,6 +126,13 @@ defmodule Ysc.Keila.Client do
         end
     end
   end
+
+  # Maps Keila status strings to known atoms to prevent atom exhaustion
+  defp normalize_keila_status("active"), do: :active
+  defp normalize_keila_status("unsubscribed"), do: :unsubscribed
+  defp normalize_keila_status("unreachable"), do: :unreachable
+  defp normalize_keila_status("pending"), do: :pending
+  defp normalize_keila_status(_unknown), do: :active
 
   defp get_config(key) do
     Application.get_env(:ysc, :keila, [])[key]

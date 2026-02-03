@@ -663,6 +663,19 @@ defmodule YscWeb.OrderConfirmationLive do
     """
   end
 
+  # Normalizes payment method type to atom safely
+  defp normalize_payment_type(type) when is_atom(type), do: type
+  defp normalize_payment_type("card"), do: :card
+  defp normalize_payment_type("us_bank_account"), do: :bank_account
+  defp normalize_payment_type("bank_account"), do: :bank_account
+  defp normalize_payment_type("sepa_debit"), do: :sepa_debit
+  defp normalize_payment_type("link"), do: :link
+  defp normalize_payment_type("paypal"), do: :paypal
+  defp normalize_payment_type("affirm"), do: :affirm
+  defp normalize_payment_type("klarna"), do: :klarna
+  defp normalize_payment_type("cashapp"), do: :cashapp
+  defp normalize_payment_type(_unknown), do: :other
+
   # Helper function to calculate donation amount for a ticket
   defp get_donation_amount_for_ticket(_ticket, ticket_order) do
     if ticket_order && ticket_order.tickets do
@@ -736,9 +749,8 @@ defmodule YscWeb.OrderConfirmationLive do
         # Normalize type to atom (could be string from database)
         payment_type =
           case payment_method.type do
-            type when is_atom(type) -> type
-            type when is_binary(type) -> String.to_atom(type)
-            _ -> nil
+            nil -> nil
+            type -> normalize_payment_type(type)
           end
 
         case payment_type do
@@ -825,7 +837,7 @@ defmodule YscWeb.OrderConfirmationLive do
 
           case payment_method_type do
             nil -> "Credit Card (Stripe)"
-            type -> format_alternative_payment_method(String.to_atom(type), nil)
+            type -> format_alternative_payment_method(normalize_payment_type(type), nil)
           end
 
         {:error, _} ->
@@ -882,7 +894,7 @@ defmodule YscWeb.OrderConfirmationLive do
 
   defp format_alternative_payment_method(type, _payment_method)
        when is_binary(type) do
-    format_alternative_payment_method(String.to_atom(type), nil)
+    format_alternative_payment_method(normalize_payment_type(type), nil)
   end
 
   defp format_alternative_payment_method(_, _), do: "Payment Method"

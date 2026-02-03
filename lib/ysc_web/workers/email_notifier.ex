@@ -264,7 +264,20 @@ defmodule YscWeb.Workers.EmailNotifier do
 
   def atomize_keys(map) when is_map(map) do
     Map.new(map, fn {key, value} ->
-      {String.to_atom(key), atomize_keys(value)}
+      # Use to_existing_atom to prevent atom exhaustion
+      # Keys should already be defined atoms in the application
+      atom_key =
+        try do
+          String.to_existing_atom(key)
+        rescue
+          ArgumentError ->
+            # Log warning and keep as string to prevent atom exhaustion
+            require Logger
+            Logger.warning("Attempted to atomize unknown key, keeping as string: #{key}")
+            key
+        end
+
+      {atom_key, atomize_keys(value)}
     end)
   end
 

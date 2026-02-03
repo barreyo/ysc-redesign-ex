@@ -10,10 +10,7 @@
   ignore: [
     "Config.CSRF",
     "Config.CSP",
-    "Config.HTTPS",
-    "Misc.BinToTerm",
-    "Traversal.FileModule",
-    "XSS.SendResp"
+    "Config.HTTPS"
   ],
   ignore_files: [""]
 ]

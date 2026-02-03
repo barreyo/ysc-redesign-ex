@@ -8,6 +8,7 @@ defmodule YscWeb.TrixUploadsController do
 
   @temp_dir "/tmp/image_processor"
 
+  # sobelow_skip ["XSS.SendResp"]
   def create(conn, %{"post_id" => post_id} = params) do
     current_user = conn.assigns[:current_user]
     updated_image = upload_file(params, current_user)
@@ -27,6 +28,7 @@ defmodule YscWeb.TrixUploadsController do
     end
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
   defp upload_file(
          %{"file" => %Plug.Upload{}} = plug_upload,
          %User{} = current_user

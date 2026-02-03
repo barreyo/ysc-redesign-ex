@@ -74,6 +74,23 @@ defmodule Ysc.Stripe.WebhookHandler do
     result
   end
 
+  # Normalizes currency strings to atoms safely, preventing atom exhaustion
+  # Supports common Stripe currencies
+  defp normalize_currency("usd"), do: :USD
+  defp normalize_currency("eur"), do: :EUR
+  defp normalize_currency("gbp"), do: :GBP
+  defp normalize_currency("cad"), do: :CAD
+  defp normalize_currency("aud"), do: :AUD
+  defp normalize_currency("jpy"), do: :JPY
+  defp normalize_currency(currency) when is_binary(currency) do
+    # For unknown currencies, try to use existing atom
+    # This will raise if the atom doesn't exist, which is safer than creating new atoms
+    String.to_existing_atom(String.upcase(currency))
+  rescue
+    ArgumentError -> :USD  # Default to USD if currency atom doesn't exist
+  end
+  defp normalize_currency(_), do: :USD
+
   # Check if webhook is within acceptable age
   defp check_webhook_age(event) do
     event_timestamp = DateTime.from_unix!(event.created)
@@ -1075,7 +1092,7 @@ defmodule Ysc.Stripe.WebhookHandler do
     payout_id = payout[:id] || payout["id"]
     amount_cents = payout[:amount] || payout["amount"]
     currency_str = payout[:currency] || payout["currency"]
-    currency = currency_str |> String.downcase() |> String.to_atom()
+    currency = normalize_currency(String.downcase(currency_str))
 
     description =
       payout[:description] || payout["description"] || "Stripe payout"
@@ -2246,7 +2263,7 @@ defmodule Ysc.Stripe.WebhookHandler do
           )
 
           currency = payout.currency || "usd"
-          currency_atom = currency |> String.downcase() |> String.to_atom()
+          currency_atom = normalize_currency(String.downcase(currency))
 
           fee_total =
             Money.new(MoneyHelper.cents_to_dollars(fee_cents), currency_atom)
@@ -2455,7 +2472,7 @@ defmodule Ysc.Stripe.WebhookHandler do
 
           if total_fee_cents > 0 do
             currency = payout.currency || "usd"
-            currency_atom = currency |> String.downcase() |> String.to_atom()
+            currency_atom = normalize_currency(String.downcase(currency))
 
             fee_total =
               Money.new(

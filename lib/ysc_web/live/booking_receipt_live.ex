@@ -1494,7 +1494,15 @@ defmodule YscWeb.BookingReceiptLive do
                     value
                   end
 
-                {String.to_atom(key), parsed_value}
+                # Use existing atom if available, otherwise keep as string to prevent atom exhaustion
+                atom_key =
+                  try do
+                    String.to_existing_atom(key)
+                  rescue
+                    ArgumentError -> key
+                  end
+
+                {atom_key, parsed_value}
               end)
               |> Enum.into(%{})
 
