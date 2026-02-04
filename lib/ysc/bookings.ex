@@ -55,12 +55,15 @@ defmodule Ysc.Bookings do
   """
   def list_seasons(property \\ nil) do
     if property do
-      # Skip cache in test environment to avoid race conditions with async tests
-      if Mix.env() == :test do
-        Season.list_all_for_property_db(property)
-      else
-        # Use cache for property-specific lookups in production
+      # Check if season cache is enabled (disabled in tests to avoid race conditions)
+      cache_enabled = Application.get_env(:ysc, :season_cache_enabled, true)
+
+      if cache_enabled do
+        # Use cache for property-specific lookups
         SeasonCache.get_all_for_property(property)
+      else
+        # Query directly when cache is disabled
+        Season.list_all_for_property_db(property)
       end
     else
       # For all seasons, query directly (less common, no cache needed)
