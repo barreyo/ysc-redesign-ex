@@ -267,14 +267,16 @@ defmodule Ysc.Settings do
   def settings_grouped_by_scope() do
     settings()
     |> Enum.reduce(%{}, fn setting, acc ->
-      current = Map.get(acc, setting.group, [])
-      Map.put(acc, setting.group, [setting | current])
+      # Convert nil group to "general", and ensure all keys are strings for Phoenix forms
+      group = setting.group || "general"
+      current = Map.get(acc, group, [])
+      Map.put(acc, group, [setting | current])
     end)
   end
 
   def setting_scopes() do
     settings()
-    |> Enum.map(& &1.group)
+    |> Enum.map(fn setting -> setting.group || "general" end)
     |> Enum.uniq()
   end
 
