@@ -496,14 +496,22 @@ defmodule YscWeb.BookingReceiptLiveTest do
       user = user_fixture()
       conn = log_in_user(conn, user)
 
+      # Use a Monday-Thursday booking to avoid weekend validation rules
+      # Find the next Monday
       today = Date.utc_today()
+
+      next_monday =
+        Enum.find(1..7, fn days ->
+          Date.day_of_week(Date.add(today, days)) == 1
+        end)
+        |> then(&Date.add(today, &1))
 
       booking =
         booking_fixture(%{
           user_id: user.id,
           status: :canceled,
-          checkin_date: Date.add(today, 1),
-          checkout_date: Date.add(today, 4)
+          checkin_date: next_monday,
+          checkout_date: Date.add(next_monday, 3)
         })
 
       {:ok, view, _html} = live(conn, ~p"/bookings/#{booking.id}/receipt")
