@@ -399,6 +399,32 @@ defmodule YscWeb.AdminUserDetailsLiveTest do
     }
   end
 
+  describe "impersonation" do
+    test "displays Log in as User button linking to impersonate URL", %{
+      conn: conn
+    } do
+      target = user_fixture(%{first_name: "Alice", last_name: "Target"})
+
+      {:ok, view, _html} = live(conn, ~p"/admin/users/#{target.id}/details")
+
+      assert has_element?(
+               view,
+               "a[href*='/admin/impersonate/#{target.id}']",
+               "Log in as User"
+             )
+    end
+
+    test "Log in as User button is not shown to non-admin", %{conn: conn} do
+      member = user_fixture(%{role: "member"})
+      target = user_fixture()
+      conn = log_in_user(conn, member)
+
+      # Member cannot access admin user details; they get redirected
+      conn = get(conn, ~p"/admin/users/#{target.id}/details")
+      assert redirected_to(conn) == ~p"/"
+    end
+  end
+
   defp register_and_log_in_admin(%{conn: conn}) do
     user = user_fixture(%{role: :admin})
     %{conn: log_in_user(conn, user), user: user}

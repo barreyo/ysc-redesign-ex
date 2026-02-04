@@ -32,9 +32,17 @@ defmodule YscWeb.AdminUserDetailsLive do
       <div class="flex flex-col justify-between py-6">
         <.back navigate={~p"/admin/users"}>Back</.back>
 
-        <h1 class="text-2xl font-semibold leading-8 text-zinc-800 pt-4">
-          <%= "#{String.capitalize(@first_name)} #{String.capitalize(@last_name)}" %>
-        </h1>
+        <div class="flex flex-row items-center justify-between pt-4">
+          <h1 class="text-2xl font-semibold leading-8 text-zinc-800">
+            <%= "#{String.capitalize(@first_name)} #{String.capitalize(@last_name)}" %>
+          </h1>
+          <.link
+            href={~p"/admin/impersonate/#{@user_id}"}
+            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-semibold"
+          >
+            <.icon name="hero-user-circle" class="w-5 h-5" /> Log in as User
+          </.link>
+        </div>
 
         <div class="w-full py-4">
           <div class="h-24">

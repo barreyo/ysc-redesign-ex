@@ -61,9 +61,24 @@
     <Turnstile.script nonce={@csp_nonce} />
   </head>
   <body class="antialiased bg-white">
-    <div id="content-wrapper" class="flex flex-col min-h-screen">
+    <.impersonation_banner
+      :if={assigns[:impersonating?] && @current_user}
+      impersonating?={assigns[:impersonating?]}
+      impersonated_user_name={"#{@current_user.first_name} #{@current_user.last_name}"}
+      impersonated_user_email={@current_user.email}
+    />
+    <div
+      id="content-wrapper"
+      class={[
+        "flex flex-col min-h-screen",
+        assigns[:impersonating?] && "pb-[72px]"
+      ]}
+    >
       <div
-        :if={@current_user && @current_user.role == :admin}
+        :if={
+          @current_user && @current_user.role == :admin &&
+            !assigns[:impersonating?]
+        }
         class="fixed bottom-6 right-6 z-[60] group"
       >
         <.link

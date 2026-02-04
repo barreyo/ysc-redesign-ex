@@ -1279,6 +1279,41 @@ defmodule YscWeb.CoreComponents do
     """
   end
 
+  @doc """
+  Renders a fixed red banner at the bottom when an admin is impersonating a user.
+  Shows the impersonated user's name and email and a "Stop Impersonating" button.
+  """
+  attr :impersonating?, :boolean, required: true
+  attr :impersonated_user_name, :string, required: true
+  attr :impersonated_user_email, :string, required: true
+
+  def impersonation_banner(assigns) do
+    ~H"""
+    <div
+      :if={@impersonating?}
+      class="fixed bottom-0 left-0 right-0 z-[9999] bg-red-600 text-white shadow-lg"
+    >
+      <div class="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <.icon name="hero-exclamation-triangle" class="w-6 h-6 flex-shrink-0" />
+          <div>
+            <p class="font-bold text-sm">IMPERSONATING USER</p>
+            <p class="text-xs">
+              Viewing as: <%= @impersonated_user_name %> (<%= @impersonated_user_email %>)
+            </p>
+          </div>
+        </div>
+        <.link
+          href="/admin/stop-impersonation"
+          class="bg-white text-red-600 px-4 py-2 rounded-lg font-semibold hover:bg-red-50 transition-colors"
+        >
+          Stop Impersonating
+        </.link>
+      </div>
+    </div>
+    """
+  end
+
   attr :country, :string, required: true
   attr :class, :string, default: nil
 

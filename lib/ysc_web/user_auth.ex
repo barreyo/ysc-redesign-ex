@@ -135,16 +135,36 @@ defmodule YscWeb.UserAuth do
   """
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
-    user = user_token && Accounts.get_user_by_session_token(user_token)
-    conn = assign(conn, :current_user, user)
 
-    if user do
-      active_membership = MembershipCache.get_active_membership(user)
-      conn = assign(conn, :current_membership, active_membership)
-      assign(conn, :active_membership?, active_membership != nil)
+    user_from_token =
+      user_token && Accounts.get_user_by_session_token(user_token)
+
+    impersonated_user_id = get_session(conn, :impersonated_user_id)
+
+    {current_user, conn} =
+      if impersonated_user_id do
+        impersonated = Accounts.get_user(impersonated_user_id)
+        conn = assign(conn, :real_current_user, user_from_token)
+        {impersonated, assign(conn, :current_user, impersonated)}
+      else
+        {user_from_token, assign(conn, :current_user, user_from_token)}
+      end
+
+    conn =
+      conn
+      |> assign(:impersonating?, impersonated_user_id != nil)
+      |> assign(:original_admin_id, get_session(conn, :original_admin_id))
+
+    if current_user do
+      active_membership = MembershipCache.get_active_membership(current_user)
+
+      conn
+      |> assign(:current_membership, active_membership)
+      |> assign(:active_membership?, active_membership != nil)
     else
-      conn = assign(conn, :current_membership, nil)
-      assign(conn, :active_membership?, false)
+      conn
+      |> assign(:current_membership, nil)
+      |> assign(:active_membership?, false)
     end
   end
 
@@ -225,7 +245,10 @@ defmodule YscWeb.UserAuth do
     socket = mount_current_user(socket, session)
     socket = mount_current_membership(socket, session)
 
-    if socket.assigns.current_user && socket.assigns.current_user.role == :admin do
+    admin_user =
+      socket.assigns[:real_current_user] || socket.assigns.current_user
+
+    if admin_user && admin_user.role == :admin do
       {:cont, socket}
     else
       socket =
@@ -291,11 +314,33 @@ defmodule YscWeb.UserAuth do
   end
 
   defp mount_current_user(socket, session) do
-    Phoenix.Component.assign_new(socket, :current_user, fn ->
+    user_from_token =
       if user_token = session["user_token"] do
         Accounts.get_user_by_session_token(user_token)
       end
-    end)
+
+    impersonated_user_id = session["impersonated_user_id"]
+
+    socket =
+      socket
+      |> Phoenix.Component.assign_new(:real_current_user, fn ->
+        user_from_token
+      end)
+      |> Phoenix.Component.assign_new(:current_user, fn ->
+        if impersonated_user_id do
+          Accounts.get_user(impersonated_user_id)
+        else
+          user_from_token
+        end
+      end)
+      |> Phoenix.Component.assign_new(:impersonating?, fn ->
+        impersonated_user_id != nil
+      end)
+      |> Phoenix.Component.assign_new(:original_admin_id, fn ->
+        session["original_admin_id"]
+      end)
+
+    socket
   end
 
   defp mount_current_membership(socket, _session) do
@@ -343,9 +388,9 @@ defmodule YscWeb.UserAuth do
   end
 
   def require_admin(conn, _opts) do
-    user = conn.assigns[:current_user]
+    user = conn.assigns[:real_current_user] || conn.assigns[:current_user]
 
-    if user.role == :admin do
+    if user && user.role == :admin do
       conn
     else
       conn

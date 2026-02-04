@@ -292,6 +292,9 @@ defmodule YscWeb.Router do
   scope "/admin", YscWeb do
     pipe_through [:admin_browser, :require_authenticated_user, :require_admin]
 
+    get "/impersonate/:user_id", ImpersonationController, :impersonate
+    get "/stop-impersonation", ImpersonationController, :stop_impersonation
+
     live_dashboard "/dashboard", metrics: {YscWeb.Telemetry, :metrics}
 
     # Handle uploads from editors
