@@ -19,6 +19,8 @@ defmodule Ysc.BookingsTest do
 
   setup do
     Ysc.Ledgers.ensure_basic_accounts()
+    # Clear season cache to avoid cross-test pollution in async tests
+    Ysc.Bookings.SeasonCache.invalidate()
     :ok
   end
 
